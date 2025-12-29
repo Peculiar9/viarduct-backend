@@ -1,0 +1,25 @@
+export enum TableNames {
+    USERS = 'users',
+    PRODUCTS = 'products',
+    FILES = 'files',
+    PROFILES = 'profiles',
+    SESSIONS = 'sessions',
+    VERIFICATIONS = 'verifications',
+    AUDITS = 'audits',
+    CHECKINS = "checkins",
+    REVIEWS = "reviews",
+    RATINGS = "ratings",
+    ACTIVITIES = "activities",
+    LINKED_ACCOUNTS = "linkedaccounts",
+    FILE_MANAGER = "filemanager",
+    AUDIT_LOGS = "auditlogs",
+    PAYMENTS = "payments",
+    USER_KYC = "userkyc",
+    PAYMENT_TRANSACTIONS = "paymenttransactions",
+    CERTIFICATES = "certificates",
+    DOCUMENTS = "documents",
+    CONTACT_MESSAGES = 'contact_messages',
+    NEWSLETTER_SUBSCRIPTIONS = 'newsletter_subscriptions',
+
+
+}
