@@ -42,6 +42,9 @@ import { ITwilioService } from './Application/Interface/Services/ITwilioService'
 import { TwilioService } from '../Infrastructure/Services/TwilioService';
 import { ITwilioEmailService } from './Application/Interface/Services/ITwilioEmailService';
 import { TwilioEmailService } from '../Infrastructure/Services/TwilioEmailService';
+import { AWSBaseServices } from '../Infrastructure/Services/external-api-services/AWSBaseServices';
+import { IAccountUseCase } from './Application/Interface/UseCases/IAccountUseCase';
+import { AccountUseCase } from './Application/UseCases/AccountUseCase';
 
 
 /**
@@ -90,7 +93,7 @@ export class DIContainer {
             .inSingletonScope();
 
         // Helpers
-        container.bind<AWSFileFormatterHelper>(TYPES.AWSFileFormatterHelper).to(AWSFileFormatterHelper).inSingletonScope();
+        // container.bind<AWSFileFormatterHelper>(TYPES.AWSFileFormatterHelper).to(AWSFileFormatterHelper).inSingletonScope();
 
         container.bind<TransactionManager>(TYPES.TransactionManager)
             .toDynamicValue((context) => {
@@ -107,7 +110,12 @@ export class DIContainer {
         container.bind<FileManagerRepository>(TYPES.FileManagerRepository).to(FileManagerRepository).inRequestScope();
         container.bind<VerificationRepository>(TYPES.VerificationRepository).to(VerificationRepository).inRequestScope();
         container.bind<AuthServiceHelper>(TYPES.AuthServiceHelper).to(AuthServiceHelper).inRequestScope();
-
+        container.bind<IAWSHelper>(TYPES.AWSHelper).to(AWSHelper).inRequestScope();
+        container.bind<IEmailService>(TYPES.EmailService).to(EmailService).inRequestScope();
+        container.bind<ITokenService>(TYPES.TokenService).to(TokenService).inRequestScope();
+        container.bind<AuthHelpers>(TYPES.AuthHelpers).to(AuthHelpers).inRequestScope();
+        container.bind<AWSFileFormatterHelper>(TYPES.AWSFileFormatterHelper).to(AWSFileFormatterHelper).inRequestScope();
+        container.bind<IAccountUseCase>(TYPES.AccountUseCase).to(AccountUseCase).inRequestScope();
         // Use Cases
         container.bind<IAuthUseCase>(TYPES.AuthUseCase).to(AuthUseCase).inRequestScope();
 
@@ -120,16 +128,12 @@ export class DIContainer {
         container.bind<ISMSService>(TYPES.SMSService).to(SMSService).inRequestScope();
         container.bind<IOTPService>(TYPES.OTPService).to(OTPService).inRequestScope();
 
-        container.bind<IEmailService>(TYPES.EmailService).to(EmailService).inRequestScope();
-
-        container.bind<ITokenService>(TYPES.TokenService).to(TokenService).inRequestScope();
-        container.bind<AuthHelpers>(TYPES.AuthHelpers).to(AuthHelpers).inRequestScope();
 
         // Specialized Auth Services
         container.bind<IAuthenticationService>(TYPES.AuthenticationService).to(AuthenticationService).inRequestScope();
         container.bind<IRegistrationService>(TYPES.RegistrationService).to(RegistrationService).inRequestScope();
         container.bind<IUserProfileService>(TYPES.UserProfileService).to(UserProfileService).inRequestScope();
-        container.bind<IAWSHelper>(TYPES.AWSHelper).to(AWSHelper).inRequestScope();
+        // container.bind<IAWSHelper>(TYPES.AWSHelper).to(AWSHelper).inRequestScope();
 
         // Configuration bindings
         // Google
