@@ -10,7 +10,7 @@ import { IUser } from "../Interface/Entities/auth-and-user/IUser";
 import { IUserProfileService } from "../Interface/Services/IUserProfileService";
 import { IAuthenticationService } from "../Interface/Services/IAuthenticationService";
 import { AuthHelpers } from "../../../Infrastructure/Services/helpers/AuthHelpers";
-import { ITwilioEmailService } from "../Interface/Services/ITwilioEmailService";
+// import { ITwilioEmailService } from "../Interface/Services/ITwilioEmailService";
 import { ValidationError, ServiceError } from "../Error/AppError";
 import { UserStatus } from "../Enums/UserStatus";
 import { Console } from "console";
@@ -22,7 +22,7 @@ export class AuthUseCase implements IAuthUseCase {
         @inject(TYPES.UserProfileService) private readonly _userProfileService: IUserProfileService,
         @inject(TYPES.AuthenticationService) private readonly _authenticationService: IAuthenticationService,
         @inject(TYPES.AuthHelpers) private readonly _authHelpers: AuthHelpers,
-        @inject(TYPES.TwilioEmailService) private readonly _twilioEmailService: ITwilioEmailService,
+        // @inject(TYPES.TwilioEmailService) private readonly _twilioEmailService: ITwilioEmailService,
     ) { }
 
     forgotPassword(dto: ForgotPasswordDTO): Promise<{ message: string; email: string; }> {

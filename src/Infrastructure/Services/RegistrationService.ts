@@ -21,7 +21,7 @@ import { BaseService } from "./base/BaseService";
 import { AuthHelpers } from "./helpers/AuthHelpers";
 import { ITokenService } from "../../Core/Application/Interface/Services/ITokenService";
 import { UserRegistrationDTO } from "../../Core/Application/DTOs/AuthDTOV2";
-import { ITwilioEmailService } from "@/Core/Application/Interface/Services/ITwilioEmailService";
+// import { ITwilioEmailService } from "../../Core/Application/Interface/Services/ITwilioEmailService";
 
 @injectable()
 export class RegistrationService extends BaseService implements IRegistrationService {
@@ -32,7 +32,7 @@ export class RegistrationService extends BaseService implements IRegistrationSer
         @inject(TYPES.TransactionManager) protected readonly transactionManager: TransactionManager,
         @inject(TYPES.AuthHelpers) private readonly authHelpers: AuthHelpers,
         @inject(TYPES.TokenService) private readonly tokenService: ITokenService,
-        @inject(TYPES.TwilioEmailService) private readonly twilioEmailService: ITwilioEmailService,
+        // @inject(TYPES.TwilioEmailService) private readonly twilioEmailService: ITwilioEmailService,
         @inject(TYPES.SMSService) private readonly smsService: SMSService
     ) {
         super(transactionManager);
@@ -133,10 +133,10 @@ export class RegistrationService extends BaseService implements IRegistrationSer
 
             await this.verificationRepository.update(verification._id!, { otp: verification.otp });
 
-            await this.twilioEmailService.sendEmailVerification(
-                identifier,
-                user.first_name
-            );
+            // await this.twilioEmailService.sendEmailVerification(
+            //     identifier,
+            //     user.first_name
+            // );
 
             await this.commitTransaction();
             return this.authHelpers.formatEmailVerificationResponse(verification);

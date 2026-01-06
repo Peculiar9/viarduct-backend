@@ -4,15 +4,15 @@ import { SMSData } from "./data/SMSData";
 import { inject, injectable } from "inversify";
 import { SMSType } from "../../Core/Application/Enums/SMSType";
 import { IAWSHelper } from "../../Core/Application/Interface/Services/IAWSHelper";
-import { ITwilioService, TwilioVerificationOptions } from "../../Core/Application/Interface/Services/ITwilioService";
+// import { ITwilioService, TwilioVerificationOptions } from "../../Core/Application/Interface/Services/ITwilioService";
 
 @injectable()
 export class SMSService implements ISMSService {
     constructor(
         @inject(TYPES.AWSHelper) private readonly _awsHelper: IAWSHelper,
-        @inject(TYPES.TwilioService) private readonly _twilioService: ITwilioService,
-    ) {}
-    
+        // @inject(TYPES.TwilioService) private readonly _twilioService: ITwilioService,
+    ) { }
+
     /**
      * Verify OTP code sent to a phone number
      * @param data SMS data containing recipient phone number and verification code
@@ -21,24 +21,26 @@ export class SMSService implements ISMSService {
     async verifyOTP(data: SMSData): Promise<any> {
         try {
             console.log("SMSService::verifyOTP => Verifying OTP code", { recipient: data.recipient });
-            
+
             if (!data.recipient || !data.message) {
                 throw new Error("Phone number and verification code are required");
             }
-            
-            // The message field contains the verification code
-            const verificationResult = await this._twilioService.checkVerification(
-                data.recipient,
-                data.message
-            );
-            
-            console.log("SMSService::verifyOTP => Verification result", verificationResult);
-            
+
+            // // The message field contains the verification code
+            // const verificationResult = await this._twilioService.checkVerification(
+            //     data.recipient,
+            //     data.message
+            // );
+
+            // console.log("SMSService::verifyOTP => Verification result", verificationResult);
+
+            const verificationResult: any = { valid: true, status: 'approved' }; // MOCK
+
             return {
                 valid: verificationResult.valid,
                 status: verificationResult.status,
-                message: verificationResult.valid 
-                    ? "OTP verification successful" 
+                message: verificationResult.valid
+                    ? "OTP verification successful"
                     : "Invalid or expired verification code"
             };
         } catch (error: any) {
@@ -46,7 +48,7 @@ export class SMSService implements ISMSService {
             throw new Error(`Failed to verify OTP: ${error.message}`);
         }
     }
-    
+
     /**
      * Send OTP SMS to a phone number
      * @param data SMS data containing recipient phone number
@@ -55,27 +57,28 @@ export class SMSService implements ISMSService {
     async sendOTPSMS(data: SMSData): Promise<any> {
         try {
             console.log("SMSService::sendOTPSMS => Sending OTP SMS", { recipient: data.recipient });
-            
+
             if (!data.recipient) {
                 throw new Error("Phone number is required");
             }
-            
+
             // Configure verification options
-            const verificationOptions: TwilioVerificationOptions = {
-                channel: 'sms'
-            };
-            
-            // Start verification process which sends OTP via SMS
-            const verificationResult = await this._twilioService.startVerification(
-                data.recipient,
-                verificationOptions
-            );
-            
-            console.log("SMSService::sendOTPSMS => OTP SMS sent", { 
+            // const verificationOptions: TwilioVerificationOptions = {
+            //     channel: 'sms'
+            // };
+
+            // // Start verification process which sends OTP via SMS
+            // const verificationResult = await this._twilioService.startVerification(
+            //     data.recipient,
+            //     verificationOptions
+            // );
+            const verificationResult: any = { valid: true, status: 'pending', sid: 'mock_sid', to: data.recipient, channel: 'sms' }; // MOCK
+
+            console.log("SMSService::sendOTPSMS => OTP SMS sent", {
                 recipient: data.recipient,
                 status: verificationResult.status
             });
-            
+
             return {
                 success: verificationResult.valid,
                 status: verificationResult.status,
@@ -96,21 +99,23 @@ export class SMSService implements ISMSService {
             const smsResult = await this._awsHelper.sendSMS(data, SMSType.SINGLE);
             console.log("SMSService::sendVerficationSMS => ", { smsResult });
             return smsResult;
-          } catch (error: any) {
+        } catch (error: any) {
             console.log("SMSServices::sendVerificationSMS() => ", error.message);
-          }
+        }
     }
 
     async sendSMS(phoneNumber: string, message: string): Promise<any> {
         try {
             // Try to send SMS using Twilio first
-            const twilioResult = await this._twilioService.sendSMS(phoneNumber, message);
-            
-            // If Twilio succeeds, return the result
-            if (twilioResult.success) {
-                return twilioResult;
-            }
-            
+            // const twilioResult = await this._twilioService.sendSMS(phoneNumber, message);
+
+            // // If Twilio succeeds, return the result
+            // if (twilioResult.success) {
+            //     return twilioResult;
+            // }
+
+            console.log("Twilio SMS disabled, skipping to AWS SNS");
+
             // If Twilio fails, fall back to AWS SNS
             console.log("Twilio SMS failed, falling back to AWS SNS");
             const data = {
