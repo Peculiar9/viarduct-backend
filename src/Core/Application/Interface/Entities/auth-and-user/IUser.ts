@@ -12,9 +12,8 @@ export interface IUser{
     status: string;
     is_active: boolean;
     email_verified: boolean;
-    salt: string;
+    salt: string | null | undefined;
     user_secret: string | null | undefined;
-    // salt field removed as bcrypt handles salt internally
     refresh_token: string | null | undefined;
     reset_token: string | null | undefined;
     reset_token_expires: number | null | undefined; // Unix timestamp

@@ -27,7 +27,7 @@ export class FileController extends BaseController {
     async uploadFile(@request() req: Request, @response() res: Response) {
         try {
             const userId = req.user?._id;
-            const user = req.user as IUser;
+            const user = req.user as IUser; 
             
             if (!userId) {
                 return this.error(res, 'User authentication required', 401);

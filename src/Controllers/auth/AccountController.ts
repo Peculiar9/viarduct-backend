@@ -4,7 +4,7 @@ import { inject } from "inversify";
 import { TYPES } from "../../Core/Types/Constants";
 import { IAccountUseCase } from "../../Core/Application/Interface/UseCases/IAccountUseCase";
 import { Request, Response } from "express";
-import { CreateUserDTO, UpdateUserDTO, UserProfileResponseDTO } from "../../Core/Application/DTOs/UserDTO";
+import { CreateUserDTO, UpdateEmailDTO, UpdatePhoneDTO, UpdateUserDTO, UserProfileResponseDTO, RequestEmailUpdateDTO, RequestPhoneUpdateDTO } from "../../Core/Application/DTOs/UserDTO";
 import { validationMiddleware } from "../../Middleware/ValidationMiddleware";
 import AuthMiddleware from "../../Middleware/AuthMiddleware";
 import { uploadSingle } from "../../Middleware/MulterMiddleware";
@@ -35,7 +35,7 @@ export class AccountController extends BaseController {
   async updateProfile(@requestBody() dto: UpdateUserDTO, @request() req: Request, @response() res: Response) {
     try {
       this.HandleEmptyReqBody(req);
-      const userId = (req as any).user?.id;
+      const userId = (req as any).user?._id || req.user?._id;
       const result = await this.accountUseCase.updateProfile(userId, dto, req.user as IUser);
       return this.success(res, result, "Profile updated successfully");
     } catch (error: any) {
@@ -66,4 +66,53 @@ export class AccountController extends BaseController {
       return this.error(res, error.message, error.statusCode);
     }
   }
+
+  @httpPost("/request-email-update", AuthMiddleware.authenticate(), validationMiddleware(RequestEmailUpdateDTO))
+  async requestEmailUpdate(@requestBody() dto: RequestEmailUpdateDTO, @request() req: Request, @response() res: Response) {
+    try {
+      this.HandleEmptyReqBody(req);
+      const userId = req.user?._id;
+      const result = await this.accountUseCase.requestEmailUpdate(userId, dto, req.user as IUser);
+      return this.success(res, result, "Verification code sent to new email");
+    } catch (error: any) {
+      return this.error(res, error.message, error.statusCode);
+    }
+  }
+
+  @httpPut("/email", AuthMiddleware.authenticate(), validationMiddleware(UpdateEmailDTO))
+  async updateEmail(@requestBody() dto: UpdateEmailDTO, @request() req: Request, @response() res: Response) {
+    try {
+      this.HandleEmptyReqBody(req);
+      const userId = (req as any).user?._id || req.user?._id;
+      const result = await this.accountUseCase.updateEmail(userId, dto, req.user as IUser);
+      return this.success(res, result, "Email updated successfully");
+    } catch (error: any) {
+      return this.error(res, error.message, error.statusCode);
+    }
+  }
+
+  @httpPost("/request-phone-update", AuthMiddleware.authenticate(), validationMiddleware(RequestPhoneUpdateDTO))
+  async requestPhoneUpdate(@requestBody() dto: RequestPhoneUpdateDTO, @request() req: Request, @response() res: Response) {
+    try {
+      this.HandleEmptyReqBody(req);
+      const userId = req.user?._id;
+      const result = await this.accountUseCase.requestPhoneUpdate(userId, dto, req.user as IUser);
+      return this.success(res, result, "Verification code sent to new phone number");
+    } catch (error: any) {
+      return this.error(res, error.message, error.statusCode);
+    }
+  }
+
+  @httpPut("/phone", AuthMiddleware.authenticate(), validationMiddleware(UpdatePhoneDTO))
+  async updatePhone(@requestBody() dto: UpdatePhoneDTO, @request() req: Request, @response() res: Response) {
+    try {
+      this.HandleEmptyReqBody(req);
+      const userId = (req as any).user?._id || req.user?._id;
+      const result = await this.accountUseCase.updatePhone(userId, dto, req.user as IUser);
+      return this.success(res, result, "Phone updated successfully");
+    } catch (error: any) {
+      return this.error(res, error.message, error.statusCode);
+    }
+  }
+  
 }

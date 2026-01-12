@@ -68,7 +68,7 @@ export class AuthMiddleware {
       if (token === 'undefined' || token === null || token === '' || !token) {
         throw new AuthenticationError(ResponseMessage.INVALID_TOKEN_MESSAGE);
       }
-      const user = await this.validateTokenAndUser(token, UserRole.OPERATOR);
+      const user = await this.validateTokenAndUser(token, UserRole.USER);
       console.log('user', user);
       req.user = user;
       next();

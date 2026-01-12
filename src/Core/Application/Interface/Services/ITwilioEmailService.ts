@@ -21,11 +21,13 @@ export interface ITwilioEmailService {
      * Send email verification using Twilio SendGrid Dynamic Template
      * @param email User's email address
      * @param firstName User's first name for personalization
+     * @param otpCode Optional OTP code to use (if not provided, will generate one)
      * @returns Verification result with token for later verification
      */
     sendEmailVerification(
         email: string, 
-        firstName: string
+        firstName: string,
+        otpCode?: string
     ): Promise<EmailVerificationResult>;
 
     /**
@@ -37,6 +39,23 @@ export interface ITwilioEmailService {
     verifyEmailToken(email: string, token: string): Promise<{
         success: boolean;
         message: string;
+    }>;
+
+    /**
+     * Send password reset email
+     * @param email User's email address
+     * @param firstName User's first name for personalization
+     * @param otpCode OTP code for password reset
+     * @returns Send result
+     */
+    sendPasswordResetEmail(
+        email: string,
+        firstName: string,
+        otpCode: string
+    ): Promise<{
+        success: boolean;
+        messageId?: string;
+        error?: string;
     }>;
 
     /**

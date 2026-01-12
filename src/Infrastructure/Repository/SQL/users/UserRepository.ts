@@ -83,13 +83,20 @@ export class UserRepository extends BaseRepository<IUser> {
 
     async update(id: string, entity: Partial<IUser>): Promise<any> {
         const { setClause, values } = this.buildUpdateSet(entity);
-        const result = await this.executeQuery<IUser>(
-            `UPDATE ${this.tableName} 
+        
+        if (!setClause) {
+            throw new Error('No fields to update');
+        }
+        
+        const query = `UPDATE ${this.tableName} 
             SET ${setClause}, updated_at = NOW()
             WHERE _id = $${values.length + 1}
-            RETURNING *`,
-            [...values, id]
-        );
+            RETURNING *`;
+        
+        console.log('UserRepository::update() SQL:', query);
+        console.log('UserRepository::update() Values:', [...values, id]);
+        
+        const result = await this.executeQuery<IUser>(query, [...values, id]);
         return result.rows[0] || null;
     }
 

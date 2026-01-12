@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { TransactionManager } from "../Repository/SQL/Abstractions/TransactionManager";
 import { IEmailService } from "../../Core/Application/Interface/Services/IEmailService";
 import { IAWSHelper } from "../../Core/Application/Interface/Services/IAWSHelper";
+import { ITwilioEmailService } from "../../Core/Application/Interface/Services/ITwilioEmailService";
 import { inject, injectable } from "inversify";
 import { EmailOTPDTO, EmailVerificationResponse } from "../../Core/Application/DTOs/EmailDTO";
 import { VerificationType } from "../../Core/Application/Interface/Entities/auth-and-user/IVerification";
@@ -14,6 +15,7 @@ import { ValidationError } from "../../Core/Application/Error/AppError";
 export class EmailService implements IEmailService {
     constructor(
         @inject(TYPES.AWSHelper) private readonly _awsHelper: IAWSHelper,
+        @inject(TYPES.TwilioEmailService) private readonly _emailService: ITwilioEmailService,
         @inject(TYPES.VerificationRepository) private readonly verificationRepository: VerificationRepository,
         @inject(TYPES.TransactionManager) private readonly transactionManager: TransactionManager
     ) { }
@@ -208,17 +210,26 @@ export class EmailService implements IEmailService {
 
     async sendPasswordResetEmail(data: EmailOTPDTO): Promise<any> {
         try {
-            const emailData = {
-                recipient: data.email,
-                ...data,
-                otpCode: data.otpCode,
-                otpExpiry: 15,
-                userName: data.firstName || data.email.split('@')[0],
-                CompanyName: APP_NAME
-            };
-            const emailResult = await this._awsHelper.sendForgotPasswordEmail(data.email, emailData);
+            const firstName = data.firstName || data.email.split('@')[0];
+            const otpCode = data.otpCode as string;
+            
+            if (!otpCode) {
+                throw new ValidationError('OTP code is required');
+            }
+
+            // Use SMTP email service instead of AWS
+            const emailResult = await this._emailService.sendPasswordResetEmail(
+                data.email,
+                firstName,
+                otpCode
+            );
+            
             return emailResult;
         } catch (error: any) {
+            console.error('EmailService::sendPasswordResetEmail -> Failed', {
+                error: error.message,
+                email: data.email
+            });
             throw new Error(error.message);
         }
     }

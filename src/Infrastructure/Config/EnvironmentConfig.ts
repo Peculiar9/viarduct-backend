@@ -78,7 +78,7 @@ export class EnvironmentConfig {
             'DB_USER',
             'DB_PASSWORD',
             'JWT_ACCESS_SECRET',
-            'AWS_REGION',
+            // 'AWS_REGION',
             // Add other required variables
         ];
 

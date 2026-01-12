@@ -36,7 +36,8 @@ export interface UserCreateResponseDTO {
           id: result._id || '',
           first_name: result.first_name,
           last_name: result.last_name,
-          email: result.email || undefined,
+          // email and phone are commented out in UserResponseDTO for security
+          // email: result.email || undefined,
           profile_image: result.profile_image || undefined,
           roles: result.roles as UserRole[],
           status: result.status,
@@ -76,23 +77,13 @@ export class LoginDTO {
     loginType: LoginType;
 }
 
-// @Expose()
-@Expose()
 export class VerifyEmailDTO {
-    @Expose()
-    @IsNotEmpty({ message: 'Email is required' })
-    @IsString({ message: 'Email must be a string' })
-    @IsEmail({}, { message: 'Email must be a valid email address' })
-    email: string;
-
-    @Expose()
     @IsNotEmpty({ message: 'Verification code is required' })
     @IsString({ message: 'Verification code must be a string' })
     @Length(4, 4, { message: 'Verification code must be 4 digits' })
     @Matches(/^\d{4}$/, { message: 'Verification code must contain only digits' })
     code: string;
 
-    @Expose()
     @IsNotEmpty({ message: 'Reference is required' })
     @IsString({ message: 'Reference must be a string' })
     reference: string;
@@ -358,4 +349,28 @@ export class ChangePasswordDTO {
     @IsString({ message: 'Password confirmation must be a string' })
     @Length(8, 255, { message: 'Password confirmation must be between 8 and 255 characters long' })
     confirmPassword: string;
+}
+
+/**
+ * DTO for initial signup - user provides email only
+ */
+@Expose()
+export class InitSignupDTO {
+    @Expose()
+    @IsNotEmpty({ message: 'Email is required' })
+    @IsString({ message: 'Email must be a string' })
+    @IsEmail({}, { message: 'Email must be a valid email address' })
+    email: string;
+}
+
+/**
+ * DTO for setting password after OTP verification
+ */
+@Expose()
+export class SetPasswordDTO {
+    @Expose()
+    @IsNotEmpty({ message: 'Password is required' })
+    @IsString({ message: 'Password must be a string' })
+    @Length(8, 255, { message: 'Password must be between 8 and 255 characters long' })
+    password: string;
 }

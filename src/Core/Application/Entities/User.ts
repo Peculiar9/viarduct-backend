@@ -42,8 +42,6 @@ export class User implements IUser {
     @Column('TEXT DEFAULT NULL')
     public user_secret: string | null | undefined;
 
-    // Removed salt field as bcrypt handles salt internally
-
     @Column('TEXT DEFAULT NULL')
     public refresh_token: string | null | undefined;
 

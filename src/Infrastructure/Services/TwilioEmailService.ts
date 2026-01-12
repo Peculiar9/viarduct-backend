@@ -28,11 +28,20 @@ export class TwilioEmailService implements ITwilioEmailService {
             throw new Error('SENDGRID_API_KEY environment variable is required');
         }
         
+        if (!this.apiKey.startsWith('SG.')) {
+            console.warn('\n⚠️ ========================================');
+            console.warn('⚠️ SendGrid API Key format warning');
+            console.warn('⚠️ API key should start with "SG."');
+            console.warn('⚠️ ========================================\n');
+        }
+        
         sgMail.setApiKey(this.apiKey);
         
-        console.info('TwilioEmailService initialized with SendGrid', {
-            fromEmail: this.fromEmail
-        });
+        console.log('\n✅ ========================================');
+        console.log('✅ Email Service: RUNNING');
+        console.log('✅ Provider: SendGrid');
+        console.log(`✅ From: ${this.fromEmail}`);
+        console.log('✅ ========================================\n');
     }
 
     /**
@@ -40,7 +49,8 @@ export class TwilioEmailService implements ITwilioEmailService {
      */
     async sendEmailVerification(
         email: string, 
-        firstName: string
+        firstName: string,
+        otpCode?: string
     ): Promise<EmailVerificationResult> {
         try {
             console.info(`TwilioEmailService::sendEmailVerification -> Starting email verification for: ${email}`);
@@ -59,8 +69,8 @@ export class TwilioEmailService implements ITwilioEmailService {
                 expiresAt
             });
 
-            // Generate 6-digit verification code
-            const verificationCode = verificationToken.substring(0, 6).toUpperCase();
+            // Use provided OTP code or generate one from token if not provided
+            const verificationCode = otpCode || verificationToken.substring(0, 6).toUpperCase();
             
             // Create verification URL
             const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
@@ -264,6 +274,120 @@ export class TwilioEmailService implements ITwilioEmailService {
                 timestamp: new Date().toISOString()
             });
             throw new ServiceError(`Failed to verify email: ${error.message}`);
+        }
+    }
+
+    /**
+     * Send password reset email using SendGrid
+     */
+    async sendPasswordResetEmail(
+        email: string,
+        firstName: string,
+        otpCode: string
+    ): Promise<{
+        success: boolean;
+        messageId?: string;
+        error?: string;
+    }> {
+        try {
+            console.info(`TwilioEmailService::sendPasswordResetEmail -> Starting password reset email for: ${email}`);
+
+            if (!email || !firstName || !otpCode) {
+                throw new ValidationError('Email, first name, and OTP code are required');
+            }
+
+            // Create email HTML content
+            const htmlContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                        .header { background-color: #0066cc; color: white; padding: 20px; text-align: center; }
+                        .content { background-color: #f9f9f9; padding: 20px; margin-top: 20px; }
+                        .code { background-color: #0066cc; color: white; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; margin: 20px 0; border-radius: 5px; }
+                        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 0.9em; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h2>Password Reset Request</h2>
+                        </div>
+                        <div class="content">
+                            <p>Hello ${firstName},</p>
+                            <p>You requested to reset your password. Use the code below to reset your password:</p>
+                            <div class="code">${otpCode}</div>
+                            <p>This code will expire in 15 minutes.</p>
+                            <p>If you did not request this password reset, please ignore this email and your password will remain unchanged.</p>
+                            <p>For security reasons, never share this code with anyone.</p>
+                        </div>
+                        <div class="footer">
+                            <p>This is an automated message from ${APP_NAME}. Please do not reply to this email.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            const textContent = `
+                Hello ${firstName},
+                
+                You requested to reset your password. Use the code below to reset your password:
+                
+                ${otpCode}
+                
+                This code will expire in 15 minutes.
+                
+                If you did not request this password reset, please ignore this email and your password will remain unchanged.
+                
+                For security reasons, never share this code with anyone.
+                
+                This is an automated message from ${APP_NAME}. Please do not reply to this email.
+            `;
+
+            // Send email using SendGrid
+            const msg = {
+                to: email,
+                from: {
+                    email: this.fromEmail,
+                    name: APP_NAME
+                },
+                subject: 'Password Reset Request',
+                html: htmlContent,
+                text: textContent
+            };
+
+            const response = await sgMail.send(msg);
+            
+            const messageId = response[0].headers['x-message-id'] || 'unknown';
+            
+            console.info(`TwilioEmailService::sendPasswordResetEmail -> Email sent successfully:`, {
+                email: email,
+                messageId: messageId,
+                statusCode: response[0].statusCode,
+                otpCode: otpCode,
+                timestamp: new Date().toISOString()
+            });
+
+            return {
+                success: true,
+                messageId: messageId
+            };
+
+        } catch (error: any) {
+            console.error(`TwilioEmailService::sendPasswordResetEmail -> Failed to send email:`, {
+                email: email,
+                error: error.message,
+                stack: error.stack,
+                timestamp: new Date().toISOString()
+            });
+            
+            return {
+                success: false,
+                error: `Failed to send password reset email: ${error.message}`
+            };
         }
     }
 

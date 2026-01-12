@@ -24,7 +24,7 @@ export const createUserValidation = {
         length: { min: 8 },
         matches: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/
     }
-};
+}; 
 
 export const phoneSignupValidation = {
     phone_number: {

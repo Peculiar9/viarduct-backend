@@ -1,5 +1,5 @@
 import { IUser } from '../Entities/auth-and-user/IUser';
-import { UserResponseDTO, UpdateUserDTO, CreateUserDTO, UserProfileResponseDTO } from '../../DTOs/UserDTO';
+import { UserResponseDTO, UpdateUserDTO, CreateUserDTO, UserProfileResponseDTO, UpdateEmailDTO, UpdatePhoneDTO, RequestEmailUpdateDTO, RequestPhoneUpdateDTO } from '../../DTOs/UserDTO';
 import { VerifyEmailDTO, IEmailVerificationResponse, LoginResponseDTO } from '../../DTOs/AuthDTO';
 
 export interface IAccountUseCase {
@@ -14,4 +14,10 @@ export interface IAccountUseCase {
   // Message profile
   updateProfile(userId: string, dto: UpdateUserDTO, existingUser: IUser): Promise<UserResponseDTO>;
   getUserProfile(userId: string): Promise<UserResponseDTO>;
+
+    // New methods for secure updates
+    requestEmailUpdate(userId: string, dto: RequestEmailUpdateDTO, user: IUser): Promise<IEmailVerificationResponse>;
+    updateEmail(userId: string, dto: UpdateEmailDTO, user: IUser): Promise<{ message: string }>;
+    requestPhoneUpdate(userId: string, dto: RequestPhoneUpdateDTO, user: IUser): Promise<IEmailVerificationResponse>;
+    updatePhone(userId: string, dto: UpdatePhoneDTO, user: IUser): Promise<{ message: string }>;
 }

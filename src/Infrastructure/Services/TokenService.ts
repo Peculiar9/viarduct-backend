@@ -136,6 +136,7 @@ export class TokenService implements ITokenService {
     //         throw new AuthenticationError(error.message);
     //     }
     // }
+
     /**
      * Verifies a JWT token
      * @param token JWT token to verify
@@ -235,4 +236,51 @@ export class TokenService implements ITokenService {
             return false;
         }
     }
+
+/**
+ * Generates a temporary token for password setup (after OTP verification)
+ * This token contains only the user ID and has a short expiration
+ */
+public generateTempToken(userId: string, email: string): string {
+    const payload = {
+        sub: userId,           
+        email: email,
+        type: 'temp_password_setup', 
+        purpose: 'password_setup'     
+    };
+
+    const secret = process.env.JWT_ACCESS_SECRET!;
+    
+    return jwt.sign(
+        payload,
+        secret,
+        {
+            expiresIn: '15m',
+            jwtid: UtilityService.generateUUID(),
+        }
+    );
+}
+
+/**
+ * Verifies temp token and extracts user ID
+ */
+public verifyTempToken(token: string): { userId: string; email: string } {
+    try {
+        const secret = process.env.JWT_ACCESS_SECRET!;
+        const decoded = jwt.verify(token, secret) as any;
+        
+        // Verify it's a temp token for password setup
+        if (decoded.type !== 'temp_password_setup') {
+            throw new AuthenticationError('Invalid token type');
+        }
+        
+        return {
+            userId: decoded.sub,
+            email: decoded.email
+        };
+    } catch (error: any) {
+        throw new AuthenticationError('Invalid or expired token');
+    }
+}
+
 }

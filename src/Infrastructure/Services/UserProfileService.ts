@@ -37,12 +37,12 @@ export class UserProfileService extends BaseService implements IUserProfileServi
                 throw new ValidationError(ResponseMessage.USER_NOT_FOUND_MESSAGE);
             }
 
-            if (dto.email && dto.email !== user.email) {
-                await this.authHelpers.ensureUserDoesNotExistByEmail(dto.email);
-            }
-            if (dto.phone && dto.phone !== user.phone) {
-                await this.authHelpers.ensureUserDoesNotExistByPhone(dto.phone);
-            }
+            // if (dto.email && dto.email !== user.email) {
+            //     await this.authHelpers.ensureUserDoesNotExistByEmail(dto.email);
+            // }
+            // if (dto.phone && dto.phone !== user.phone) {
+            //     await this.authHelpers.ensureUserDoesNotExistByPhone(dto.phone);
+            // }
 
             // Update user
             const updatedUser = await this.userRepository.update(userId, {
@@ -50,11 +50,12 @@ export class UserProfileService extends BaseService implements IUserProfileServi
                 last_name: dto.last_name,
                 dob: dto.dob,
                 gender: dto.gender,
-                international_phone: dto.international_phone,
-                country_code: dto.country_code,
-                phone: dto.phone,
+                // international_phone: dto.international_phone,
+                // country_code: dto.country_code,
+                profile_image: dto.profile_image,
+                // phone: dto.phone,
                 // location: dto.location,
-                password: dto.password
+                // password: dto.password
             });
 
             if (transactionSuccessfullyStarted) {

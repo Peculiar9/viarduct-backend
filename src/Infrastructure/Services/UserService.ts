@@ -32,8 +32,9 @@ export class UserService extends BaseApiService {
             id: user._id as string,
             first_name: user.first_name as string,
             last_name: user.last_name as string,
-            email: user.email as string,
-            phone: user.phone as string,
+            // email and phone are commented out in UserResponseDTO for security
+            // email: user.email as string,
+            // phone: user.phone as string,
             profile_image: user.profile_image as string,
             roles: user.roles as UserRole[],
             status: user.status as string,

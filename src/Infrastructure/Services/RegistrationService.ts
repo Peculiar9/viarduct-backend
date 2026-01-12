@@ -48,7 +48,7 @@ export class RegistrationService extends BaseService implements IRegistrationSer
 
             const verification = await this.verificationRepository.findByReference(data.reference);
 
-            if (!verification || verification.type !== VerificationType.EMAIL || verification.identifier !== data.email) {
+            if (!verification || verification.type !== VerificationType.EMAIL) {
                 throw new UnprocessableEntityError(ResponseMessage.INVALID_VERIFICATION);
             }
 
@@ -71,13 +71,11 @@ export class RegistrationService extends BaseService implements IRegistrationSer
             const user = await this.userRepository.findById(verification.user_id!);
             if (!user) throw new ValidationError(ResponseMessage.USER_NOT_FOUND_MESSAGE);
 
-            if (!EnvironmentConfig.isProduction() && data.code === '1234') {
-            } else {
-                const hashedCode = await CryptoService.hashString(data.code, user.salt as string);
-                if (hashedCode !== verification.otp.code) {
-                    await this.verificationRepository.incrementAttempts(data.reference);
-                    throw new ValidationError(ResponseMessage.INVALID_VERIFICATION_CODE);
-                }
+            // Verify OTP code
+            const hashedCode = await CryptoService.hashString(data.code, user.salt as string);
+            if (hashedCode !== verification.otp.code) {
+                await this.verificationRepository.incrementAttempts(data.reference);
+                throw new ValidationError(ResponseMessage.INVALID_VERIFICATION_CODE);
             }
 
             await this.verificationRepository.update(verification._id as string, {
@@ -114,9 +112,11 @@ export class RegistrationService extends BaseService implements IRegistrationSer
             transactionStarted = await this.beginTransaction();
 
             const verification = await this.verificationRepository.findByReference(reference);
-            if (!verification || verification.identifier !== identifier) {
+            if (!verification) {
                 throw new UnprocessableEntityError(ResponseMessage.INVALID_VERIFICATION);
             }
+            // Use identifier from verification record (reference uniquely identifies it)
+            const email = verification.identifier || identifier;
             if (verification.status === VerificationStatus.COMPLETED) {
                 throw new ConflictError(ResponseMessage.VERIFICATION_ALREADY_COMPLETED);
             }
@@ -133,9 +133,11 @@ export class RegistrationService extends BaseService implements IRegistrationSer
 
             await this.verificationRepository.update(verification._id!, { otp: verification.otp });
 
+            // Pass the OTP code to the email service so it sends the correct code
             await this.twilioEmailService.sendEmailVerification(
-                identifier,
-                user.first_name
+                email,
+                user.first_name,
+                newOtpCode
             );
 
             await this.commitTransaction();
@@ -169,7 +171,12 @@ export class RegistrationService extends BaseService implements IRegistrationSer
                 throw new InternalServerError("Failed to create user object");
             }
 
-            userObject.password = await CryptoService.hashString(dto.password, userObject.salt);;
+            // Generate salt and hash password if not done already
+            if (dto.password && !userObject.salt) {
+                const salt = CryptoService.generateValidSalt();
+                userObject.salt = salt;
+                userObject.password = await CryptoService.hashString(dto.password, salt);
+            }
 
             const user = await this.userRepository.create(userObject);
             if (!user || !user._id) {

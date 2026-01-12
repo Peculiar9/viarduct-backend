@@ -7,7 +7,7 @@ import { UserRegistrationDTO } from "../../Core/Application/DTOs/AuthDTOV2";
 import { inject } from "inversify";
 import { TYPES } from "../../Core/Types/Constants";
 import { IAuthUseCase } from "../../Core/Application/Interface/UseCases/IAuthUseCase";
-import { ForgotPasswordDTO, ResetPasswordDTO, ChangePasswordDTO, RefreshTokenDTO, VerifyEmailDTO, LoginDTO } from "../../Core/Application/DTOs/AuthDTO";
+import { ForgotPasswordDTO, ResetPasswordDTO, ChangePasswordDTO, RefreshTokenDTO, VerifyEmailDTO, LoginDTO, InitSignupDTO, SetPasswordDTO } from "../../Core/Application/DTOs/AuthDTO";
 import AuthMiddleware from "../../Middleware/AuthMiddleware";
 import { IUser } from "../../Core/Application/Interface/Entities/auth-and-user/IUser";
 import { uploadSingle } from "../../Middleware/MulterMiddleware";
@@ -80,7 +80,7 @@ export class AuthController extends BaseController {
         }
     }
 
-    @httpPost("/refresh", AuthMiddleware.authenticate(), validationMiddleware(RefreshTokenDTO))
+    @httpPost("/refresh", validationMiddleware(RefreshTokenDTO))
     async refresh(@requestBody() dto: RefreshTokenDTO, @request() req: Request, @response() res: Response) {
         try {
             this.HandleEmptyReqBody(req);
@@ -91,10 +91,11 @@ export class AuthController extends BaseController {
         }
     }
 
+    // src/Controllers/auth/AuthController.ts
     @httpPost("/logout", AuthMiddleware.authenticate())
     async logout(@request() req: Request, @response() res: Response) {
         try {
-            const result = await this.authUseCase.logout();
+            const result = await this.authUseCase.logout(req.user!._id!);
             return this.success(res, result, ResponseMessage.SUCCESSFUL_REQUEST_MESSAGE);
         } catch (error: any) {
             return this.error(res, error.message, error.statusCode);
@@ -159,6 +160,63 @@ export class AuthController extends BaseController {
             console.log('AuthController::getCurrentUser -> request received');
             const result = await this.authUseCase.getCurrentUser(req.user as IUser);
             return this.success(res, result, ResponseMessage.SUCCESSFUL_REQUEST_MESSAGE);
+        } catch (error: any) {
+            return this.error(res, error.message, error.statusCode);
+        }
+    }
+
+    /**
+     * New onboarding flow - Step 1: Initialize signup with email
+     * @route POST /api/v1/auth/init-signup
+     */
+    @httpPost("/init-signup", validationMiddleware(InitSignupDTO))
+    async initSignup(@requestBody() dto: InitSignupDTO, @request() req: Request, @response() res: Response) {
+        try {
+            this.HandleEmptyReqBody(req);
+            console.log('AuthController::initSignup -> ', dto.email);
+            const result = await this.authUseCase.initSignup(dto);
+            return this.success(res, result, "OTP sent to your email");
+        } catch (error: any) {
+            return this.error(res, error.message, error.statusCode);
+        }
+    }
+
+    /**
+     * New onboarding flow - Step 2: Verify OTP and get temp token
+     * @route POST /api/v1/auth/verify-email-code
+     */
+    @httpPost("/verify-email-code", validationMiddleware(VerifyEmailDTO))
+    async verifyEmailCode(@requestBody() dto: VerifyEmailDTO, @request() req: Request, @response() res: Response) {
+        try {
+            this.HandleEmptyReqBody(req);
+            console.log('AuthController::verifyEmailCode -> reference:', dto.reference);
+            const result = await this.authUseCase.verifyEmailCode(dto);
+            return this.success(res, result, "Email verified successfully");
+        } catch (error: any) {
+            return this.error(res, error.message, error.statusCode);
+        }
+    }
+
+    /**
+     * New onboarding flow - Step 3: Set password using temp token
+     * @route POST /api/v1/auth/set-password
+     */
+    @httpPost("/set-password", validationMiddleware(SetPasswordDTO))
+    async setPassword(@requestBody() dto: SetPasswordDTO, @request() req: Request, @response() res: Response) {
+        try {
+            this.HandleEmptyReqBody(req);
+
+            // Get temp token from Authorization header
+            const authHeader = req.headers.authorization;
+            if (!authHeader || !authHeader.startsWith('Bearer ')) {
+                return this.error(res, 'Temp token is required in Authorization header', 401);
+            }
+
+            const tempToken = authHeader.substring(7); // Remove 'Bearer ' prefix
+            console.log('AuthController::setPassword -> request received');
+
+            const result = await this.authUseCase.setPassword(dto, tempToken);
+            return this.success(res, result, "Password set successfully");
         } catch (error: any) {
             return this.error(res, error.message, error.statusCode);
         }

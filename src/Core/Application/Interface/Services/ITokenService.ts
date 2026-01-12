@@ -35,5 +35,20 @@ export interface ITokenService {
      */
     verifyPasswordResetToken(token: string, hashedToken: string): Promise<boolean>;
 
+    /**
+     * Generates a temporary token for password setup (after OTP verification)
+     * @param userId User ID
+     * @param email User email
+     * @returns Temporary JWT token
+     */
+    generateTempToken(userId: string, email: string): string;
+
+    /**
+     * Verifies a temporary token and extracts user ID and email
+     * @param token Temporary token
+     * @returns Object with userId and email
+     */
+    verifyTempToken(token: string): { userId: string; email: string };
+
     // generateOAuthToken(): Promise<string>;
 }

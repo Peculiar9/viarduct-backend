@@ -16,13 +16,13 @@ export class BaseUserDTO {
   @IsEmail()
   email: string;
 
-  @IsOptional()
-  @IsString()
-  phone?: string;
+  // @IsOptional()
+  // @IsString()
+  // phone?: string;
 
-  @IsOptional()
-  @IsString()
-  international_phone?: string;
+  // @IsOptional()
+  // @IsString()
+  // international_phone?: string;
 
   @IsOptional()
   @IsString()
@@ -81,9 +81,9 @@ export class UpdateUserDTO {
   @IsString()
   last_name?: string;
 
-  @IsOptional()
-  @IsEmail()
-  email?: string;
+  // @IsOptional()
+  // @IsEmail()
+  // email?: string;
 
   @IsOptional()
   @IsString()
@@ -97,10 +97,10 @@ export class UpdateUserDTO {
   @IsString()
   country_code?: string;
 
-  @IsOptional()
-  @IsString()
-  @Length(8, 255)
-  password?: string;
+  // @IsOptional()
+  // @IsString()
+  // @Length(8, 255)
+  // password?: string;
 
   @IsOptional()
   @IsString()
@@ -126,12 +126,68 @@ export class UpdateUserDTO {
   profile_image?: string;
 }
 
+export class RequestEmailUpdateDTO {
+  @IsNotEmpty()
+  @IsEmail()
+  new_email: string;
+}
+
+export class UpdateEmailDTO {
+  @IsNotEmpty()
+  @IsEmail()
+  new_email: string;
+
+  @IsNotEmpty()
+  @IsString()
+  code: string; // OTP code for verification
+
+  @IsNotEmpty()
+  @IsString()
+  reference: string; // Verification reference
+}
+
+export class RequestPhoneUpdateDTO {
+  @IsNotEmpty()
+  @IsString()
+  new_phone: string;
+
+  @IsOptional()
+  @IsString()
+  international_phone?: string;
+
+  @IsOptional()
+  @IsString()
+  country_code?: string;
+}
+
+export class UpdatePhoneDTO {
+  @IsNotEmpty()
+  @IsString()
+  new_phone: string;
+
+  @IsOptional()
+  @IsString()
+  international_phone?: string;
+
+  @IsOptional()
+  @IsString()
+  country_code?: string;
+
+  @IsNotEmpty()
+  @IsString()
+  code: string;
+
+  @IsNotEmpty()
+  @IsString()
+  reference: string;
+}
+
 export interface UserResponseDTO {
   id: string;
   first_name: string;
   last_name: string;
-  email?: string;
-  phone: string;
+  // email?: string;
+  // phone: string;
   profile_image?: string;
   roles: UserRole[];
   status: string;

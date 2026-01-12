@@ -23,6 +23,7 @@ import { AuthHelpers } from "./helpers/AuthHelpers";
 import { TokenService } from "./TokenService";
 import { EnvironmentConfig } from "../Config/EnvironmentConfig";
 import { User } from "../../Core/Application/Entities/User";
+import { TableNames } from "../../Core/Application/Enums/TableNames";
 
 
 @injectable()
@@ -62,6 +63,13 @@ export class AuthenticationService extends BaseService implements IAuthenticatio
             }
 
             const { refreshToken, accessToken } = await this.tokenService.generateTokens(user);
+            
+            // Store refresh token hash in database
+            await this.userRepository.update(user._id as string, {
+                refresh_token: await UtilityService.hashToken(refreshToken),
+                last_login: new Date().toISOString(),
+            });
+            
             if (transactionSuccessfullyStarted) {
                 await this.commitTransaction();
             }
@@ -113,11 +121,16 @@ export class AuthenticationService extends BaseService implements IAuthenticatio
 
                 const tokens = await this.tokenService.generateTokens(user);
 
+                // Update refresh token in database with new one
+                await this.userRepository.update(user._id as string, {
+                    refresh_token: await UtilityService.hashToken(tokens.refreshToken),
+                });
+
                 if (transactionSuccessfullyStarted) {
                     await this.commitTransaction();
                 }
 
-                return { user, accessToken: tokens.accessToken, refreshToken: refreshToken };
+                return { user, accessToken: tokens.accessToken, refreshToken: tokens.refreshToken };
             } catch (verifyError: any) {
                 throw verifyError;
             }
@@ -137,18 +150,36 @@ export class AuthenticationService extends BaseService implements IAuthenticatio
     async revokeRefreshToken(userId: string): Promise<void> {
         let transactionSuccessfullyStarted = false;
         try {
+            if (!userId) {
+                throw new ValidationError('User ID is required');
+            }
+
             transactionSuccessfullyStarted = await this.beginTransaction();
+
+            Console.info('Revoking refresh token', {
+                userId,
+                level: LogLevel.INFO
+            });
 
             await this.userRepository.update(userId, { refresh_token: null });
 
             if (transactionSuccessfullyStarted) {
                 await this.commitTransaction();
             }
+
+            Console.info('Refresh token revoked successfully', {
+                userId,
+                level: LogLevel.INFO
+            });
         } catch (error: any) {
             if (transactionSuccessfullyStarted) {
                 Console.error(error, {
                     message: `Error revoking refresh token, rolling back transaction: ${error.message}`,
-                    level: LogLevel.ERROR
+                    level: LogLevel.ERROR,
+                    userId,
+                    errorCode: error.code,
+                    errorDetail: error.detail,
+                    errorHint: error.hint
                 });
                 await this.rollbackTransaction();
             }
@@ -227,13 +258,106 @@ export class AuthenticationService extends BaseService implements IAuthenticatio
     }
 
     async resetPassword(token: string, newPassword: string): Promise<boolean> {
-        throw new Error("Method not implemented");
+        let transactionSuccessfullyStarted = false;
+        try {
+            if (!token || !newPassword) {
+                throw new ValidationError("Token and new password are required");
+            }
+            transactionSuccessfullyStarted = await this.beginTransaction();
+            const currentTimestamp = UtilityService.dateToUnix(new Date());
+            // Cast reset_token_expires to BIGINT for comparison since it's stored as VARCHAR
+            const users = await this.userRepository.executeRawQuery(
+                `SELECT * FROM ${TableNames.USERS} WHERE reset_token IS NOT NULL AND CAST(reset_token_expires AS BIGINT) > $1`,
+                [currentTimestamp]
+            );
+            if (!users || users.length === 0) {
+                throw new ValidationError("No users found with reset token");
+            }
+            let matchedUser: IUser | undefined | null = null;
+            let matchedVerification: IVerification | undefined | null = null;
+            for (const user of users) {
+                if (!user.reset_token) continue;
+
+                // reset_token contains the verification reference
+                const verification = await this.verificationRepository.findByReference(user.reset_token);
+                
+                if (!verification || !verification.otp) continue;
+    
+                // Check if OTP matches (hash the provided token with user's salt)
+                const hashedOtp = await CryptoService.hashString(token, user.salt as string);
+                
+                if (hashedOtp === verification.otp.code) {
+                    // Check if OTP has expired
+                    const currentTime = UtilityService.dateToUnix(new Date());
+                    if (verification.otp.expiry < currentTime) {
+                        continue; // OTP expired, check next user
+                    }
+    
+                    // Check attempts
+                    if (verification.otp.attempts >= 3) {
+                        continue; // Max attempts exceeded, check next user
+                    }
+    
+                    matchedUser = user;
+                    matchedVerification = verification;
+                    break;
+                }
+            }
+    
+            if (!matchedUser || !matchedVerification) {
+                throw new ValidationError('Invalid or expired reset token');
+            }
+    
+            // Hash the new password
+            const hashedPassword = await CryptoService.hashString(newPassword, matchedUser.salt as string);
+    
+            // Update user password and clear reset token
+            await this.userRepository.update(matchedUser._id as string, {
+                password: hashedPassword,
+                reset_token: null,
+                reset_token_expires: null
+            });
+    
+            // Mark verification as used/expired
+            if (matchedVerification.otp && matchedVerification.otp.code && matchedVerification.otp.attempts !== undefined && matchedVerification.otp.expiry !== undefined) {
+                await this.verificationRepository.update(matchedVerification._id as string, {
+                    otp: {
+                        code: matchedVerification.otp.code,
+                        attempts: matchedVerification.otp.attempts,
+                        expiry: matchedVerification.otp.expiry,
+                        last_attempt: matchedVerification.otp.last_attempt ?? null,
+                        verified: true
+                    },
+                    status: VerificationStatus.VERIFIED
+                });
+            }
+    
+            if (transactionSuccessfullyStarted) {
+                await this.commitTransaction();
+            }
+    
+            return true;
+        } 
+        catch (error: any) {
+            if (transactionSuccessfullyStarted) {
+                Console.error(error, {
+                    message: `Error resetting password, rolling back transaction: ${error.message}`,
+                    level: LogLevel.ERROR
+                });
+                await this.rollbackTransaction();
+            }
+    
+            if (error instanceof AppError) {
+                throw error;
+            }
+            throw new ValidationError('Failed to reset password');
+        }
     }
 
     async requestPasswordResetOTP(email: string): Promise<void> {
         let transactionSuccessfullyStarted = false;
         try {
-            transactionSuccessfullyStarted = await this.beginTransaction();
+            transactionSuccessfullyStarted = await this.beginTransaction(); 
 
             // Find user by email
             const user = await this.userRepository.findByEmail(email);

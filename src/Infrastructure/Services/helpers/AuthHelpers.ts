@@ -32,8 +32,9 @@ export class AuthHelpers {
             id: user._id as string,
             first_name: user.first_name || '',
             last_name: user.last_name || '',
-            email: user.email || '',
-            phone: user.phone || '',
+            // email and phone are commented out in UserResponseDTO for security
+            // email: user.email || '',
+            // phone: user.phone || '',
             profile_image: user.profile_image || '',
             roles: user.roles as UserRole[] || [],
             status: user.status || '',

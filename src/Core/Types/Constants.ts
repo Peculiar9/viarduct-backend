@@ -4,7 +4,7 @@ export const TYPES = {
     ConnectionPoolManager: Symbol.for("ConnectionPoolManager"),
     UserRepository: Symbol.for('UserRepository'),
 
-    AccountUseCase: Symbol.for('AccountUseCae'),
+    AccountUseCase: Symbol.for('AccountUseCase'),
     AuthUseCase: Symbol.for('AuthUseCase'),
 
     AuthService: Symbol.for('AuthService'),
@@ -95,7 +95,7 @@ export const TYPES = {
 export const APP_VERSION = 'v1';
 export const API_PATH = `api/${APP_VERSION}`;
 export const BASE_PATH = `api/${APP_VERSION}`;
-export const APP_NAME = 'clean_architecture_backend';
+export const APP_NAME = 'Viarduct Brand';
 export const API_DOC_URL = '/';
 
 export const delimeter = {

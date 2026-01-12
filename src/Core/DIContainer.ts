@@ -35,6 +35,8 @@ import { AuthServiceHelper } from '../Infrastructure/Services/helpers/AuthServic
 import { AWSFileFormatterHelper } from '../Infrastructure/Services/external-api-services/AWSFileFormatterHelper';
 import { IAuthUseCase } from './Application/Interface/UseCases/IAuthUseCase';
 import { AuthUseCase } from './Application/UseCases/AuthUseCase';
+import { IAccountUseCase } from './Application/Interface/UseCases/IAccountUseCase';
+import { AccountUseCase } from './Application/UseCases/AccountUseCase';
 import { UserKYCRepository } from '../Infrastructure/Repository/SQL/auth/UserKYCRepository';
 import { IMediaService } from './Application/Interface/Services/IMediaService';
 import { CloudinaryService } from '../Infrastructure/Services/media/CloudinaryService';
@@ -42,6 +44,7 @@ import { ITwilioService } from './Application/Interface/Services/ITwilioService'
 import { TwilioService } from '../Infrastructure/Services/TwilioService';
 import { ITwilioEmailService } from './Application/Interface/Services/ITwilioEmailService';
 import { TwilioEmailService } from '../Infrastructure/Services/TwilioEmailService';
+import { SMTPEmailService } from '../Infrastructure/Services/external-api-services/SMTPEmailService';
 
 
 /**
@@ -110,6 +113,7 @@ export class DIContainer {
 
         // Use Cases
         container.bind<IAuthUseCase>(TYPES.AuthUseCase).to(AuthUseCase).inRequestScope();
+        container.bind<IAccountUseCase>(TYPES.AccountUseCase).to(AccountUseCase).inRequestScope();
 
         // Middleware
         container.bind<AuthMiddleware>(TYPES.AuthMiddleware).to(AuthMiddleware).inRequestScope();
@@ -151,10 +155,44 @@ export class DIContainer {
         container.bind<string>(TYPES.TWILIO_WHATSAPP_NUMBER).toConstantValue(process.env.TWILIO_WHATSAPP_NUMBER || '');
         container.bind<ITwilioService>(TYPES.TwilioService).to(TwilioService).inRequestScope();
 
-        // SendGrid
-        container.bind<string>(TYPES.SENDGRID_API_KEY).toConstantValue(process.env.SENDGRID_API_KEY || '');
-        container.bind<string>(TYPES.SENDGRID_FROM_EMAIL).toConstantValue(process.env.SENDGRID_FROM_EMAIL || `noreply@${APP_NAME}.com`);
-        container.bind<ITwilioEmailService>(TYPES.TwilioEmailService).to(TwilioEmailService).inRequestScope();
+        // Email Service Provider Selection
+        const emailProvider = process.env.EMAIL_PROVIDER?.toLowerCase() || 'smtp';
+        
+        if (emailProvider === 'sendgrid') {
+            container.bind<string>(TYPES.SENDGRID_API_KEY).toConstantValue(process.env.SENDGRID_API_KEY || '');
+            container.bind<string>(TYPES.SENDGRID_FROM_EMAIL).toConstantValue(process.env.SENDGRID_FROM_EMAIL || `noreply@${APP_NAME}.com`);
+            container.bind<ITwilioEmailService>(TYPES.TwilioEmailService).to(TwilioEmailService).inSingletonScope();
+            console.log('📧 Email Provider: SendGrid');
+            
+            // Initialize email service to trigger verification
+            try {
+                container.get<ITwilioEmailService>(TYPES.TwilioEmailService);
+            } catch (error: any) {
+                console.warn('⚠️ Failed to initialize SendGrid email service:', error.message);
+            }
+        } else if (emailProvider === 'smtp') {
+            container.bind<ITwilioEmailService>(TYPES.TwilioEmailService).to(SMTPEmailService).inSingletonScope();
+            console.log('📧 Email Provider: SMTP');
+            
+            // Initialize email service to trigger verification
+            try {
+                container.get<ITwilioEmailService>(TYPES.TwilioEmailService);
+            } catch (error: any) {
+                console.warn('⚠️ Failed to initialize SMTP email service:', error.message);
+            }
+        } else {
+            // Default to SMTP if invalid provider
+            console.warn(`⚠️ Unknown EMAIL_PROVIDER: ${emailProvider}. Defaulting to SMTP.`);
+            container.bind<ITwilioEmailService>(TYPES.TwilioEmailService).to(SMTPEmailService).inSingletonScope();
+            console.log('📧 Email Provider: SMTP (default)');
+            
+            // Initialize email service to trigger verification
+            try {
+                container.get<ITwilioEmailService>(TYPES.TwilioEmailService);
+            } catch (error: any) {
+                console.warn('⚠️ Failed to initialize SMTP email service:', error.message);
+            }
+        }
 
         console.log("All dependencies bound!!")
     }

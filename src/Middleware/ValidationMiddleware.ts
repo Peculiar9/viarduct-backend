@@ -38,20 +38,16 @@ import { Request, Response, NextFunction } from 'express';
 
 export function validationMiddleware(dtoClass: any) {
     return async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        const instance = new dtoClass();
+      try {        
         const dtoObject = plainToInstance(dtoClass, req.body, {
             enableImplicitConversion: true,
-            // excludeExtraneousValues: true removed - we rely on class-validator decorators instead
         });
-        console.log("DTO Object", dtoObject);
 
-        // Validate the DTO instance with additional options if desired.
+        // Validate the DTO instance - try without whitelist first
         const errors: ValidationError[] = await validate(dtoObject, {
-          whitelist: true,              // Remove properties that do not have decorators
-          forbidNonWhitelisted: true,   // Throw an error when non-whitelisted properties are provided
+          skipMissingProperties: false,
         });
-        console.log("Error length for DTO: ", errors.length);
+        
         if (errors.length > 0) {
           return res.status(400).json({
             status: 'error',
@@ -67,7 +63,6 @@ export function validationMiddleware(dtoClass: any) {
         req.body = dtoObject;
         next();
       } catch (error) {
-        // Optionally log the error for debugging purposes.
         console.error('Validation middleware error:', error);
         
         return res.status(500).json({

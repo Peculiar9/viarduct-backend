@@ -8,6 +8,7 @@ import { DatabaseError } from '../../Core/Application/Error/AppError';
 import { Console } from '../Utils/Console';
 import { FileManager } from '../../Core/Application/Entities/FileManager';
 import { UserKYC } from '../../Core/Application/Entities/UserKYC';
+import { Verification } from '../../Core/Application/Entities/Verification';
 
 @injectable()
 export class DatabaseInitializer {
@@ -21,6 +22,7 @@ export class DatabaseInitializer {
             { entity: User, tableName: TableNames.USERS },
             { entity: FileManager, tableName: TableNames.FILE_MANAGER },
             { entity: UserKYC, tableName: TableNames.USER_KYC },
+            { entity: Verification, tableName: TableNames.VERIFICATIONS },
         ];
 
         // STEP 2: PROCESS EACH TABLE INDIVIDUALLY TO ISOLATE FAILURES

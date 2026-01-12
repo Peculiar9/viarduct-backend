@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import './extensions/request-extension';
 import { EnvironmentConfig } from './Infrastructure/Config/EnvironmentConfig';
 
 
