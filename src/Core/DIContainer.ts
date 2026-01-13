@@ -71,21 +71,34 @@ export class DIContainer {
         const config = getDatabaseConfig();
 
         // Create PoolOptions
-        const poolOptions: PoolOptions = {
-            user: config.user,
-            password: config.password,
-            host: config.host,
-            port: config.port,
-            database: config.database,
-            max: config.max,
-            connectionString: config.connectionString,
-            idleTimeoutMillis: config.idleTimeoutMillis,
-            connectionTimeoutMillis: config.connectionTimeoutMillis,
-            ssl: config.ssl,
-            maxUses: 7500,
-            allowExitOnIdle: true,
-            maxLifetimeSeconds: 3600
-        };
+        // If connectionString is provided, use only that (pg doesn't work well with both)
+        // For Supabase, we need both sslmode in URL and SSL config with rejectUnauthorized: false
+        const poolOptions: PoolOptions = config.connectionString
+            ? {
+                connectionString: config.connectionString,
+                max: config.max,
+                idleTimeoutMillis: config.idleTimeoutMillis,
+                connectionTimeoutMillis: config.connectionTimeoutMillis,
+                // Pass SSL config to allow self-signed certificates (needed for Supabase)
+                ssl: config.ssl,
+                maxUses: 7500,
+                allowExitOnIdle: true,
+                maxLifetimeSeconds: 3600
+            }
+            : {
+                user: config.user,
+                password: config.password,
+                host: config.host,
+                port: config.port,
+                database: config.database,
+                max: config.max,
+                idleTimeoutMillis: config.idleTimeoutMillis,
+                connectionTimeoutMillis: config.connectionTimeoutMillis,
+                ssl: config.ssl,
+                maxUses: 7500,
+                allowExitOnIdle: true,
+                maxLifetimeSeconds: 3600
+            };
 
         // Infrastructure layer
         container.bind<ConnectionPoolManager>(TYPES.ConnectionPoolManager)

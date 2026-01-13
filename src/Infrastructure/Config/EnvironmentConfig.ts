@@ -71,16 +71,25 @@ export class EnvironmentConfig {
     }
 
     private static validateRequiredVariables(): void {
-        const requiredVariables = [
-            'DB_HOST',
-            'DB_PORT',
-            'DB_NAME',
-            'DB_USER',
-            'DB_PASSWORD',
-            'JWT_ACCESS_SECRET',
-            // 'AWS_REGION',
-            // Add other required variables
-        ];
+        const hasDatabaseUrl = !!process.env.DATABASE_URL;
+        
+        // If DATABASE_URL is provided, individual DB variables are optional
+        const requiredVariables = hasDatabaseUrl
+            ? [
+                'JWT_ACCESS_SECRET',
+                // 'AWS_REGION',
+                // Add other required variables
+              ]
+            : [
+                'DB_HOST',
+                'DB_PORT',
+                'DB_NAME',
+                'DB_USER',
+                'DB_PASSWORD',
+                'JWT_ACCESS_SECRET',
+                // 'AWS_REGION',
+                // Add other required variables
+              ];
 
         const missingVariables = requiredVariables.filter(variable => !process.env[variable]);
 

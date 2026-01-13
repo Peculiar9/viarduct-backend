@@ -72,7 +72,7 @@ export class UserProfileService extends BaseService implements IUserProfileServi
                 await this.rollbackTransaction();
             }
 
-            if (error instanceof AppError) {
+            if (error instanceof AppError) { 
                 throw error;
             }
             throw new ValidationError(ResponseMessage.INTERNAL_SERVER_ERROR_MESSAGE);
