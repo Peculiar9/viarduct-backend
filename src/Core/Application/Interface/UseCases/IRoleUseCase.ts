@@ -1,6 +1,6 @@
 import { IRole } from '../Entities/auth-and-user/IRole';
 import { IPermission } from '../Entities/auth-and-user/IPermission';
-import { CreateRoleDTO, UpdateRoleDTO, AssignPermissionsToRoleDTO, AssignRoleToUserDTO } from '../DTOs/RoleDTO';
+import { CreateRoleDTO, UpdateRoleDTO, AssignPermissionsToRoleDTO, AssignRoleToUserDTO } from '../../DTOs/RoleDTO';
 
 export interface IRoleUseCase {
     createRole(dto: CreateRoleDTO): Promise<IRole>;

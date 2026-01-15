@@ -1,5 +1,5 @@
 import { IPermission } from '../Entities/auth-and-user/IPermission';
-import { CreatePermissionDTO } from '../DTOs/PermissionDTO';
+import { CreatePermissionDTO } from '../../DTOs/PermissionDTO';
 
 export interface IPermissionUseCase {
     createPermission(dto: CreatePermissionDTO): Promise<IPermission>;
