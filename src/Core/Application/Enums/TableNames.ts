@@ -20,6 +20,8 @@ export enum TableNames {
     DOCUMENTS = "documents",
     CONTACT_MESSAGES = 'contact_messages',
     NEWSLETTER_SUBSCRIPTIONS = 'newsletter_subscriptions',
-
-
+    ROLES = 'roles',
+    PERMISSIONS = 'permissions',
+    ROLE_PERMISSIONS = 'role_permissions',
+    USER_ROLES = 'user_roles',
 }

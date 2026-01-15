@@ -62,7 +62,7 @@ export class UserProfileService extends BaseService implements IUserProfileServi
                 await this.commitTransaction();
             }
 
-            return this.authHelpers.constructUserObject(updatedUser);
+            return await this.authHelpers.constructUserObject(updatedUser);
         } catch (error: any) {
             if (transactionSuccessfullyStarted) {
                 Console.error(error, {
@@ -87,7 +87,7 @@ export class UserProfileService extends BaseService implements IUserProfileServi
                 throw new ValidationError(ResponseMessage.USER_NOT_FOUND_MESSAGE);
             }
 
-            return this.authHelpers.constructUserObject(user);
+            return await this.authHelpers.constructUserObject(user);
         } catch (error: any) {
             if (error instanceof AppError) {
                 throw error;
@@ -121,7 +121,7 @@ export class UserProfileService extends BaseService implements IUserProfileServi
                 await this.commitTransaction();
             }
 
-            return this.authHelpers.constructUserObject(updatedUser);
+            return await this.authHelpers.constructUserObject(updatedUser);
         } catch (error: any) {
             if (transactionSuccessfullyStarted) {
                 Console.error(error, {
@@ -160,7 +160,7 @@ export class UserProfileService extends BaseService implements IUserProfileServi
                 await this.commitTransaction();
             }
 
-            return this.authHelpers.constructUserObject(updatedUser);
+            return await this.authHelpers.constructUserObject(updatedUser);
         } catch (error: any) {
             if (transactionSuccessfullyStarted) {
                 Console.error(error, {
@@ -189,7 +189,7 @@ export class UserProfileService extends BaseService implements IUserProfileServi
                 throw new ValidationError(ResponseMessage.USER_NOT_FOUND_MESSAGE);
             }
             
-            return this.authHelpers.constructUserObject(user);
+            return await this.authHelpers.constructUserObject(user);
         } catch (error: any) {
             if (error instanceof AppError) {
                 throw error;
@@ -210,7 +210,7 @@ export class UserProfileService extends BaseService implements IUserProfileServi
                 throw new ValidationError(ResponseMessage.USER_NOT_FOUND_MESSAGE);
             }
             
-            return this.authHelpers.constructUserObject(user);
+            return await this.authHelpers.constructUserObject(user);
         } catch (error: any) {
             if (error instanceof AppError) {
                 throw error;

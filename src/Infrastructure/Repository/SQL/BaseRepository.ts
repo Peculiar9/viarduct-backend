@@ -37,8 +37,23 @@ export abstract class BaseRepository<T> implements IRepository<T> {
      */
     protected async executeQuery<R = any>(query: string, params: any[] = []): Promise<QueryResult<QueryResult>> {
         const startTime = Date.now();
+        let client: any = null;
+        let shouldReleaseClient = false;
+        
         try {
-            const client = this.transactionManager.getClient();
+            // Try to get transaction client first, if no transaction is active, use standalone client
+            try {
+                client = this.transactionManager.getClient();
+            } catch (error: any) {
+                // No active transaction, get a standalone client for read operations
+                if (error.message && error.message.includes('No active transaction')) {
+                    client = await this.transactionManager.getStandaloneClient();
+                    shouldReleaseClient = true;
+                } else {
+                    throw error;
+                }
+            }
+            
             const result = await client.query(query, params);
             
             // Log successful query execution with timing
@@ -50,8 +65,22 @@ export abstract class BaseRepository<T> implements IRepository<T> {
                 transactionId: this.transactionManager.getTransactionId()
             });
             
+            // Release standalone client if we acquired one
+            if (shouldReleaseClient && client) {
+                await this.transactionManager.releaseStandaloneClient(client);
+            }
+            
             return result;
         } catch (error: any) {
+            // Release standalone client if we acquired one and an error occurred
+            if (shouldReleaseClient && client) {
+                try {
+                    await this.transactionManager.releaseStandaloneClient(client);
+                } catch (releaseError) {
+                    Console.error(releaseError as Error, { message: 'Failed to release client after query error' });
+                }
+            }
+            
             // Log detailed error information
             Console.error(error, {
                 operation: 'query',
@@ -75,14 +104,18 @@ export abstract class BaseRepository<T> implements IRepository<T> {
                 case '23502': // not_null_violation
                     throw new DatabaseConstraintError('Not null constraint violation', error.constraint);
                 case '42P01': // undefined_table
+                    throw new DatabaseQueryError(`Table does not exist: ${error.message}`, query, params);
                 case '42703': // undefined_column
-                    throw new DatabaseQueryError('Invalid query structure', query, params);
+                    throw new DatabaseQueryError(`Column does not exist: ${error.message}`, query, params);
                 case '08006': // connection_failure
                 case '08001': // sqlclient_unable_to_establish_sqlconnection
                     throw new DatabaseConnectionError(error.message, { code: error.code });
                 default:
-                    // For unknown database errors, log but don't expose details
-                    throw new InternalServerError('An unexpected database error occurred');
+                    // For unknown database errors, include the actual error message in development
+                    const errorMessage = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test'
+                        ? `Database error: ${error.message} (Code: ${error.code || 'unknown'})`
+                        : 'An unexpected database error occurred';
+                    throw new InternalServerError(errorMessage);
             }
         }
     }

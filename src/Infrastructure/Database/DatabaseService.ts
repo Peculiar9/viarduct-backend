@@ -2,7 +2,9 @@ import { Container, injectable } from 'inversify';
 import { ConnectionPoolManager } from '../Repository/SQL/Abstractions/ConnectionPoolManager';
 import { DatabaseError } from '../../Core/Application/Error/AppError';
 import { TYPES } from '../../Core/Types/Constants';
-import { DatabaseInitializer } from '../Config/DatabaseInitializer'; 
+import { DatabaseInitializer } from '../Config/DatabaseInitializer';
+import { RolePermissionSeeder } from '../Config/RolePermissionSeeder';
+import { UserSeeder } from '../Config/UserSeeder';
 import { Console } from '../Utils/Console';
 
 @injectable()
@@ -21,6 +23,14 @@ export class DatabaseService {
             // Initialize tables
             const databaseInitializer = container.get<DatabaseInitializer>(TYPES.DatabaseInitializer);
             await databaseInitializer.initializeTables();
+            
+            // Seed roles and permissions
+            const rolePermissionSeeder = container.get<RolePermissionSeeder>(TYPES.RolePermissionSeeder);
+            await rolePermissionSeeder.seed();
+            
+            // Seed users (must be after roles are seeded)
+            const userSeeder = container.get<UserSeeder>(TYPES.UserSeeder);
+            await userSeeder.seed();
             
         } catch (error: any) {
             Console.error(error, { 

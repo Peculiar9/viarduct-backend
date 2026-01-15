@@ -10,6 +10,7 @@ import { CryptoService } from "../../../Core/Services/CryptoService";
 import { ValidationError, NotFoundError, ConflictError } from "../../../Core/Application/Error/AppError";
 import { UserRepository } from "../../Repository/SQL/users/UserRepository";
 import { IEmailVerificationResponse, IPhoneVerificationResponse } from "../../../Core/Application/DTOs/AuthDTO";
+import { RoleRepository } from "../../Repository/SQL/roles/RoleRepository";
 
 /**
  * Helper class for authentication-related operations
@@ -19,15 +20,37 @@ import { IEmailVerificationResponse, IPhoneVerificationResponse } from "../../..
 export class AuthHelpers {
     constructor(
         @inject(TYPES.VerificationRepository) private readonly verificationRepository: VerificationRepository,
-        @inject(TYPES.UserRepository) private readonly userRepository: UserRepository
+        @inject(TYPES.UserRepository) private readonly userRepository: UserRepository,
+        @inject(TYPES.RoleRepository) private readonly roleRepository: RoleRepository
     ) {}
 
     /**
      * Constructs a user object for response
      * @param user User entity
-     * @returns User response DTO
+     * @returns User response DTO with roles and permissions
      */
-    public constructUserObject(user: IUser): UserResponseDTO {
+    public async constructUserObject(user: IUser): Promise<UserResponseDTO> {
+        // Fetch user roles and permissions from database
+        let roleNames: string[] = [];
+        let permissionValues: string[] = [];
+        
+        if (user._id) {
+            try {
+                const userRoles = await this.roleRepository.getUserRoles(user._id);
+                roleNames = userRoles.map(role => role.name);
+                
+                const userPermissions = await this.roleRepository.getUserPermissions(user._id);
+                permissionValues = userPermissions.map(permission => permission.value);
+            } catch (error: any) {
+                // If roles/permissions can't be fetched, use roles from user object as fallback
+                roleNames = (user.roles as string[]) || [];
+                console.error('Error fetching user roles/permissions:', error.message);
+            }
+        } else {
+            // Fallback to user.roles if no _id
+            roleNames = (user.roles as string[]) || [];
+        }
+        
         return {
             id: user._id as string,
             first_name: user.first_name || '',
@@ -36,7 +59,8 @@ export class AuthHelpers {
             // email: user.email || '',
             // phone: user.phone || '',
             profile_image: user.profile_image || '',
-            roles: user.roles as UserRole[] || [],
+            roles: roleNames,
+            permissions: permissionValues,
             status: user.status || '',
             is_active: user.is_active || false,
             reference: '',

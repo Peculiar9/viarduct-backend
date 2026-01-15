@@ -90,6 +90,14 @@ export const TYPES = {
     // KYC
     QuickVerifyService: Symbol.for('QuickVerifyService'),
     VerifyMeService: Symbol.for('VerifyMeService'),
+
+    // Role and Permission Management
+    RoleRepository: Symbol.for('RoleRepository'),
+    PermissionRepository: Symbol.for('PermissionRepository'),
+    RoleUseCase: Symbol.for('RoleUseCase'),
+    PermissionUseCase: Symbol.for('PermissionUseCase'),
+    RolePermissionSeeder: Symbol.for('RolePermissionSeeder'),
+    UserSeeder: Symbol.for('UserSeeder'),
 } as const;
 
 export const APP_VERSION = 'v1';

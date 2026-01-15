@@ -24,6 +24,8 @@ import { TokenService } from "./TokenService";
 import { EnvironmentConfig } from "../Config/EnvironmentConfig";
 import { User } from "../../Core/Application/Entities/User";
 import { TableNames } from "../../Core/Application/Enums/TableNames";
+import { RoleRepository } from "../Repository/SQL/roles/RoleRepository";
+import { RefreshTokenResultDTO } from "../../Core/Application/DTOs/AuthenticationDTO";
 
 
 @injectable()
@@ -37,6 +39,7 @@ export class AuthenticationService extends BaseService implements IAuthenticatio
         @inject(TYPES.AuthHelpers) private readonly authHelpers: AuthHelpers,
         @inject(TYPES.VerificationRepository) protected readonly verificationRepository: VerificationRepository,
         @inject(TYPES.TokenService) private readonly tokenService: TokenService,
+        @inject(TYPES.RoleRepository) private readonly roleRepository: RoleRepository,
     ) {
         super(transactionManager);
     }
@@ -62,7 +65,14 @@ export class AuthenticationService extends BaseService implements IAuthenticatio
                 throw new AuthenticationError(ResponseMessage.INVALID_CREDENTIALS_MESSAGE);
             }
 
-            const { refreshToken, accessToken } = await this.tokenService.generateTokens(user);
+            // Fetch user roles from database
+            const userRoles = await this.roleRepository.getUserRoles(user._id!);
+            const roleNames = userRoles.map(role => role.name);
+            
+            // Update user object with roles for token generation
+            const userWithRoles = { ...user, roles: roleNames };
+
+            const { refreshToken, accessToken } = await this.tokenService.generateTokens(userWithRoles);
             
             // Store refresh token hash in database
             await this.userRepository.update(user._id as string, {
@@ -74,7 +84,7 @@ export class AuthenticationService extends BaseService implements IAuthenticatio
                 await this.commitTransaction();
             }
 
-            return { accessToken, refreshToken, user: this.authHelpers.constructUserObject(user) };
+            return { accessToken, refreshToken, user: await this.authHelpers.constructUserObject(userWithRoles) };
         } catch (error: any) {
             if (transactionSuccessfullyStarted) {
                 Console.error(error, {
@@ -95,7 +105,7 @@ export class AuthenticationService extends BaseService implements IAuthenticatio
         return this.tokenService.verifyToken(token);
     }
 
-    async refreshAccessToken(refreshToken: string): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
+    async refreshAccessToken(refreshToken: string): Promise<RefreshTokenResultDTO> {
         let transactionSuccessfullyStarted = false;
         try {
             transactionSuccessfullyStarted = await this.beginTransaction();
@@ -119,7 +129,14 @@ export class AuthenticationService extends BaseService implements IAuthenticatio
                     throw new AuthenticationError(ResponseMessage.INVALID_REFRESH_TOKEN);
                 }
 
-                const tokens = await this.tokenService.generateTokens(user);
+                // Fetch user roles from database
+                const userRoles = await this.roleRepository.getUserRoles(user._id!);
+                const roleNames = userRoles.map(role => role.name);
+                
+                // Update user object with roles for token generation
+                const userWithRoles = { ...user, roles: roleNames };
+
+                const tokens = await this.tokenService.generateTokens(userWithRoles);
 
                 // Update refresh token in database with new one
                 await this.userRepository.update(user._id as string, {
@@ -130,7 +147,8 @@ export class AuthenticationService extends BaseService implements IAuthenticatio
                     await this.commitTransaction();
                 }
 
-                return { user, accessToken: tokens.accessToken, refreshToken: tokens.refreshToken };
+                const userWithRolesResponse = await this.authHelpers.constructUserObject(userWithRoles);
+                return { user: userWithRolesResponse, accessToken: tokens.accessToken, refreshToken: tokens.refreshToken };
             } catch (verifyError: any) {
                 throw verifyError;
             }
@@ -494,10 +512,16 @@ export class AuthenticationService extends BaseService implements IAuthenticatio
             if (!user) {
                 throw new ValidationError(ResponseMessage.USER_NOT_FOUND_MESSAGE);
             }
+            
+            // Fetch user roles from database
+            const userRoles = await this.roleRepository.getUserRoles(userId);
+            const roleNames = userRoles.map(role => role.name);
+            const userWithRoles = { ...user, roles: roleNames };
+            
             if (transactionSuccessfullyStarted) {
                 await this.commitTransaction();
             }
-            return user;
+            return userWithRoles;
         } catch (error: any) {
             if (transactionSuccessfullyStarted) {
                 Console.error(error, {

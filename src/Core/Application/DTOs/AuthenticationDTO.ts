@@ -4,7 +4,7 @@ import { UserResponseDTO } from './UserDTO';
  * DTO for refresh token result
  */
 export class RefreshTokenResultDTO {
-    user: any; // IUser entity - will be mapped to UserResponseDTO in controller
+    user: UserResponseDTO;
     accessToken: string;
     refreshToken: string;
 }

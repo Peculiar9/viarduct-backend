@@ -7,15 +7,16 @@ export const mockUserData = {
         password: 'Password123!',
         first_name: 'Test',
         last_name: 'User',
-        roles: [UserRole.OPERATOR]  // Use enum instead of string
+        roles: [UserRole.USER]
     } as CreateUserDTO,
 
     userResponseDTO: {
         id: '6b40d27e-47f4-47dd-8ea9-f579dc49e325',
-        email: 'test@example.com',
         first_name: 'Test',
         last_name: 'User',
-        roles: [UserRole.OPERATOR],  // Use enum instead of string
+        roles: [UserRole.USER],  
+        status: 'active',  
+        is_active: true,  
         created_at: '2024-12-21T03:56:14.466Z',
         updated_at: '2024-12-21T03:56:14.466Z'
     } as UserResponseDTO,
@@ -23,8 +24,9 @@ export const mockUserData = {
     loginResponse: {
         user: {
             id: '6b40d27e-47f4-47dd-8ea9-f579dc49e325',
-            email: 'test@example.com',
-            roles: [UserRole.OPERATOR]  // Use enum instead of string
+            first_name: 'Test',
+            last_name: 'User',
+            roles: [UserRole.USER]  
         },
         token: 'mock-jwt-token'
     }

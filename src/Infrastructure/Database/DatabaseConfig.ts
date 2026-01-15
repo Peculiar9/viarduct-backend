@@ -29,8 +29,10 @@ const getSSLConfig = (env: Environment, isRemote: boolean = false): SSLConfig | 
   switch (env) {
     case 'production':
       return {
-        rejectUnauthorized: true,
-        sslmode: 'verify-full',
+        rejectUnauthorized: false,
+        sslmode: 'require',
+        // rejectUnauthorized: true,
+        // sslmode: 'verify-full',
         ca: EnvironmentConfig.get('SSL_CA') ? fs.readFileSync(EnvironmentConfig.get('SSL_CA')).toString() : undefined,
         key: EnvironmentConfig.get('SSL_KEY') ? fs.readFileSync(EnvironmentConfig.get('SSL_KEY')).toString() : undefined,
         cert: EnvironmentConfig.get('SSL_CERT') ? fs.readFileSync(EnvironmentConfig.get('SSL_CERT')).toString() : undefined,

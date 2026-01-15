@@ -22,6 +22,7 @@ import { AuthHelpers } from "./helpers/AuthHelpers";
 import { ITokenService } from "../../Core/Application/Interface/Services/ITokenService";
 import { UserRegistrationDTO } from "../../Core/Application/DTOs/AuthDTOV2";
 import { ITwilioEmailService } from "@/Core/Application/Interface/Services/ITwilioEmailService";
+import { RoleRepository } from "../Repository/SQL/roles/RoleRepository";
 
 @injectable()
 export class RegistrationService extends BaseService implements IRegistrationService {
@@ -33,7 +34,8 @@ export class RegistrationService extends BaseService implements IRegistrationSer
         @inject(TYPES.AuthHelpers) private readonly authHelpers: AuthHelpers,
         @inject(TYPES.TokenService) private readonly tokenService: ITokenService,
         @inject(TYPES.TwilioEmailService) private readonly twilioEmailService: ITwilioEmailService,
-        @inject(TYPES.SMSService) private readonly smsService: SMSService
+        @inject(TYPES.SMSService) private readonly smsService: SMSService,
+        @inject(TYPES.RoleRepository) private readonly roleRepository: RoleRepository
     ) {
         super(transactionManager);
     }
@@ -92,11 +94,16 @@ export class RegistrationService extends BaseService implements IRegistrationSer
                 email_verified: true
             }) as IUser;
 
-            const { accessToken, refreshToken } = await this.tokenService.generateTokens(updatedUser);
+            // Fetch user roles from database
+            const userRoles = await this.roleRepository.getUserRoles(updatedUser._id!);
+            const roleNames = userRoles.map(role => role.name);
+            const userWithRoles = { ...updatedUser, roles: roleNames };
+
+            const { accessToken, refreshToken } = await this.tokenService.generateTokens(userWithRoles);
 
             await this.commitTransaction();
 
-            return { accessToken, refreshToken, user: this.authHelpers.constructUserObject(updatedUser) };
+            return { accessToken, refreshToken, user: await this.authHelpers.constructUserObject(updatedUser) };
         } catch (error: any) {
             if (transactionStarted) await this.rollbackTransaction();
             this._handleRegistrationError(error, "email verification");
@@ -185,8 +192,13 @@ export class RegistrationService extends BaseService implements IRegistrationSer
 
             await this.commitTransaction();
 
-            const { accessToken, refreshToken } = await this.tokenService.generateTokens(user);
-            const response = this.authHelpers.constructUserObject(user);
+            // Fetch user roles from database
+            const userRoles = await this.roleRepository.getUserRoles(user._id!);
+            const roleNames = userRoles.map(role => role.name);
+            const userWithRoles = { ...user, roles: roleNames };
+
+            const { accessToken, refreshToken } = await this.tokenService.generateTokens(userWithRoles);
+            const response = await this.authHelpers.constructUserObject(user);
             return { accessToken, refreshToken, user: response };
         } catch (error) {
             if (transactionStarted) await this.rollbackTransaction();
@@ -217,7 +229,7 @@ export class RegistrationService extends BaseService implements IRegistrationSer
             const user = await this.userRepository.create(userObject);
 
             await this.commitTransaction();
-            return this.authHelpers.constructUserObject(user);
+            return await this.authHelpers.constructUserObject(user);
         } catch (error) {
             if (transactionStarted) await this.rollbackTransaction();
             this._handleRegistrationError(error, "create user");

@@ -189,7 +189,8 @@ export interface UserResponseDTO {
   // email?: string;
   // phone: string;
   profile_image?: string;
-  roles: UserRole[];
+  roles: string[];
+  permissions?: string[];
   status: string;
   is_active: boolean;
   created_at: string;
@@ -259,4 +260,26 @@ export interface UpdateProfileRequestDTO {
 export interface OAuthDTO {
   code: string,
   state: string
+}
+
+
+export class createAdminUserDTO {
+  @IsNotEmpty({ message: 'First name is required' })
+  @IsString({ message: 'First name must be a string' })
+  first_name: string;
+
+  @IsNotEmpty({ message: 'Last name is required' })
+  @IsString({ message: 'Last name must be a string' })
+  @IsString()
+  last_name: string;
+
+  @IsNotEmpty({ message: 'Email is required' })
+  @IsEmail({},{ message: 'Email must be a valid email address' })
+  @IsEmail()
+  email: string;
+
+  @IsNotEmpty({ message: 'Password is required' })
+  @IsString({ message: 'Password must be a string' })
+  @Length(8, 255, { message: 'Password must be between 8 and 255 characters long' })
+  password: string;
 }

@@ -74,6 +74,17 @@ export class TransactionManager {
       throw new InternalServerError('Failed to acquire database client');
     }
   }
+
+  public async releaseStandaloneClient(client: PoolClient): Promise<void> {
+    try {
+      await this.poolManager.releaseConnection(client);
+    } catch (error: unknown) {
+      Console.error(error as Error, { 
+        message: 'Failed to release standalone client',
+        requestId: this.requestId
+      });
+    }
+  }
   private transactionStartTime: Date | null = null;
   private currentTransactionOptions?: TransactionOptions;
   private metricsLoggingInterval: NodeJS.Timeout | null = null;

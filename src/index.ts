@@ -25,7 +25,7 @@ interface ServerConfig {
 
 const getEnvironmentConfig = (): ServerConfig => {
   const environment: string = process.env.NODE_ENV!;
-  console.log({environment});
+  console.log({ environment });
   switch (environment) {
     case 'production':
       return {
@@ -58,14 +58,14 @@ const getEnvironmentConfig = (): ServerConfig => {
 async function configureEnvironment(app: any) {
   const env = process.env.NODE_ENV || 'development';
   const config = getEnvironmentConfig();
-  console.log({config});
+  console.log({ config });
   switch (env) {
     case 'production':
       // Production-specific middleware
       app.use(helmet());
       app.use(compression());
       app.use(morgan('combined'));
-      
+
       // Enable detailed error logging for production
       app.on('error', (err: Error) => {
         console.error('[Production Error]:', {
@@ -79,10 +79,10 @@ async function configureEnvironment(app: any) {
     case 'test':
       // Test-specific configuration
       app.use(morgan('dev'));
-      
+
       // Disable certain security features for testing
       app.disable('x-powered-by');
-      
+
       // Enable detailed logging for debugging tests
       app.use((req: any, _res: any, next: any) => {
         console.log('[Test Request]:', {
@@ -99,7 +99,7 @@ async function configureEnvironment(app: any) {
     default: // development
       // Development-specific middleware
       app.use(morgan('dev'));
-      
+
       // Enable detailed request logging
       app.use((req: any, _res: any, next: any) => {
         console.log('[Development Request]:', {
@@ -109,7 +109,7 @@ async function configureEnvironment(app: any) {
         });
         next();
       });
-      
+
       // Enable more detailed error messages
       app.use((err: Error, _req: any, res: any, next: any) => {
         console.error('[Development Error]:', err);
@@ -123,18 +123,22 @@ async function configureEnvironment(app: any) {
 }
 
 const startServer = async () => {
-    try {
-        const app = await App.initialize();
-        const port = EnvironmentConfig.getNumber('PORT', 3000);
-        
-        console.log(`Starting server in ${process.env.NODE_ENV} environment`);
-        app.listen(port, () => {
-            console.log(`Server is running on port ${port}`);
-        });
-    } catch (error) {
-        console.error('Failed to start server:', error);
-        process.exit(1);
-    }
+  try {
+    const app = await App.initialize();
+    const port = EnvironmentConfig.getNumber('PORT', 3000);
+
+    console.log(`Starting server in ${process.env.NODE_ENV} environment`);
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`Server is running on port ${port}`);
+    });
+
+    // app.listen(port, () => {
+    //     console.log(`Server is running on port ${port}`);
+    // });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
 };
 
 startServer();

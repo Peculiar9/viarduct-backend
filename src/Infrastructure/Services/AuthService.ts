@@ -26,6 +26,7 @@ import { AuthServiceHelper } from './helpers/AuthServiceHelper';
 import { EmailOTPDTO } from '../../Core/Application/DTOs/EmailDTO';
 import { EnvironmentConfig } from '../Config/EnvironmentConfig';
 import { TableNames } from '../../Core/Application/Enums/TableNames';
+import { RoleRepository } from '../Repository/SQL/roles/RoleRepository';
 
 @injectable()
 export class AuthService implements IAuthService {
@@ -36,8 +37,52 @@ export class AuthService implements IAuthService {
         @inject(TYPES.LinkedAccountsRepository) private readonly linkedAccountsRepository: LinkedAccountsRepository,
         @inject(TYPES.FileService) private readonly fileService: FileService,
         @inject(TYPES.EmailService) private readonly emailService: IEmailService,
-        @inject(TYPES.AuthServiceHelper) private readonly authHelper: AuthServiceHelper
+        @inject(TYPES.AuthServiceHelper) private readonly authHelper: AuthServiceHelper,
+        @inject(TYPES.RoleRepository) private readonly roleRepository: RoleRepository
     ) { }
+    
+    private async constructUserObject(user: IUser): Promise<UserResponseDTO> {
+        // Fetch user roles and permissions from database
+        let roleNames: string[] = [];
+        let permissionValues: string[] = [];
+        
+        if (user._id) {
+            try {
+                const userRoles = await this.roleRepository.getUserRoles(user._id);
+                roleNames = userRoles.map(role => role.name);
+                
+                const userPermissions = await this.roleRepository.getUserPermissions(user._id);
+                permissionValues = userPermissions.map(permission => permission.value);
+            } catch (error: any) {
+                // If roles/permissions can't be fetched, use roles from user object as fallback
+                roleNames = (user.roles as string[]) || [];
+                console.error('Error fetching user roles/permissions:', error.message);
+            }
+        } else {
+            // Fallback to user.roles if no _id
+            roleNames = (user.roles as string[]) || [];
+        }
+        
+        console.log("ConstructUserObject: ", { user, roleNames, permissionValues });
+        return {
+            id: user._id as string,
+            first_name: user.first_name as string,
+            last_name: user.last_name as string,
+            // email and phone are commented out in UserResponseDTO for security
+            // email: user.email as string,
+            // phone: user.phone as string,
+            profile_image: user.profile_image as string,
+            roles: roleNames,
+            permissions: permissionValues,
+            status: user.status as string,
+            dob: user.dob as string,
+            gender: user.gender as string,
+            address: user.location as string,
+            is_active: user.is_active as boolean,
+            created_at: user.created_at as string,
+            updated_at: user.updated_at as string,
+        };
+    }
  
 
     async updateProfileImage(image: Express.Multer.File, user: IUser): Promise<UserResponseDTO> {
@@ -52,7 +97,7 @@ export class AuthService implements IAuthService {
             console.log("File Manager Object: ", { fileManagerObject });
             await this.userRepository.update(user._id as string, { profile_image: fileManagerObject.file_url });
             await this.transactionManager.commit();
-            const userResponseDTO = this.constructUserObject(user);
+            const userResponseDTO = await this.constructUserObject(user);
             userResponseDTO.profile_image = fileManagerObject.file_url;
             console.log("User Response DTO: ", { userResponseDTO });
             return userResponseDTO;
@@ -204,7 +249,7 @@ export class AuthService implements IAuthService {
                 throw new ValidationError("Delete Operation not Successful!!!");
             }
             await this.transactionManager.commit();
-            const response = this.constructUserObject(user);
+            const response = await this.constructUserObject(user);
             return response;
         } catch (error) {
             await this.transactionManager.rollback();
@@ -301,8 +346,8 @@ export class AuthService implements IAuthService {
                 throw new ValidationError('Verification record not found');
             }
 
-            // Validate verification type and identifier
-            if (verification.type !== VerificationType.EMAIL || verification.identifier !== dto.email) {
+            // Validate verification type (email check removed since we use reference)
+            if (verification.type !== VerificationType.EMAIL) {
                 throw new ValidationError('Invalid verification record');
             }
 
@@ -374,7 +419,7 @@ export class AuthService implements IAuthService {
             return {
                 accessToken,
                 refreshToken,
-                user: this.constructUserObject(updatedUser)
+                user: await this.constructUserObject(updatedUser)
             };
         } catch (error: any) {
             if (transactionStarted) {
@@ -543,7 +588,7 @@ export class AuthService implements IAuthService {
             return {
                 accessToken,
                 refreshToken,
-                user: this.constructUserObject(user),
+                user: await this.constructUserObject(user),
             };
         } catch (error: any) {
             await this.transactionManager.rollback();
@@ -715,7 +760,7 @@ export class AuthService implements IAuthService {
 
             await this.transactionManager.commit();
 
-            const userResponse: UserResponseDTO = this.constructUserObject(updatedUser);
+            const userResponse: UserResponseDTO = await this.constructUserObject(updatedUser);
             return userResponse;
         } catch (error: any) {
             await this.transactionManager.rollback();
@@ -742,7 +787,7 @@ export class AuthService implements IAuthService {
                 throw new AuthenticationError(ResponseMessage.USER_NOT_FOUND_MESSAGE);
             }
 
-            return this.constructUserObject(user);
+            return await this.constructUserObject(user);
         } catch (error) {
             await this.transactionManager.rollback();
             if (error instanceof AuthenticationError) {
@@ -812,8 +857,13 @@ export class AuthService implements IAuthService {
                 throw new AuthenticationError(ResponseMessage.INVALID_CREDENTIALS_MESSAGE);
             }
 
+            // Fetch user roles from database
+            const userRoles = await this.roleRepository.getUserRoles(user._id!);
+            const roleNames = userRoles.map(role => role.name);
+            const userWithRoles = { ...user, roles: roleNames };
+
             // Generate both access and refresh tokens
-            const { accessToken, refreshToken } = await this.authHelper.generateTokens(user);
+            const { accessToken, refreshToken } = await this.authHelper.generateTokens(userWithRoles);
 
             // Store refresh token hash in database
             await this.userRepository.update(user._id as string, {
@@ -826,7 +876,7 @@ export class AuthService implements IAuthService {
             return {
                 accessToken,
                 refreshToken,
-                user: this.constructUserObject(user),
+                user: await this.constructUserObject(user),
             };
         } catch (error: any) {
             await this.transactionManager.rollback();
@@ -869,7 +919,7 @@ export class AuthService implements IAuthService {
             console.log("AuthService::createUser(createUserDto) -> Linked Account -> ", { linkedAccount });
             await this.transactionManager.commit();
 
-            return this.constructUserObject(newUser);
+            return await this.constructUserObject(newUser);
         } catch (error: any) {
             await this.transactionManager.rollback();
             if (error instanceof ConflictError || error instanceof ValidationError || error instanceof UnprocessableEntityError) {
@@ -927,7 +977,7 @@ export class AuthService implements IAuthService {
             });
 
             await this.transactionManager.commit();
-            return this.constructUserObject(updatedUser);
+            return await this.constructUserObject(updatedUser);
         } catch (error: any) {
             if (transactionStarted) {
                 await this.transactionManager.rollback();
@@ -989,7 +1039,7 @@ export class AuthService implements IAuthService {
             });
 
             await this.transactionManager.commit();
-            return this.constructUserObject(updatedUser);
+            return await this.constructUserObject(updatedUser);
         } catch (error: any) {
             await this.transactionManager.rollback();
             console.error('SetupPassword Error :', {
@@ -1004,26 +1054,6 @@ export class AuthService implements IAuthService {
     }
 
     //TODO: Move this to the DTO layer for mapping. 
-    private constructUserObject(user: IUser): UserResponseDTO {
-        console.log("ConstructUserObject: ", { user });
-        return {
-            id: user._id as string,
-            first_name: user.first_name as string,
-            last_name: user.last_name as string,
-            // email and phone are commented out in UserResponseDTO for security
-            // email: user.email as string,
-            // phone: user.phone as string,
-            profile_image: user.profile_image as string,
-            roles: user.roles as UserRole[],
-            status: user.status as string,
-            dob: user.dob as string,
-            gender: user.gender as string,
-            address: user.location as string,
-            is_active: user.is_active as boolean,
-            created_at: user.created_at as string,
-            updated_at: user.updated_at as string,
-        };
-    }
 
 
     public async verifyToken(token: string): Promise<any> {

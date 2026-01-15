@@ -9,6 +9,8 @@ import { Console } from '../Utils/Console';
 import { FileManager } from '../../Core/Application/Entities/FileManager';
 import { UserKYC } from '../../Core/Application/Entities/UserKYC';
 import { Verification } from '../../Core/Application/Entities/Verification';
+import { Role } from '../../Core/Application/Entities/Role';
+import { Permission } from '../../Core/Application/Entities/Permission';
 
 @injectable()
 export class DatabaseInitializer {
@@ -20,6 +22,8 @@ export class DatabaseInitializer {
         // STEP 1: DEFINE THE CORRECT AND FINAL CREATION ORDER
         const creationOrder = [
             { entity: User, tableName: TableNames.USERS },
+            { entity: Role, tableName: TableNames.ROLES },
+            { entity: Permission, tableName: TableNames.PERMISSIONS },
             { entity: FileManager, tableName: TableNames.FILE_MANAGER },
             { entity: UserKYC, tableName: TableNames.USER_KYC },
             { entity: Verification, tableName: TableNames.VERIFICATIONS },
@@ -66,7 +70,59 @@ export class DatabaseInitializer {
             }
         }
 
+        // Create junction tables after main tables
+        await this.createJunctionTables();
+
         Console.info('All database tables initialized/updated successfully');
+    }
+
+    private async createJunctionTables(): Promise<void> {
+        try {
+            await this.transactionManager.beginTransaction();
+
+            // Create role_permissions junction table
+            const rolePermissionsExists = await this.checkTableExists(TableNames.ROLE_PERMISSIONS);
+            if (!rolePermissionsExists) {
+                await this.transactionManager.getClient().query(`
+                    CREATE TABLE IF NOT EXISTS "${TableNames.ROLE_PERMISSIONS}" (
+                        role_id UUID NOT NULL,
+                        permission_id UUID NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        PRIMARY KEY (role_id, permission_id),
+                        CONSTRAINT fk_role_permissions_role 
+                            FOREIGN KEY (role_id) REFERENCES "${TableNames.ROLES}" (_id) ON DELETE CASCADE,
+                        CONSTRAINT fk_role_permissions_permission 
+                            FOREIGN KEY (permission_id) REFERENCES "${TableNames.PERMISSIONS}" (_id) ON DELETE CASCADE
+                    );
+                `);
+                Console.info(`Junction table created: ${TableNames.ROLE_PERMISSIONS}`);
+            }
+
+            // Create user_roles junction table
+            const userRolesExists = await this.checkTableExists(TableNames.USER_ROLES);
+            if (!userRolesExists) {
+                await this.transactionManager.getClient().query(`
+                    CREATE TABLE IF NOT EXISTS "${TableNames.USER_ROLES}" (
+                        user_id UUID NOT NULL,
+                        role_id UUID NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        PRIMARY KEY (user_id, role_id),
+                        CONSTRAINT fk_user_roles_user 
+                            FOREIGN KEY (user_id) REFERENCES "${TableNames.USERS}" (_id) ON DELETE CASCADE,
+                        CONSTRAINT fk_user_roles_role 
+                            FOREIGN KEY (role_id) REFERENCES "${TableNames.ROLES}" (_id) ON DELETE CASCADE
+                    );
+                `);
+                Console.info(`Junction table created: ${TableNames.USER_ROLES}`);
+            }
+
+            await this.transactionManager.commit();
+            Console.info('Junction tables initialized successfully');
+        } catch (error: any) {
+            await this.transactionManager.rollback();
+            Console.error(error, { message: 'Failed to create junction tables' });
+            throw new DatabaseError(`Failed to create junction tables: ${error.message}`);
+        }
     }
 
     private async createTableIfNotExists(entity: Function, tableName: string): Promise<void> {

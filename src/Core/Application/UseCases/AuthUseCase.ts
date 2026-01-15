@@ -104,8 +104,8 @@ export class AuthUseCase implements IAuthUseCase {
 
     async refresh(dto: RefreshTokenDTO): Promise<{ accessToken: string; refreshToken: string; user: UserResponseDTO; }> {
         const response = await this._authenticationService.refreshAccessToken(dto.refresh_token);
-        const user = this._authHelpers.constructUserObject(response.user);
-        return { accessToken: response.accessToken, refreshToken: response.refreshToken, user };
+        // response.user is already a UserResponseDTO, no need to construct it again
+        return { accessToken: response.accessToken, refreshToken: response.refreshToken, user: response.user };
     }
 
     async login(dto: LoginDTO): Promise<{ accessToken: string; refreshToken: string; user: Partial<UserResponseDTO>; }> {

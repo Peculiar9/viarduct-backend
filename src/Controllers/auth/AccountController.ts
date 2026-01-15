@@ -23,9 +23,8 @@ export class AccountController extends BaseController {
   async createAdmin(@requestBody() dto: CreateUserDTO, @request() req: Request, @response() res: Response) {
     try {
       this.HandleEmptyReqBody(req);
-      this.HandleEmptyReqBody(req);
       const result = await this.accountUseCase.createAdmin(dto);
-      return this.success(res, result, "Admin created successfully");
+      return this.success(res, result, "Admin user created successfully");
     } catch (error: any) {
       return this.error(res, error.message, error.statusCode);
     }

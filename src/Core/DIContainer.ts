@@ -45,6 +45,14 @@ import { TwilioService } from '../Infrastructure/Services/TwilioService';
 import { ITwilioEmailService } from './Application/Interface/Services/ITwilioEmailService';
 import { TwilioEmailService } from '../Infrastructure/Services/TwilioEmailService';
 import { SMTPEmailService } from '../Infrastructure/Services/external-api-services/SMTPEmailService';
+import { RoleRepository } from '../Infrastructure/Repository/SQL/roles/RoleRepository';
+import { PermissionRepository } from '../Infrastructure/Repository/SQL/permissions/PermissionRepository';
+import { IRoleUseCase } from './Application/Interface/UseCases/IRoleUseCase';
+import { RoleUseCase } from './Application/UseCases/RoleUseCase';
+import { IPermissionUseCase } from './Application/Interface/UseCases/IPermissionUseCase';
+import { PermissionUseCase } from './Application/UseCases/PermissionUseCase';
+import { RolePermissionSeeder } from '../Infrastructure/Config/RolePermissionSeeder';
+import { UserSeeder } from '../Infrastructure/Config/UserSeeder';
 
 
 /**
@@ -115,6 +123,8 @@ export class DIContainer {
             }).inRequestScope();
 
         container.bind<DatabaseInitializer>(TYPES.DatabaseInitializer).to(DatabaseInitializer).inRequestScope();
+        container.bind<RolePermissionSeeder>(TYPES.RolePermissionSeeder).to(RolePermissionSeeder).inRequestScope();
+        container.bind<UserSeeder>(TYPES.UserSeeder).to(UserSeeder).inRequestScope();
 
         // Repositories
         container.bind<UserRepository>(TYPES.UserRepository).to(UserRepository);
@@ -122,11 +132,15 @@ export class DIContainer {
         container.bind<LinkedAccountsRepository>(TYPES.LinkedAccountsRepository).to(LinkedAccountsRepository).inRequestScope();
         container.bind<FileManagerRepository>(TYPES.FileManagerRepository).to(FileManagerRepository).inRequestScope();
         container.bind<VerificationRepository>(TYPES.VerificationRepository).to(VerificationRepository).inRequestScope();
+        container.bind<RoleRepository>(TYPES.RoleRepository).to(RoleRepository).inRequestScope();
+        container.bind<PermissionRepository>(TYPES.PermissionRepository).to(PermissionRepository).inRequestScope();
         container.bind<AuthServiceHelper>(TYPES.AuthServiceHelper).to(AuthServiceHelper).inRequestScope();
 
         // Use Cases
         container.bind<IAuthUseCase>(TYPES.AuthUseCase).to(AuthUseCase).inRequestScope();
         container.bind<IAccountUseCase>(TYPES.AccountUseCase).to(AccountUseCase).inRequestScope();
+        container.bind<IRoleUseCase>(TYPES.RoleUseCase).to(RoleUseCase).inRequestScope();
+        container.bind<IPermissionUseCase>(TYPES.PermissionUseCase).to(PermissionUseCase).inRequestScope();
 
         // Middleware
         container.bind<AuthMiddleware>(TYPES.AuthMiddleware).to(AuthMiddleware).inRequestScope();

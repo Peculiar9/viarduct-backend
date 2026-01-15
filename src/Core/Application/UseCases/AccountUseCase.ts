@@ -5,8 +5,8 @@ import { VerifyEmailDTO, IEmailVerificationResponse } from '../DTOs/AuthDTO';
 import { UserResponseDTO, UpdateUserDTO, CreateUserDTO, UserProfileResponseDTO, UpdateEmailDTO, UpdatePhoneDTO, RequestEmailUpdateDTO, RequestPhoneUpdateDTO } from '../DTOs/UserDTO';
 import { ResponseMessage } from '../Response/ResponseFormat';
 import { LoginResponseDTO } from '../DTOs/AuthDTO';
-import { IUser } from '../Interface/Entities/auth-and-user/IUser';
-import { AppError, ValidationError, UnprocessableEntityError, ServiceError } from '../Error/AppError';
+import { AuthMethod, IUser } from '../Interface/Entities/auth-and-user/IUser';
+import { AppError, ValidationError, UnprocessableEntityError, ServiceError, ConflictError, InternalServerError } from '../Error/AppError';
 import { Console } from '../../../Infrastructure/Utils/Console';
 import { IRegistrationService } from '../Interface/Services/IRegistrationService';
 import { IUserProfileService } from '../Interface/Services/IUserProfileService';
@@ -21,6 +21,9 @@ import { DatabaseIsolationLevel } from '../Enums/DatabaseIsolationLevel';
 import { ITwilioEmailService } from '../Interface/Services/ITwilioEmailService';
 import { ISMSService } from '../Interface/Services/ISMSService';
 import { UtilityService } from '../../Services/UtilityService';
+import { UserRole } from '../Enums/UserRole';
+import { UserStatus } from '../Enums/UserStatus';
+import { RoleRepository } from '../../../Infrastructure/Repository/SQL/roles/RoleRepository';
 
 @injectable()
 export class AccountUseCase implements IAccountUseCase {
@@ -29,6 +32,7 @@ export class AccountUseCase implements IAccountUseCase {
         @inject(TYPES.UserProfileService) private readonly _userProfileService: IUserProfileService,
         @inject(TYPES.UserRepository) private readonly _userRepository: UserRepository,
         @inject(TYPES.VerificationRepository) private readonly _verificationRepository: VerificationRepository,
+        @inject(TYPES.RoleRepository) private readonly _roleRepository: RoleRepository,
         @inject(TYPES.AuthHelpers) private readonly _authHelpers: AuthHelpers,
         @inject(TYPES.TransactionManager) private readonly _transactionManager: TransactionManager,
         @inject(TYPES.TwilioEmailService) private readonly _twilioEmailService: ITwilioEmailService,
@@ -70,8 +74,65 @@ export class AccountUseCase implements IAccountUseCase {
         if (!dto) {
             throw new ValidationError(ResponseMessage.INVALID_REQUEST_MESSAGE);
         }
-        // dto.roles = [UserRole.OPERATOR]; // Assuming caller handles role assignment or we do it here
-        return await this._registrationService.createUser(dto);
+        
+        let transactionStarted = false;
+        try {
+            await this._transactionManager.beginTransaction({
+                isolationLevel: DatabaseIsolationLevel.REPEATABLE_READ 
+            } as any);
+            transactionStarted = true;
+    
+            // Check if user already exists
+            const existingUser = await this._userRepository.findByEmail(dto.email);
+            if (existingUser) {
+                throw new ConflictError("User with this email already exists");
+            }
+    
+            // Create user object with admin role and verified status
+            const salt = CryptoService.generateValidSalt();
+            const hashedPassword = CryptoService.hashString(dto.password, salt);
+            const userSecret = UtilityService.generateUserSecret();
+    
+            const userData: Partial<IUser> = {
+                first_name: dto.first_name,
+                last_name: dto.last_name,
+                email: dto.email.toLowerCase(),
+                password: hashedPassword,
+                salt: salt,
+                user_secret: userSecret,
+                status: UserStatus.ACTIVE,
+                is_active: true,
+                email_verified: true,
+                auth_method: AuthMethod.PASSWORD,
+                roles: [UserRole.ADMIN], // Default to admin role
+            };
+    
+            const user = await this._userRepository.create(userData as IUser);
+            if (!user || !user._id) {
+                throw new InternalServerError("Failed to create user in database");
+            }
+    
+            // Assign admin role via role repository
+            const adminRole = await this._roleRepository.findByName(UserRole.ADMIN);
+            if (!adminRole) {
+                throw new InternalServerError("Admin role not found. Please ensure roles are seeded.");
+            }
+    
+            await this._roleRepository.assignRoleToUser(user._id, adminRole._id!);
+    
+            await this._transactionManager.commit();
+            
+            // Fetch user with roles and permissions
+            return await this._authHelpers.constructUserObject(user);
+        } catch (error: any) {
+            if (transactionStarted) {
+                await this._transactionManager.rollback();
+            }
+            if (error instanceof AppError) {
+                throw error;
+            }
+            throw new InternalServerError(`Failed to create admin user: ${error.message}`);
+        }
     }
 
     async updateProfile(userId: string, dto: UpdateUserDTO, existingUser: IUser): Promise<UserResponseDTO> {
