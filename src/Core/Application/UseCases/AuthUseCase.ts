@@ -12,6 +12,7 @@ import { IAuthenticationService } from "../Interface/Services/IAuthenticationSer
 import { AuthHelpers } from "../../../Infrastructure/Services/helpers/AuthHelpers";
 import { ITwilioEmailService } from "../Interface/Services/ITwilioEmailService";
 import { ITokenService } from "../Interface/Services/ITokenService";
+import { IWalletService } from "../Interface/Services/IWalletService";
 import { UserRepository } from "../../../Infrastructure/Repository/SQL/users/UserRepository";
 import { VerificationRepository } from "../../../Infrastructure/Repository/SQL/auth/VerificationRepository";
 import { TransactionManager } from "../../../Infrastructure/Repository/SQL/Abstractions/TransactionManager";
@@ -39,26 +40,27 @@ export class AuthUseCase implements IAuthUseCase {
         @inject(TYPES.UserRepository) private readonly _userRepository: UserRepository,
         @inject(TYPES.VerificationRepository) private readonly _verificationRepository: VerificationRepository,
         @inject(TYPES.TransactionManager) private readonly _transactionManager: TransactionManager,
+        @inject(TYPES.WalletService) private readonly _walletService: IWalletService,
     ) { }
 
     async forgotPassword(dto: ForgotPasswordDTO): Promise<{ message: string; email: string; }> {
         await this._authenticationService.requestPasswordReset(dto.email);
         return { message: 'Password reset email sent', email: dto.email };
     }
-    
+
     async resetPassword(dto: ResetPasswordDTO): Promise<{ message: string; }> {
         // Validate password confirmation
         if (dto.password !== dto.confirmPassword) {
             throw new ValidationError('Password and confirmation password do not match');
         }
-        
+
         await this._authenticationService.resetPassword(dto.token, dto.password);
         return { message: 'Password reset successfully' };
     }
 
     async changePassword(dto: ChangePasswordDTO, user: IUser): Promise<{ message: string; }> {
         // verify current password
-        const isPasswordValid  = await CryptoService.verifyHash(
+        const isPasswordValid = await CryptoService.verifyHash(
             dto.currentPassword,
             user.password as string,
             user.salt as string
@@ -74,8 +76,49 @@ export class AuthUseCase implements IAuthUseCase {
         });
         return { message: 'Password changed successfully' };
     }
-    getCurrentUser(user: IUser): Promise<UserResponseDTO> {
-        return Promise.resolve(this._authHelpers.constructUserObject(user));
+
+    async getCurrentUser(user: IUser): Promise<UserResponseDTO> {
+        // Get base user object
+        const userResponse = await this._authHelpers.constructUserObject(user);
+
+        // Get wallet with accounts if user has one
+        let walletData = null;
+        if (user._id) {
+            try {
+                const walletInfo = await this._walletService.getUserWalletWithAccounts(user._id);
+                if (walletInfo) {
+                    walletData = {
+                        id: walletInfo.wallet._id!,
+                        status: walletInfo.wallet.status,
+                        accounts: walletInfo.accounts.map(account => ({
+                            id: account._id!,
+                            currency_code: account.currency.code,
+                            currency_name: account.currency.name,
+                            currency_symbol: account.currency.symbol,
+                            currency_type: account.currency.type,
+                            balance: Number(account.balance),
+                            available_balance: Number(account.available_balance),
+                            locked_balance: Number(account.locked_balance),
+                            address: account.address,
+                            address_type: account.address_type,
+                            status: account.status,
+                            created_at: account.created_at || '',
+                            updated_at: account.updated_at || '',
+                        })),
+                        created_at: walletInfo.wallet.created_at || '',
+                        updated_at: walletInfo.wallet.updated_at || '',
+                    };
+                }
+            } catch (error: any) {
+                // Log error but don't fail the request if wallet fetch fails
+                console.error('Error fetching wallet for user:', error.message);
+            }
+        }
+
+        return {
+            ...userResponse,
+            wallet: walletData
+        };
     }
 
     async register(dto: UserRegistrationDTO): Promise<UserResponseDTO> {
@@ -176,6 +219,9 @@ export class AuthUseCase implements IAuthUseCase {
                 throw new ServiceError('Failed to create user');
             }
 
+            // Initialize wallet system for user (creates wallet + NGN and BTC accounts)
+            await this._walletService.initializeUserWallet(user._id);
+
             // Generate OTP code (always random, even in development)
             const otpCode = UtilityService.generate4Digit();
 
@@ -195,7 +241,7 @@ export class AuthUseCase implements IAuthUseCase {
             );
 
             await this._transactionManager.commit();
-            
+
             return this._authHelpers.formatEmailVerificationResponse(verification);
         } catch (error: any) {
             if (transactionStarted) await this._transactionManager.rollback();
@@ -222,7 +268,7 @@ export class AuthUseCase implements IAuthUseCase {
 
             // Get verification record by reference (reference uniquely identifies the verification)
             const verification = await this._verificationRepository.findByReference(dto.reference);
-            
+
             if (!verification || verification.type !== VerificationType.EMAIL) {
                 throw new UnprocessableEntityError('Invalid verification reference');
             }
@@ -254,7 +300,7 @@ export class AuthUseCase implements IAuthUseCase {
             if (!salt) {
                 throw new ValidationError('User salt is missing. Please try signing up again.');
             }
-            
+
             // Verify OTP code
             const hashedCode = CryptoService.hashString(dto.code, salt);
             if (hashedCode !== verification.otp!.code) {
@@ -331,18 +377,18 @@ export class AuthUseCase implements IAuthUseCase {
                 // Generate new salt if user doesn't have one (shouldn't happen)
                 const newSalt = CryptoService.generateValidSalt();
                 const hashedPassword = CryptoService.hashString(dto.password, newSalt);
-                
+
                 const updatedUser = await this._userRepository.update(user._id!, {
                     password: hashedPassword,
                     salt: newSalt,
                     status: UserStatus.ACTIVE,
                     is_active: true,
-                    roles: user.roles && user.roles.length > 0 ? user.roles: [UserRole.USER]
+                    roles: user.roles && user.roles.length > 0 ? user.roles : [UserRole.USER]
                 } as IUser);
-                
+
                 const { accessToken, refreshToken } = await this._tokenService.generateTokens(updatedUser);
                 await this._transactionManager.commit();
-                
+
                 return {
                     message: 'Password set successfully'
                     // accessToken,
@@ -350,7 +396,7 @@ export class AuthUseCase implements IAuthUseCase {
                     // user: this._authHelpers.constructUserObject(updatedUser)
                 };
             }
-            
+
             const hashedPassword = CryptoService.hashString(dto.password, salt);
 
             // Update user with new password and activate
@@ -383,4 +429,6 @@ export class AuthUseCase implements IAuthUseCase {
             throw new ServiceError(`Failed to set password: ${error.message}`);
         }
     }
+
+
 }

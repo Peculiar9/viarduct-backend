@@ -15,6 +15,24 @@ export const SEED_DATA = {
             is_active: true,
             role: 'superadmin'
         }
+    },
+    currencies: {
+        ngn: {
+            code: 'NGN',
+            name: 'Nigerian Naira',
+            symbol: '₦',
+            type: 'fiat',
+            decimals: 2,
+            is_active: true
+        },
+        btc: {
+            code: 'BTC',
+            name: 'Bitcoin',
+            symbol: '₿',
+            type: 'crypto',
+            decimals: 8,
+            is_active: true
+        }
     }
 };
 

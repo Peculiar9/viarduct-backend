@@ -48,11 +48,25 @@ import { SMTPEmailService } from '../Infrastructure/Services/external-api-servic
 import { RoleRepository } from '../Infrastructure/Repository/SQL/roles/RoleRepository';
 import { PermissionRepository } from '../Infrastructure/Repository/SQL/permissions/PermissionRepository';
 import { IRoleUseCase } from './Application/Interface/UseCases/IRoleUseCase';
+import { IKYCUseCase } from './Application/Interface/UseCases/IKYCUseCase';
+import { KYCUseCase } from './Application/UseCases/KYCUseCase';
 import { RoleUseCase } from './Application/UseCases/RoleUseCase';
 import { IPermissionUseCase } from './Application/Interface/UseCases/IPermissionUseCase';
 import { PermissionUseCase } from './Application/UseCases/PermissionUseCase';
 import { RolePermissionSeeder } from '../Infrastructure/Config/RolePermissionSeeder';
 import { UserSeeder } from '../Infrastructure/Config/UserSeeder';
+import { CurrencyRepository } from '../Infrastructure/Repository/SQL/wallet/CurrencyRepository';
+import { CurrencySeeder } from '../Infrastructure/Config/CurrencySeeder';
+import { WalletRepository } from '../Infrastructure/Repository/SQL/wallet/WalletRepository';
+import { WalletAccountRepository } from '../Infrastructure/Repository/SQL/wallet/WalletAccountRepository';
+import { WalletService } from '../Infrastructure/Services/WalletService';
+import { IWalletService } from './Application/Interface/Services/IWalletService';
+import { PaystackService } from '../Infrastructure/Services/payment/PaystackService';
+import { IPaystackService } from './Application/Interface/Services/IPaystackService';
+import { PaymentUseCase } from './Application/UseCases/PaymentUseCase';
+import { IPaymentUseCase } from './Application/UseCases/PaymentUseCase';
+import { TransactionRepository } from '../Infrastructure/Repository/SQL/payment/TransactionRepository';
+import { HttpClientFactory } from '../Infrastructure/Http/HttpClientFactory';
 
 
 /**
@@ -116,6 +130,9 @@ export class DIContainer {
         // Helpers
         container.bind<AWSFileFormatterHelper>(TYPES.AWSFileFormatterHelper).to(AWSFileFormatterHelper).inSingletonScope();
 
+        // HTTP Client Factory
+        container.bind<HttpClientFactory>(TYPES.HttpClientFactory).to(HttpClientFactory).inSingletonScope();
+
         container.bind<TransactionManager>(TYPES.TransactionManager)
             .toDynamicValue((context) => {
                 const poolManager = context.container.get<ConnectionPoolManager>(TYPES.ConnectionPoolManager);
@@ -125,6 +142,7 @@ export class DIContainer {
         container.bind<DatabaseInitializer>(TYPES.DatabaseInitializer).to(DatabaseInitializer).inRequestScope();
         container.bind<RolePermissionSeeder>(TYPES.RolePermissionSeeder).to(RolePermissionSeeder).inRequestScope();
         container.bind<UserSeeder>(TYPES.UserSeeder).to(UserSeeder).inRequestScope();
+        container.bind<CurrencySeeder>(TYPES.CurrencySeeder).to(CurrencySeeder).inRequestScope();
 
         // Repositories
         container.bind<UserRepository>(TYPES.UserRepository).to(UserRepository);
@@ -134,6 +152,10 @@ export class DIContainer {
         container.bind<VerificationRepository>(TYPES.VerificationRepository).to(VerificationRepository).inRequestScope();
         container.bind<RoleRepository>(TYPES.RoleRepository).to(RoleRepository).inRequestScope();
         container.bind<PermissionRepository>(TYPES.PermissionRepository).to(PermissionRepository).inRequestScope();
+        container.bind<CurrencyRepository>(TYPES.CurrencyRepository).to(CurrencyRepository).inRequestScope();
+        container.bind<WalletRepository>(TYPES.WalletRepository).to(WalletRepository).inRequestScope();
+        container.bind<WalletAccountRepository>(TYPES.WalletAccountRepository).to(WalletAccountRepository).inRequestScope();
+        container.bind<TransactionRepository>(TYPES.TransactionRepository).to(TransactionRepository).inRequestScope();
         container.bind<AuthServiceHelper>(TYPES.AuthServiceHelper).to(AuthServiceHelper).inRequestScope();
 
         // Use Cases
@@ -141,6 +163,8 @@ export class DIContainer {
         container.bind<IAccountUseCase>(TYPES.AccountUseCase).to(AccountUseCase).inRequestScope();
         container.bind<IRoleUseCase>(TYPES.RoleUseCase).to(RoleUseCase).inRequestScope();
         container.bind<IPermissionUseCase>(TYPES.PermissionUseCase).to(PermissionUseCase).inRequestScope();
+        container.bind<IKYCUseCase>(TYPES.KYCUseCase).to(KYCUseCase).inRequestScope();
+        container.bind<IPaymentUseCase>(TYPES.PaymentUseCase).to(PaymentUseCase).inRequestScope();
 
         // Middleware
         container.bind<AuthMiddleware>(TYPES.AuthMiddleware).to(AuthMiddleware).inRequestScope();
@@ -150,6 +174,8 @@ export class DIContainer {
         container.bind<IFileService>(TYPES.FileService).to(FileService).inRequestScope();
         container.bind<ISMSService>(TYPES.SMSService).to(SMSService).inRequestScope();
         container.bind<IOTPService>(TYPES.OTPService).to(OTPService).inRequestScope();
+        container.bind<IWalletService>(TYPES.WalletService).to(WalletService).inRequestScope();
+        container.bind<IPaystackService>(TYPES.PaystackService).to(PaystackService).inRequestScope();
 
         container.bind<IEmailService>(TYPES.EmailService).to(EmailService).inRequestScope();
 

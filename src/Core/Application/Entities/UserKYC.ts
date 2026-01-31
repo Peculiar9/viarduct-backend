@@ -4,7 +4,7 @@ import { Column, Index, ForeignKey } from "../../../extensions/decorators";
 import { KYCStage, KYCStatus } from "../Interface/Entities/auth-and-user/IVerification";
 
 export class UserKYC implements IUserKYC {
-  @Column('UUID PRIMARY KEY DEFAULT gen_random_uuid()')
+  @Column('UUID PRIMARY KEY DEFAULT gen_random_uuid()') 
   _id?: string;
 
   @Index({ unique: true })
@@ -12,7 +12,8 @@ export class UserKYC implements IUserKYC {
   @Column('UUID NOT NULL')
   user_id: string;
 
-  @Column('VARCHAR(32) NOT NULL DEFAULT \'FACE_UPLOAD\'')
+  // In UserKYC.ts
+  @Column('VARCHAR(32) NOT NULL DEFAULT \'not-started\'')
   current_stage: KYCStage;
 
   @Column('VARCHAR(16) NOT NULL DEFAULT \'PENDING\'')

@@ -16,6 +16,7 @@ export enum TableNames {
     PAYMENTS = "payments",
     USER_KYC = "userkyc",
     PAYMENT_TRANSACTIONS = "paymenttransactions",
+    TRANSACTIONS = "transactions",
     CERTIFICATES = "certificates",
     DOCUMENTS = "documents",
     CONTACT_MESSAGES = 'contact_messages',
@@ -24,4 +25,8 @@ export enum TableNames {
     PERMISSIONS = 'permissions',
     ROLE_PERMISSIONS = 'role_permissions',
     USER_ROLES = 'user_roles',
+    // Wallet system tables
+    CURRENCIES = 'currencies',
+    WALLETS = 'wallets',
+    WALLET_ACCOUNTS = 'wallet_accounts',
 }

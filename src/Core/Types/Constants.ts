@@ -90,6 +90,7 @@ export const TYPES = {
     // KYC
     QuickVerifyService: Symbol.for('QuickVerifyService'),
     VerifyMeService: Symbol.for('VerifyMeService'),
+    KYCUseCase: Symbol.for('KYCUseCase'),
 
     // Role and Permission Management
     RoleRepository: Symbol.for('RoleRepository'),
@@ -98,6 +99,18 @@ export const TYPES = {
     PermissionUseCase: Symbol.for('PermissionUseCase'),
     RolePermissionSeeder: Symbol.for('RolePermissionSeeder'),
     UserSeeder: Symbol.for('UserSeeder'),
+
+    // Wallet System
+    CurrencyRepository: Symbol.for('CurrencyRepository'),
+    CurrencySeeder: Symbol.for('CurrencySeeder'),
+    WalletRepository: Symbol.for('WalletRepository'),
+    WalletAccountRepository: Symbol.for('WalletAccountRepository'),
+    WalletService: Symbol.for('WalletService'),
+
+    // Payment System
+    PaystackService: Symbol.for('PaystackService'),
+    PaymentUseCase: Symbol.for('PaymentUseCase'),
+    TransactionRepository: Symbol.for('TransactionRepository'),
 } as const;
 
 export const APP_VERSION = 'v1';

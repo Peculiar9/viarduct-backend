@@ -152,20 +152,46 @@ export class UserKYCRepository extends BaseRepository<UserKYC> implements IRepos
        SET current_stage = $1, status = $2, last_updated = NOW(), failure_reason = NULL, stage_metadata = '{}'::jsonb
        WHERE user_id = $3
        RETURNING *`,
-      [KYCStage.FACE_UPLOAD, KYCStatus.PENDING, userId]
+      // [KYCStage.FACE_UPLOAD, KYCStatus.PENDING, userId]
     );
-    return result.rows[0] as unknown as UserKYC || null;
+    return result.rows[0] as unknown as UserKYC || null; 
   }
 
-  async createOrUpdate(userId: string, initialStage: KYCStage = KYCStage.FACE_UPLOAD): Promise<UserKYC> {
-    // Upsert logic: insert if not exists, else return existing
-    const result = await this.executeQuery<UserKYC>(
-      `INSERT INTO ${this.tableName} (user_id, current_stage, status, last_updated, stage_metadata)
-       VALUES ($1, $2, $3, NOW(), '{}'::jsonb)
-       ON CONFLICT (user_id) DO UPDATE SET last_updated = NOW()
-       RETURNING *`,
-      [userId, initialStage, KYCStatus.PENDING]
-    );
-    return result.rows[0] as unknown as UserKYC;
+  // async createOrUpdate(userId: string, initialStage: KYCStage = KYCStage.FACE_UPLOAD): Promise<UserKYC> {
+  //   // Upsert logic: insert if not exists, else return existing
+  //   const result = await this.executeQuery<UserKYC>(
+  //     `INSERT INTO ${this.tableName} (user_id, current_stage, status, last_updated, stage_metadata)
+  //      VALUES ($1, $2, $3, NOW(), '{}'::jsonb)
+  //      ON CONFLICT (user_id) DO UPDATE SET last_updated = NOW()
+  //      RETURNING *`,
+  //     [userId, initialStage, KYCStatus.PENDING]
+  //   );
+  //   return result.rows[0] as unknown as UserKYC; 
+  // }
+
+  /**
+   * Check if an identity value (BVN/NIN) already exists in any user's KYC metadata
+   * @param identityType The type of identity (BVN or NIN)
+   * @param identityValue The identity value to check
+   * @param excludeUserId Optional user ID to exclude from the check (for updates)
+   * @returns The UserKYC record if found, null otherwise
+   */
+  async findByIdentityValue(identityType: string, identityValue: string, excludeUserId?: string): Promise<UserKYC | null> {
+    let query = `
+      SELECT * FROM ${this.tableName}
+      WHERE stage_metadata->'identity_verification'->>'identity_value' = $1
+        AND stage_metadata->'identity_verification'->>'identity_type' = $2
+    `;
+    const params: any[] = [identityValue, identityType];
+    
+    if (excludeUserId) {
+      query += ` AND user_id != $3`;
+      params.push(excludeUserId);
+    }
+    
+    query += ` LIMIT 1`;
+    
+    const result = await this.executeQuery<UserKYC>(query, params);
+    return result.rows[0] as unknown as UserKYC || null;
   }
 }

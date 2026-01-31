@@ -51,6 +51,8 @@ export interface IUser{
     auth_method: AuthMethod | string;
     
     created_at: string;
+    has_completed_kyc?: boolean;
+    kyc_stage?: string;
     updated_at: string;
     __v: number;
 }

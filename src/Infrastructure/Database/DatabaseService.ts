@@ -5,6 +5,7 @@ import { TYPES } from '../../Core/Types/Constants';
 import { DatabaseInitializer } from '../Config/DatabaseInitializer';
 import { RolePermissionSeeder } from '../Config/RolePermissionSeeder';
 import { UserSeeder } from '../Config/UserSeeder';
+import { CurrencySeeder } from '../Config/CurrencySeeder';
 import { Console } from '../Utils/Console';
 
 @injectable()
@@ -23,6 +24,10 @@ export class DatabaseService {
             // Initialize tables
             const databaseInitializer = container.get<DatabaseInitializer>(TYPES.DatabaseInitializer);
             await databaseInitializer.initializeTables();
+            
+            // Seed currencies (must be before wallets)
+            const currencySeeder = container.get<CurrencySeeder>(TYPES.CurrencySeeder);
+            await currencySeeder.seed();
             
             // Seed roles and permissions
             const rolePermissionSeeder = container.get<RolePermissionSeeder>(TYPES.RolePermissionSeeder);

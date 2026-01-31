@@ -54,4 +54,22 @@ export interface IKYCUseCase {
    * @returns The final, completed KYC record.
    */
   addPaymentMethod(userId: string, paymentToken: string): Promise<IUserKYC>;
+
+  /**
+   * Stage: PERSONAL_INFO
+   * Collects and saves user's personal information (name, DOB, location).
+   * @param userId The ID of the user.
+   * @param dto Personal information data.
+   * @returns The updated KYC progress record.
+   */
+  addPersonalInfo(userId: string, dto: any): Promise<IUserKYC>;
+
+  /**
+   * Stage: IDENTITY_VERIFICATION
+   * Verifies user's identity using BVN or NIN.
+   * @param userId The ID of the user.
+   * @param dto Identity verification data (type and value).
+   * @returns The updated KYC progress record.
+   */
+  verifyIdentity(userId: string, dto: any): Promise<IUserKYC>;
 }

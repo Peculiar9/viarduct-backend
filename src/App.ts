@@ -12,6 +12,8 @@ import './Controllers/auth/AuthController';
 import './Controllers/media/MediaController';
 import './Controllers/role/RoleController';
 import './Controllers/permission/PermissionController';
+import './Controllers/kyc/KYCController';
+import './Controllers/payment/PaystackPaymentController';
 
 
 import { DIContainer } from './Core/DIContainer';

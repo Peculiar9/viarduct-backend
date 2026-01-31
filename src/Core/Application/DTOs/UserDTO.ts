@@ -204,15 +204,52 @@ export interface UserResponseDTO {
 }
 
 // Enhanced Profile DTOs for API Documentation Compliance
-export interface PersonalInfoDTO {
+export class PersonalInfoDTO {
+  @IsNotEmpty({ message: 'First name is required' })
+  @IsString({ message: 'First name must be a string' })
   first_name: string;
+
+  @IsNotEmpty({ message: 'Last name is required' })
+  @IsString({ message: 'Last name must be a string' })
   last_name: string;
-  email: string;
-  phone: string;
+
+  @IsOptional()
+  @IsString({ message: 'Date of birth must be a string' })
   date_of_birth?: string;
-  address?: string;
-  profile_image?: string;
-  join_date?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Country code must be a string' })
+  country_code?: string;
+
+  @IsNotEmpty({ message: 'Country is required' })
+  @IsString({ message: 'Country must be a string' })
+  country?: string;
+
+  @IsNotEmpty({ message: 'State is required' })
+  @IsString({ message: 'State must be a string' })
+  state?: string;
+
+  @IsNotEmpty({ message: 'State code is required' })
+  @IsString({ message: 'State code must be a string' })
+  state_code?: string;
+}
+
+export class IdentityVerificationDTO {
+  @IsNotEmpty({ message: 'Identity type is required' })
+  @IsString({ message: 'Identity type must be a string' })
+  @IsEnum(['BVN', 'NIN'], { message: 'Identity type must be either BVN or NIN' })
+  type: string;
+
+  @IsNotEmpty({ message: 'Identity value is required' })
+  @IsString({ message: 'Identity value must be a string' })
+  value: string;
+}
+
+export interface KYCResponseDTO {
+  status: 'success';
+  message: string;
+  currentStage: string;
+  nextStage: string;
 }
 
 export interface BusinessInfoDTO {
@@ -262,6 +299,51 @@ export interface OAuthDTO {
   state: string
 }
 
+export interface WalletAccountResponseDTO {
+  id: string;
+  currency_code: string;
+  currency_name: string;
+  currency_symbol: string;
+  currency_type: 'fiat' | 'crypto';
+  balance: number;
+  available_balance: number;
+  locked_balance: number;
+  address?: string | null;
+  address_type?: string | null;
+  status: 'active' | 'suspended';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WalletResponseDTO {
+  id: string;
+  status: 'active' | 'suspended' | 'frozen';
+  accounts: WalletAccountResponseDTO[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserResponseDTO {
+  id: string;
+  first_name: string;
+  last_name: string;
+  // email?: string;
+  // phone: string;
+  profile_image?: string;
+  roles: string[];
+  permissions?: string[];
+  status: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  dob?: string;
+  address?: string;
+  gender?: string;
+  reference?: string | null | undefined;
+  expiry?: number | null | undefined;
+  stage_meta_data?: any;
+  wallet?: WalletResponseDTO | null;  // Add wallet field
+}
 
 export class createAdminUserDTO {
   @IsNotEmpty({ message: 'First name is required' })

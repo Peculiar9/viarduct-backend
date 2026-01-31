@@ -7,7 +7,7 @@ import { Column, CompositeIndex,  Index, IndexType } from '../../../extensions/d
 import { UserStatus } from '../Enums/UserStatus';
 import { UserRegistrationDTO } from '../DTOs/AuthDTOV2';
 import CryptoService from '../../Services/CryptoService';
-
+import { KYCStage } from '../Interface/Entities/auth-and-user/IVerification';
 
 @CompositeIndex(['first_name', 'last_name'])
 export class User implements IUser {
@@ -75,6 +75,16 @@ export class User implements IUser {
 
     @Column('VARCHAR(255) DEFAULT NULL')
     public country_code: string;
+
+
+
+    // country
+    @Column('VARCHAR(255) DEFAULT NULL')
+    public country: string;
+
+    // state
+    @Column('VARCHAR(255) DEFAULT NULL')
+    public state: string;
 
     @Column('VARCHAR(255) DEFAULT NULL')
     public international_phone: string;
@@ -161,6 +171,19 @@ export class User implements IUser {
     @Index({unique: false})
     @Column('TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP')
     public created_at: string;
+
+
+    @Index({unique:false})
+    @Column('BOOLEAN DEFAULT false')
+    public has_completed_kyc: boolean;
+    
+    @Index({unique:false})
+    @Column('VARCHAR(50) DEFAULT \'not-started\'')
+    public kyc_stage: KYCStage;
+
+    // state_code column
+    @Column('VARCHAR(255) DEFAULT NULL')
+    public state_code: string;
 
     @Index({unique: false})
     @Column('TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP')

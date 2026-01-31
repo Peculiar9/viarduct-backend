@@ -32,13 +32,19 @@ export interface IUserKYC {
 
 
 export enum KYCStage {
-    EMAIL_VERIFICATION = 'email-verification',
-    PHONE_VERIFICATION = 'phone-verification',
-    FACE_UPLOAD = 'face-upload',
-    LICENSE_UPLOAD = 'license-upload',
-    FACE_COMPARISON = 'face-comparison',
-    DETAILS_VERIFICATION = 'details-verification',
-    PAYMENT_METHOD = 'payment-method',
+    // EMAIL_VERIFICATION = 'email-verification',
+    // PHONE_VERIFICATION = 'phone-verification',
+    // FACE_UPLOAD = 'face-upload',
+    // LICENSE_UPLOAD = 'license-upload',
+    // FACE_COMPARISON = 'face-comparison',
+    // DETAILS_VERIFICATION = 'details-verification',
+    // PAYMENT_METHOD = 'payment-method',
+    // COMPLETED = 'completed'
+    NOT_STARTED = 'not-started',
+    PERSONAL_INFO = 'personal-info',        
+    IDENTITY_VERIFICATION = 'identity-verification',  
+    LIVENESS_VERIFICATION = 'liveness-verification',   
+    REVIEW = 'review',                      
     COMPLETED = 'completed'
   }
   

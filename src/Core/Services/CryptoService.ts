@@ -7,7 +7,7 @@ export class CryptoService {
     }
 
     public static hashString(password: string, salt: string): string {
-        return CryptoJS.HmacSHA256(password, salt).toString();
+        return CryptoJS.HmacSHA256(password, salt).toString(); 
     }
     
     public static generateValidSalt(): string {

@@ -137,9 +137,8 @@ export abstract class BaseRepository<T> implements IRepository<T> {
 
         for (const [key, value] of Object.entries(entity)) {
             if (value === undefined) continue;
-            
-            // const columnName = UtilityService.toSnakeCase(key);
-            columns.push(key);
+            // Quote column names to preserve case and handle special characters
+            columns.push(`"${key}"`);
             values.push(value);
             placeholders.push(`$${parameterIndex}`);
             parameterIndex++;
@@ -164,7 +163,8 @@ export abstract class BaseRepository<T> implements IRepository<T> {
         let parameterIndex = 1;
 
         for (const [key, value] of Object.entries(predicate)) {
-            conditions.push(`${key} = $${parameterIndex}`);
+            // Quote column names to preserve case and handle special characters
+            conditions.push(`"${key}" = $${parameterIndex}`);
             values.push(value);
             parameterIndex++;
         }
@@ -188,11 +188,12 @@ export abstract class BaseRepository<T> implements IRepository<T> {
     } {
         const updates: string[] = [];
         const values: any[] = [];
-        let parameterIndex = 1;
+        let parameterIndex = 1; 
 
         for (const [key, value] of Object.entries(entity)) {
-            if (key !== 'id' && value !== undefined) {
-                updates.push(`${key} = $${parameterIndex}`);
+            if (key !== 'id' && key !== '_id' && value !== undefined && key !== 'updated_at' ) {
+                // Quote column names to preserve case and handle special characters
+                updates.push(`"${key}" = $${parameterIndex}`);
                 values.push(value);
                 parameterIndex++;
             }

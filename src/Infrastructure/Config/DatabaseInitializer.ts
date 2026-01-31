@@ -11,6 +11,10 @@ import { UserKYC } from '../../Core/Application/Entities/UserKYC';
 import { Verification } from '../../Core/Application/Entities/Verification';
 import { Role } from '../../Core/Application/Entities/Role';
 import { Permission } from '../../Core/Application/Entities/Permission';
+import { Currency } from '../../Core/Application/Entities/Currency';
+import { Wallet } from '../../Core/Application/Entities/Wallet';
+import { WalletAccount } from '../../Core/Application/Entities/WalletAccount';
+import { Transaction } from '../../Core/Application/Entities/Transaction';
 
 @injectable()
 export class DatabaseInitializer {
@@ -24,6 +28,10 @@ export class DatabaseInitializer {
             { entity: User, tableName: TableNames.USERS },
             { entity: Role, tableName: TableNames.ROLES },
             { entity: Permission, tableName: TableNames.PERMISSIONS },
+            { entity: Currency, tableName: TableNames.CURRENCIES },
+            { entity: Wallet, tableName: TableNames.WALLETS },
+            { entity: WalletAccount, tableName: TableNames.WALLET_ACCOUNTS },
+            { entity: Transaction, tableName: TableNames.TRANSACTIONS },
             { entity: FileManager, tableName: TableNames.FILE_MANAGER },
             { entity: UserKYC, tableName: TableNames.USER_KYC },
             { entity: Verification, tableName: TableNames.VERIFICATIONS },
@@ -114,6 +122,37 @@ export class DatabaseInitializer {
                     );
                 `);
                 Console.info(`Junction table created: ${TableNames.USER_ROLES}`);
+            }
+
+            // Add unique constraint for wallet_accounts (one account per currency per wallet)
+            const walletAccountsExists = await this.checkTableExists(TableNames.WALLET_ACCOUNTS);
+            if (walletAccountsExists) {
+                try {
+                    // Check if constraint already exists
+                    const constraintCheckQuery = `
+                        SELECT constraint_name 
+                        FROM information_schema.table_constraints 
+                        WHERE table_name = $1 
+                        AND constraint_name = 'unique_wallet_currency';
+                    `;
+                    const { rows } = await this.transactionManager.getClient().query(constraintCheckQuery, [TableNames.WALLET_ACCOUNTS]);
+                    
+                    if (rows.length === 0) {
+                        await this.transactionManager.getClient().query(`
+                            ALTER TABLE "${TableNames.WALLET_ACCOUNTS}"
+                            ADD CONSTRAINT unique_wallet_currency 
+                            UNIQUE (wallet_id, currency_id);
+                        `);
+                        Console.info(`Unique constraint added to: ${TableNames.WALLET_ACCOUNTS}`);
+                    } else {
+                        Console.info(`Unique constraint already exists on: ${TableNames.WALLET_ACCOUNTS}`);
+                    }
+                } catch (error: any) {
+                    // Constraint might already exist or table might not exist yet
+                    if (!error.message.includes('already exists') && !error.message.includes('does not exist')) {
+                        Console.error(error, { message: `Failed to add unique constraint to ${TableNames.WALLET_ACCOUNTS}` });
+                    }
+                }
             }
 
             await this.transactionManager.commit();
@@ -220,8 +259,11 @@ export class DatabaseInitializer {
                 const columnName = column.split(' ')[0].replace(/"/g, '');
                 const columnType = column.split(' ').slice(1).join(' ');
 
-                // Check if column exists
-                const existingColumn = currentColumns.find(c => c.column_name === columnName);
+                // Check if column exists (case-insensitive comparison)
+                // PostgreSQL's information_schema returns lowercase, but we store with quotes (case-sensitive)
+                const existingColumn = currentColumns.find(c => 
+                    c.column_name.toLowerCase() === columnName.toLowerCase()
+                );
 
                 if (!existingColumn) {
                     // Add new column
@@ -229,6 +271,8 @@ export class DatabaseInitializer {
                     Console.info(`Adding new column`, { tableName, columnName, columnType });
                     await this.transactionManager.getClient().query(addColumnQuery);
                     Console.info(`Column added successfully`, { tableName, columnName });
+                } else {
+                    Console.info(`Column already exists, skipping`, { tableName, columnName: existingColumn.column_name });
                 }
                 // Note: We're not modifying existing columns to avoid data loss
             }
