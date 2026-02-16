@@ -343,6 +343,7 @@ export interface UserResponseDTO {
   expiry?: number | null | undefined;
   stage_meta_data?: any;
   wallet?: WalletResponseDTO | null;  // Add wallet field
+  orders?: any[];  // Add orders field - user's trading orders
 }
 
 export class createAdminUserDTO {

@@ -29,4 +29,9 @@ export enum TableNames {
     CURRENCIES = 'currencies',
     WALLETS = 'wallets',
     WALLET_ACCOUNTS = 'wallet_accounts',
+    // Trading system tables
+    TRADING_RATES = 'trading_rates',
+    BITCOIN_TRANSACTIONS = 'bitcoin_transactions',
+    TRADING_ORDERS = 'trading_orders',
+    UTXOS = 'utxos',
 }

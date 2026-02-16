@@ -13,6 +13,7 @@ import { AuthHelpers } from "../../../Infrastructure/Services/helpers/AuthHelper
 import { ITwilioEmailService } from "../Interface/Services/ITwilioEmailService";
 import { ITokenService } from "../Interface/Services/ITokenService";
 import { IWalletService } from "../Interface/Services/IWalletService";
+import { ITradingOrderService } from "../Interface/Services/ITradingOrderService";
 import { UserRepository } from "../../../Infrastructure/Repository/SQL/users/UserRepository";
 import { VerificationRepository } from "../../../Infrastructure/Repository/SQL/auth/VerificationRepository";
 import { TransactionManager } from "../../../Infrastructure/Repository/SQL/Abstractions/TransactionManager";
@@ -41,6 +42,7 @@ export class AuthUseCase implements IAuthUseCase {
         @inject(TYPES.VerificationRepository) private readonly _verificationRepository: VerificationRepository,
         @inject(TYPES.TransactionManager) private readonly _transactionManager: TransactionManager,
         @inject(TYPES.WalletService) private readonly _walletService: IWalletService,
+        @inject(TYPES.TradingOrderService) private readonly _tradingOrderService: ITradingOrderService,
     ) { }
 
     async forgotPassword(dto: ForgotPasswordDTO): Promise<{ message: string; email: string; }> {
@@ -115,9 +117,38 @@ export class AuthUseCase implements IAuthUseCase {
             }
         }
 
+        // Get user's trading orders
+        let ordersData: any[] = [];
+        if (user._id) {
+            try {
+                const orders = await this._tradingOrderService.getUserOrders(user._id, 50, 0);
+                ordersData = orders.map(order => ({
+                    id: order._id,
+                    type: order.type,
+                    crypto_type: order.crypto_type,
+                    crypto_amount: Number(order.crypto_amount),
+                    fiat_amount: Number(order.fiat_amount),
+                    rate_used: Number(order.rate_used),
+                    network_fee: order.network_fee ? Number(order.network_fee) : null,
+                    status: order.status,
+                    payment_reference: order.payment_reference,
+                    bitcoin_tx_hash: order.bitcoin_tx_hash,
+                    bitcoin_tx_hash_outgoing: order.bitcoin_tx_hash_outgoing,
+                    failure_reason: order.failure_reason,
+                    created_at: order.created_at,
+                    updated_at: order.updated_at,
+                    completed_at: order.completed_at
+                }));
+            } catch (error: any) {
+                // Log error but don't fail the request if orders fetch fails
+                console.error('Error fetching orders for user:', error.message);
+            }
+        }
+
         return {
             ...userResponse,
-            wallet: walletData
+            wallet: walletData,
+            orders: ordersData
         };
     }
 

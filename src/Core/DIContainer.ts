@@ -67,6 +67,29 @@ import { PaymentUseCase } from './Application/UseCases/PaymentUseCase';
 import { IPaymentUseCase } from './Application/UseCases/PaymentUseCase';
 import { TransactionRepository } from '../Infrastructure/Repository/SQL/payment/TransactionRepository';
 import { HttpClientFactory } from '../Infrastructure/Http/HttpClientFactory';
+import { BitcoinWalletService } from '../Infrastructure/Services/bitcoin/BitcoinWalletService';
+import { IBitcoinWalletService } from './Application/Interface/Services/IBitcoinWalletService';
+import { BlockchainService } from '../Infrastructure/Services/bitcoin/BlockchainService';
+import { IBlockchainService } from './Application/Interface/Services/IBlockchainService';
+import { TradingRateRepository } from '../Infrastructure/Repository/SQL/trading/TradingRateRepository';
+import { ITradingRateRepository } from './Application/Interface/Repositories/ITradingRateRepository';
+import { TradingRateService } from '../Infrastructure/Services/trading/TradingRateService';
+import { ITradingRateService } from './Application/Interface/Services/ITradingRateService';
+import { BitcoinTransactionRepository } from '../Infrastructure/Repository/SQL/bitcoin/BitcoinTransactionRepository';
+import { BitcoinWebhookService } from '../Infrastructure/Services/bitcoin/BitcoinWebhookService';
+import { IBitcoinWebhookService } from './Application/Interface/Services/IBitcoinWebhookService';
+import { TradingOrderRepository } from '../Infrastructure/Repository/SQL/trading/TradingOrderRepository';
+import { ITradingOrderRepository } from './Application/Interface/Repositories/ITradingOrderRepository';
+import { TradingOrderService } from '../Infrastructure/Services/trading/TradingOrderService';
+import { ITradingOrderService } from './Application/Interface/Services/ITradingOrderService';
+import { OrderCompletionJob } from '../Infrastructure/Services/trading/OrderCompletionJob';
+import { IOrderCompletionJob } from './Application/Interface/Services/IOrderCompletionJob';
+import { BitcoinTransactionService } from '../Infrastructure/Services/bitcoin/BitcoinTransactionService';
+import { IBitcoinTransactionService } from './Application/Interface/Services/IBitcoinTransactionService';
+import { UTXORepository } from '../Infrastructure/Repository/SQL/UTXORepository';
+import { IUTXORepository } from './Application/Interface/Repositories/IUTXORepository';
+import { UTXOManagerService } from '../Infrastructure/Services/bitcoin/UTXOManagerService';
+import { IUTXOManagerService } from './Application/Interface/Services/IUTXOManagerService';
 
 
 /**
@@ -156,6 +179,10 @@ export class DIContainer {
         container.bind<WalletRepository>(TYPES.WalletRepository).to(WalletRepository).inRequestScope();
         container.bind<WalletAccountRepository>(TYPES.WalletAccountRepository).to(WalletAccountRepository).inRequestScope();
         container.bind<TransactionRepository>(TYPES.TransactionRepository).to(TransactionRepository).inRequestScope();
+        container.bind<ITradingRateRepository>(TYPES.TradingRateRepository).to(TradingRateRepository).inRequestScope();
+        container.bind<ITradingOrderRepository>(TYPES.TradingOrderRepository).to(TradingOrderRepository).inRequestScope();
+        container.bind<IUTXORepository>(TYPES.UTXORepository).to(UTXORepository).inRequestScope();
+        container.bind<IUTXOManagerService>(TYPES.UTXOManagerService).to(UTXOManagerService).inRequestScope();
         container.bind<AuthServiceHelper>(TYPES.AuthServiceHelper).to(AuthServiceHelper).inRequestScope();
 
         // Use Cases
@@ -175,8 +202,18 @@ export class DIContainer {
         container.bind<ISMSService>(TYPES.SMSService).to(SMSService).inRequestScope();
         container.bind<IOTPService>(TYPES.OTPService).to(OTPService).inRequestScope();
         container.bind<IWalletService>(TYPES.WalletService).to(WalletService).inRequestScope();
+        container.bind<IBitcoinWalletService>(TYPES.BitcoinWalletService).to(BitcoinWalletService).inRequestScope();
+        container.bind<IBlockchainService>(TYPES.BlockchainService).to(BlockchainService).inRequestScope();
         container.bind<IPaystackService>(TYPES.PaystackService).to(PaystackService).inRequestScope();
+        container.bind<ITradingRateService>(TYPES.TradingRateService).to(TradingRateService).inRequestScope();
+        container.bind<ITradingOrderService>(TYPES.TradingOrderService).to(TradingOrderService).inRequestScope();
 
+        // Repositories
+        container.bind<BitcoinTransactionRepository>(TYPES.BitcoinTransactionRepository).to(BitcoinTransactionRepository).inRequestScope();
+        // Services
+        container.bind<IBitcoinWebhookService>(TYPES.BitcoinWebhookService).to(BitcoinWebhookService).inRequestScope();
+        container.bind<IBitcoinTransactionService>(TYPES.BitcoinTransactionService).to(BitcoinTransactionService).inRequestScope();
+        container.bind<IOrderCompletionJob>(TYPES.OrderCompletionJob).to(OrderCompletionJob).inSingletonScope();
         container.bind<IEmailService>(TYPES.EmailService).to(EmailService).inRequestScope();
 
         container.bind<ITokenService>(TYPES.TokenService).to(TokenService).inRequestScope();
@@ -210,13 +247,13 @@ export class DIContainer {
 
         // Email Service Provider Selection
         const emailProvider = process.env.EMAIL_PROVIDER?.toLowerCase() || 'smtp';
-        
+
         if (emailProvider === 'sendgrid') {
             container.bind<string>(TYPES.SENDGRID_API_KEY).toConstantValue(process.env.SENDGRID_API_KEY || '');
             container.bind<string>(TYPES.SENDGRID_FROM_EMAIL).toConstantValue(process.env.SENDGRID_FROM_EMAIL || `noreply@${APP_NAME}.com`);
             container.bind<ITwilioEmailService>(TYPES.TwilioEmailService).to(TwilioEmailService).inSingletonScope();
             console.log('📧 Email Provider: SendGrid');
-            
+
             // Initialize email service to trigger verification
             try {
                 container.get<ITwilioEmailService>(TYPES.TwilioEmailService);
@@ -226,7 +263,7 @@ export class DIContainer {
         } else if (emailProvider === 'smtp') {
             container.bind<ITwilioEmailService>(TYPES.TwilioEmailService).to(SMTPEmailService).inSingletonScope();
             console.log('📧 Email Provider: SMTP');
-            
+
             // Initialize email service to trigger verification
             try {
                 container.get<ITwilioEmailService>(TYPES.TwilioEmailService);
@@ -238,7 +275,7 @@ export class DIContainer {
             console.warn(`⚠️ Unknown EMAIL_PROVIDER: ${emailProvider}. Defaulting to SMTP.`);
             container.bind<ITwilioEmailService>(TYPES.TwilioEmailService).to(SMTPEmailService).inSingletonScope();
             console.log('📧 Email Provider: SMTP (default)');
-            
+
             // Initialize email service to trigger verification
             try {
                 container.get<ITwilioEmailService>(TYPES.TwilioEmailService);

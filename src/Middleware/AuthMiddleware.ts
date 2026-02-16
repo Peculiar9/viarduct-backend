@@ -68,8 +68,19 @@ export class AuthMiddleware {
       if (token === 'undefined' || token === null || token === '' || !token) {
         throw new AuthenticationError(ResponseMessage.INVALID_TOKEN_MESSAGE);
       }
-      const user = await this.validateTokenAndUser(token, UserRole.USER);
+      // Remove the requiredRole parameter and check manually for admin/superadmin
+      const user = await this.validateTokenAndUser(token);
       console.log('user', user);
+      
+      // Check if user has admin or superadmin role
+      const hasAdminAccess = user?.roles?.some(role => 
+        role === UserRole.ADMIN || role === UserRole.SUPERADMIN
+      );
+      
+      if (!hasAdminAccess) {
+        throw new ForbiddenError(ResponseMessage.INSUFFICIENT_PRIVILEDGES_MESSAGE);
+      }
+      
       req.user = user;
       next();
     } catch (error: any) {

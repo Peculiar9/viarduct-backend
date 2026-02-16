@@ -48,23 +48,6 @@ export class WalletAccountRepository extends BaseRepository<IWalletAccount> {
         }
     }
 
-    async findByAddress(address: string): Promise<IWalletAccount | null> {
-        try {
-            const result = await this.executeQuery<IWalletAccount>(
-                `SELECT * FROM "${this.tableName}" WHERE address = $1`,
-                [address]
-            );
-            return (result.rows[0] as any) || null;
-        } catch (error: any) {
-            console.error('WalletAccountRepository::findByAddress(): ', {
-                message: error.message,
-                stack: error.stack,
-                tableName: this.tableName
-            });
-            throw error;
-        }
-    }
-
     async updateBalance(walletAccountId: string, newBalance: number, newAvailableBalance: number, newLockedBalance: number): Promise<IWalletAccount | null> {
         try {
             const query = `
@@ -260,6 +243,18 @@ export class WalletAccountRepository extends BaseRepository<IWalletAccount> {
             return result.rowCount || 0;
         } catch (error: any) {
             throw new DatabaseError(`Bulk wallet account deletion failed: ${error.message}`);
+        }
+    }
+
+    async findByAddress(address: string): Promise<IWalletAccount | null> {
+        try {
+            const result = await this.executeQuery<IWalletAccount>(
+                `SELECT * FROM "${this.tableName}" WHERE address = $1 LIMIT 1`,
+                [address]
+            );
+            return (result.rows[0] as any) || null;
+        } catch (error: any) {
+            throw new DatabaseError(`Failed to find wallet account by address: ${error.message}`);
         }
     }
 }

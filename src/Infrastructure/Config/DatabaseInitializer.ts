@@ -14,7 +14,11 @@ import { Permission } from '../../Core/Application/Entities/Permission';
 import { Currency } from '../../Core/Application/Entities/Currency';
 import { Wallet } from '../../Core/Application/Entities/Wallet';
 import { WalletAccount } from '../../Core/Application/Entities/WalletAccount';
+import { TradingRate } from '../../Core/Application/Entities/TradingRate';
+import { TradingOrder } from '../../Core/Application/Entities/TradingOrder';
 import { Transaction } from '../../Core/Application/Entities/Transaction';
+import { BitcoinTransaction } from '../../Core/Application/Entities/BitcoinTransaction';
+import { UTXO } from '../../Core/Application/Entities/UTXO';
 
 @injectable()
 export class DatabaseInitializer {
@@ -32,9 +36,13 @@ export class DatabaseInitializer {
             { entity: Wallet, tableName: TableNames.WALLETS },
             { entity: WalletAccount, tableName: TableNames.WALLET_ACCOUNTS },
             { entity: Transaction, tableName: TableNames.TRANSACTIONS },
+            { entity: TradingRate, tableName: TableNames.TRADING_RATES },
+            { entity: TradingOrder, tableName: TableNames.TRADING_ORDERS },
             { entity: FileManager, tableName: TableNames.FILE_MANAGER },
             { entity: UserKYC, tableName: TableNames.USER_KYC },
             { entity: Verification, tableName: TableNames.VERIFICATIONS },
+            { entity: BitcoinTransaction, tableName: TableNames.BITCOIN_TRANSACTIONS },
+            { entity: UTXO, tableName: TableNames.UTXOS },
         ];
 
         // STEP 2: PROCESS EACH TABLE INDIVIDUALLY TO ISOLATE FAILURES

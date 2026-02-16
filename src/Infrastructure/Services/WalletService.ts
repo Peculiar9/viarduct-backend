@@ -9,6 +9,7 @@ import { TYPES } from '../../Core/Types/Constants';
 import { ValidationError, ServiceError } from '../../Core/Application/Error/AppError';
 import { Console } from '../Utils/Console';
 import { ICurrency } from '@/Core/Application/Interface/Entities/wallet/ICurrency';
+import { IBitcoinWalletService } from '../../Core/Application/Interface/Services/IBitcoinWalletService';
 
 @injectable()
 export class WalletService implements IWalletService {
@@ -16,6 +17,7 @@ export class WalletService implements IWalletService {
         @inject(TYPES.WalletRepository) private readonly walletRepository: WalletRepository,
         @inject(TYPES.WalletAccountRepository) private readonly walletAccountRepository: WalletAccountRepository,
         @inject(TYPES.CurrencyRepository) private readonly currencyRepository: CurrencyRepository,
+        @inject(TYPES.BitcoinWalletService) private readonly bitcoinWalletService: IBitcoinWalletService,
     ) {}
 
     /**
@@ -263,6 +265,165 @@ export class WalletService implements IWalletService {
             };
         } catch (error: any) {
             Console.error(error, { message: 'Failed to credit user wallet', userId, amount });
+            throw error;
+        }
+    }
+
+    /**
+     * Generate or get Bitcoin address for user's BTC wallet account
+     */
+    async generateBitcoinAddress(userId: string): Promise<string> {
+        try {
+            // Get user's wallet
+            const wallet = await this.walletRepository.findByUserId(userId);
+            if (!wallet || !wallet._id) {
+                throw new ValidationError('Wallet not found for user');
+            }
+
+            // Get BTC currency
+            const btcCurrency = await this.currencyRepository.findByCode('BTC');
+            if (!btcCurrency || !btcCurrency._id) {
+                throw new ServiceError('BTC currency not found');
+            }
+
+            // Get or create BTC wallet account
+            let walletAccount = await this.walletAccountRepository.findByWalletIdAndCurrencyId(
+                wallet._id,
+                btcCurrency._id
+            );
+
+            if (!walletAccount) {
+                // Create BTC account if it doesn't exist
+                const accountData: Partial<IWalletAccount> = {
+                    wallet_id: wallet._id,
+                    currency_id: btcCurrency._id,
+                    balance: 0,
+                    available_balance: 0,
+                    locked_balance: 0,
+                    status: 'active'
+                };
+                walletAccount = await this.walletAccountRepository.create(accountData as IWalletAccount);
+            }
+
+            if (!walletAccount._id) {
+                throw new ServiceError('Failed to get or create wallet account');
+            }
+
+            // Generate or get Bitcoin address
+            const address = await this.bitcoinWalletService.getOrGenerateAddress(userId, walletAccount._id);
+            
+            return address;
+        } catch (error: any) {
+            Console.error(error, { message: 'Failed to generate Bitcoin address', userId });
+            throw error;
+        }
+    }
+
+    /**
+     * Create platform wallet (exchange's main wallet)
+     */
+    async createPlatformWallet(): Promise<IWallet> {
+        try {
+            // Check if platform wallet already exists
+            const existingWallet = await this.walletRepository.findPlatformWallet();
+            if (existingWallet) {
+                throw new ValidationError('Platform wallet already exists');
+            }
+
+            const walletData: Partial<IWallet> = {
+                user_id: null, // NULL for platform wallet
+                is_platform_wallet: true,
+                status: 'active'
+            };
+
+            const wallet = await this.walletRepository.create(walletData as IWallet);
+            Console.info('Platform wallet created', { walletId: wallet._id });
+            return wallet;
+        } catch (error: any) {
+            Console.error(error, { message: 'Failed to create platform wallet' });
+            throw error;
+        }
+    }
+
+    /**
+     * Get platform wallet with accounts and currency information
+     */
+    async getPlatformWalletWithAccounts(): Promise<{
+        wallet: IWallet;
+        accounts: Array<IWalletAccount & { currency: ICurrency }>;
+    } | null> {
+        try {
+            const wallet = await this.walletRepository.findPlatformWallet();
+            if (!wallet || !wallet._id) {
+                return null;
+            }
+
+            const walletAccounts = await this.walletAccountRepository.findByWalletId(wallet._id);
+
+            const accountsWithCurrency = await Promise.all(
+                walletAccounts.map(async (account) => {
+                    const currency = await this.currencyRepository.findById(account.currency_id);
+                    return {
+                        ...account,
+                        currency: currency!
+                    };
+                })
+            );
+
+            return {
+                wallet,
+                accounts: accountsWithCurrency
+            };
+        } catch (error: any) {
+            Console.error(error, { message: 'Failed to get platform wallet with accounts' });
+            throw error;
+        }
+    }
+
+    /**
+     * Initialize platform wallet system
+     * Creates platform wallet and wallet accounts (NGN and BTC) with BTC address
+     */
+    async initializePlatformWallet(): Promise<{
+        wallet: IWallet;
+        walletAccounts: IWalletAccount[];
+    }> {
+        try {
+            // Create platform wallet
+            const wallet = await this.createPlatformWallet();
+
+            // Create wallet accounts (NGN and BTC)
+            const walletAccounts = await this.createWalletAccountsForWallet(wallet._id!);
+
+            // Generate BTC address for platform wallet
+            const btcCurrency = await this.currencyRepository.findByCode('BTC');
+            if (!btcCurrency || !btcCurrency._id) {
+                throw new ServiceError('BTC currency not found');
+            }
+
+            const btcAccount = walletAccounts.find(account => account.currency_id === btcCurrency._id);
+
+            if (btcAccount && btcAccount._id) {
+                // Generate BTC address using BitcoinWalletService
+                // Use 'platform' as special identifier for platform wallet
+                const address = await this.bitcoinWalletService.getOrGenerateAddress(
+                    'platform', // Special identifier for platform wallet
+                    btcAccount._id
+                );
+                Console.info('Platform wallet BTC address generated', { address });
+            }
+
+            Console.info('Platform wallet initialized successfully', {
+                walletId: wallet._id,
+                accountCount: walletAccounts.length
+            });
+
+            return {
+                wallet,
+                walletAccounts
+            };
+        } catch (error: any) {
+            Console.error(error, { message: 'Failed to initialize platform wallet' });
             throw error;
         }
     }

@@ -106,11 +106,29 @@ export const TYPES = {
     WalletRepository: Symbol.for('WalletRepository'),
     WalletAccountRepository: Symbol.for('WalletAccountRepository'),
     WalletService: Symbol.for('WalletService'),
+    BitcoinWalletService: Symbol.for('BitcoinWalletService'),
+    BlockchainService: Symbol.for('BlockchainService'),
 
     // Payment System
     PaystackService: Symbol.for('PaystackService'),
     PaymentUseCase: Symbol.for('PaymentUseCase'),
     TransactionRepository: Symbol.for('TransactionRepository'),
+
+    // Trading System
+    TradingRateRepository: Symbol.for('TradingRateRepository'),
+    TradingRateService: Symbol.for('TradingRateService'),
+    TradingOrderRepository: Symbol.for('TradingOrderRepository'),
+    TradingOrderService: Symbol.for('TradingOrderService'),
+    OrderCompletionJob: Symbol.for('OrderCompletionJob'),
+
+    // Bitcoin System
+    BitcoinWebhookService: Symbol.for('BitcoinWebhookService'),
+    BitcoinTransactionRepository: Symbol.for('BitcoinTransactionRepository'),
+    BitcoinTransactionService: Symbol.for('BitcoinTransactionService'),
+    
+    // UTXO System
+    UTXORepository: Symbol.for('UTXORepository'),
+    UTXOManagerService: Symbol.for('UTXOManagerService'),
 } as const;
 
 export const APP_VERSION = 'v1';

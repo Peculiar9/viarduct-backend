@@ -49,5 +49,37 @@ export interface IWalletService {
         wallet: IWallet;
         walletAccount: IWalletAccount;
     }>;
+
+    /**
+     * Generate or get Bitcoin address for user's BTC wallet account
+     * @param userId User ID
+     * @returns Bitcoin address
+     */
+    generateBitcoinAddress(userId: string): Promise<string>;
+
+    /**
+     * Create platform wallet (exchange's main wallet)
+     * @returns Created platform wallet
+     */
+    createPlatformWallet(): Promise<IWallet>;
+
+    /**
+     * Get platform wallet with accounts and currency information
+     * @returns Platform wallet with accounts, or null if not found
+     */
+    getPlatformWalletWithAccounts(): Promise<{
+        wallet: IWallet;
+        accounts: Array<IWalletAccount & { currency: ICurrency }>;
+    } | null>;
+
+    /**
+     * Initialize platform wallet system
+     * Creates platform wallet and wallet accounts (NGN and BTC) with BTC address
+     * @returns Object containing wallet and wallet accounts
+     */
+    initializePlatformWallet(): Promise<{
+        wallet: IWallet;
+        walletAccounts: IWalletAccount[];
+    }>;
 }
 

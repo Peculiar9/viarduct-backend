@@ -38,14 +38,18 @@ import { Request, Response, NextFunction } from 'express';
 
 export function validationMiddleware(dtoClass: any) {
     return async (req: Request, res: Response, next: NextFunction) => {
-      try {        
+      try {
         const dtoObject = plainToInstance(dtoClass, req.body, {
             enableImplicitConversion: true,
+            exposeDefaultValues: true,
+            excludeExtraneousValues: false,
         });
 
-        // Validate the DTO instance - try without whitelist first
+        // Validate the DTO instance
         const errors: ValidationError[] = await validate(dtoObject, {
           skipMissingProperties: false,
+          whitelist: false,
+          forbidNonWhitelisted: false,
         });
         
         if (errors.length > 0) {

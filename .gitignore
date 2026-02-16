@@ -45,3 +45,7 @@ ehthumbs.db
 # Optional: Ignore specific temporary scripts if they are personal/debug only
 # debug-refresh-token.js
 # junkcode.ts
+
+.env
+generate-bitcoin-seed.ts
+
