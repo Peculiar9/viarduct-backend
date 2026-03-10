@@ -165,6 +165,114 @@ export class TradingOrderRepository extends BaseRepository<ITradingOrder> implem
         }
     }
 
+    /**
+     * Find orders for a user with filters (for /me/orders)
+     */
+    async findWithFiltersForUser(
+        userId: string,
+        filters: {
+            date_from?: string;
+            date_to?: string;
+            status?: TradingOrderStatus;
+            type?: TradingOrderType;
+            crypto_type?: string;
+        },
+        limit: number = 50,
+        offset: number = 0
+    ): Promise<ITradingOrder[]> {
+        try {
+            const conditions: string[] = ['user_id = $1'];
+            const values: any[] = [userId];
+            let paramIndex = 2;
+
+            if (filters.date_from) {
+                conditions.push(`created_at >= $${paramIndex}::timestamptz`);
+                values.push(filters.date_from);
+                paramIndex++;
+            }
+            if (filters.date_to) {
+                conditions.push(`created_at <= $${paramIndex}::timestamptz`);
+                values.push(filters.date_to);
+                paramIndex++;
+            }
+            if (filters.status) {
+                conditions.push(`status = $${paramIndex}`);
+                values.push(filters.status);
+                paramIndex++;
+            }
+            if (filters.type) {
+                conditions.push(`"type" = $${paramIndex}`);
+                values.push(filters.type);
+                paramIndex++;
+            }
+            if (filters.crypto_type) {
+                conditions.push(`crypto_type = $${paramIndex}`);
+                values.push(filters.crypto_type);
+                paramIndex++;
+            }
+
+            const query = `SELECT * FROM "${this.tableName}" WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+            values.push(limit, offset);
+
+            const result = await this.executeQuery<ITradingOrder>(query, values);
+            return result.rows as any[];
+        } catch (error: any) {
+            throw new DatabaseError(`Failed to find orders for user with filters: ${error.message}`);
+        }
+    }
+
+    /**
+     * Count orders for a user with filters (for /me/orders pagination)
+     */
+    async countWithFiltersForUser(
+        userId: string,
+        filters: {
+            date_from?: string;
+            date_to?: string;
+            status?: TradingOrderStatus;
+            type?: TradingOrderType;
+            crypto_type?: string;
+        }
+    ): Promise<number> {
+        try {
+            const conditions: string[] = ['user_id = $1'];
+            const values: any[] = [userId];
+            let paramIndex = 2;
+
+            if (filters.date_from) {
+                conditions.push(`created_at >= $${paramIndex}::timestamptz`);
+                values.push(filters.date_from);
+                paramIndex++;
+            }
+            if (filters.date_to) {
+                conditions.push(`created_at <= $${paramIndex}::timestamptz`);
+                values.push(filters.date_to);
+                paramIndex++;
+            }
+            if (filters.status) {
+                conditions.push(`status = $${paramIndex}`);
+                values.push(filters.status);
+                paramIndex++;
+            }
+            if (filters.type) {
+                conditions.push(`"type" = $${paramIndex}`);
+                values.push(filters.type);
+                paramIndex++;
+            }
+            if (filters.crypto_type) {
+                conditions.push(`crypto_type = $${paramIndex}`);
+                values.push(filters.crypto_type);
+                paramIndex++;
+            }
+
+            const query = `SELECT COUNT(*) as count FROM "${this.tableName}" WHERE ${conditions.join(' AND ')}`;
+            const result = await this.executeQuery<{ count: string }>(query, values);
+            return parseInt((result.rows[0] as any)?.count || '0', 10);
+        } catch (error: any) {
+            throw new DatabaseError(`Failed to count orders for user with filters: ${error.message}`);
+        }
+    }
+
     async create(entity: ITradingOrder): Promise<ITradingOrder> {
         try {
             const columns = Object.keys(entity).filter(key => key !== '_id' && entity[key as keyof ITradingOrder] !== undefined);

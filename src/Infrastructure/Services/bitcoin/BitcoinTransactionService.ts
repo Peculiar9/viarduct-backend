@@ -465,14 +465,43 @@ export class BitcoinTransactionService implements IBitcoinTransactionService {
             // In production, you'd want to store script in database
             for (const utxo of selectedUTXOs) {
                 if (!utxo.script) {
-                    // Try to get from blockchain (this is a fallback)
+                    const vout = utxo.tx_output_n;
+
+                    // Try BlockCypher transaction details first
                     try {
                         const txResponse = await this.httpClient.get<any>(`/txs/${utxo.tx_hash}`);
-                        if (txResponse.outputs && txResponse.outputs[utxo.tx_output_n]) {
-                            utxo.script = txResponse.outputs[utxo.tx_output_n].script || '';
+                        if (txResponse?.outputs && txResponse.outputs[vout]) {
+                            const out = txResponse.outputs[vout];
+                            utxo.script = out.script || out.script_hex || '';
                         }
-                    } catch (error) {
-                        Console.warn('Could not fetch script for UTXO', { txid: utxo.tx_hash, vout: utxo.tx_output_n });
+                    } catch (error: any) {
+                        Console.warn('Could not fetch script from BlockCypher for UTXO', {
+                            txid: utxo.tx_hash,
+                            vout,
+                            error: error?.message
+                        });
+                    }
+
+                    // Fallback to Blockstream if still missing
+                    if (!utxo.script) {
+                        try {
+                            const networkStr = EnvironmentConfig.get('BITCOIN_NETWORK', 'testnet');
+                            const blockstreamBaseUrl = networkStr === 'mainnet'
+                                ? 'https://blockstream.info/api'
+                                : 'https://blockstream.info/testnet/api';
+
+                            const blockstreamTx = await axios.get(`${blockstreamBaseUrl}/tx/${utxo.tx_hash}`, {
+                                timeout: 30000
+                            });
+                            const out = blockstreamTx.data?.vout?.[vout];
+                            utxo.script = out?.scriptpubkey || '';
+                        } catch (error: any) {
+                            Console.warn('Could not fetch script from Blockstream for UTXO', {
+                                txid: utxo.tx_hash,
+                                vout,
+                                error: error?.message
+                            });
+                        }
                     }
                 }
             }
@@ -483,7 +512,10 @@ export class BitcoinTransactionService implements IBitcoinTransactionService {
             // Add inputs
             for (const utxo of selectedUTXOs) {
                 if (!utxo.script) {
-                    throw new ServiceError(`Missing script for UTXO ${utxo.tx_hash}:${utxo.tx_output_n}`);
+                    throw new ServiceError(
+                        `Missing script for UTXO ${utxo.tx_hash}:${utxo.tx_output_n}. ` +
+                        'Sync UTXOs again or backfill script from transaction details.'
+                    );
                 }
                 
                 psbt.addInput({

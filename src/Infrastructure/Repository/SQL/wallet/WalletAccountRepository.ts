@@ -48,6 +48,59 @@ export class WalletAccountRepository extends BaseRepository<IWalletAccount> {
         }
     }
 
+    /**
+     * Atomically lock balance: decrease available, increase locked.
+     * Prevents race conditions - only succeeds if available_balance >= amount.
+     * @returns The updated account or null if insufficient balance
+     */
+    async lockBalance(walletAccountId: string, amount: number): Promise<IWalletAccount | null> {
+        try {
+            const query = `
+                UPDATE "${this.tableName}"
+                SET available_balance = available_balance - $1,
+                    locked_balance = locked_balance + $1,
+                    updated_at = NOW()
+                WHERE _id = $2 AND available_balance >= $1
+                RETURNING *
+            `;
+            const result = await this.executeQuery<IWalletAccount>(query, [amount, walletAccountId]);
+            return (result.rows[0] as any) || null;
+        } catch (error: any) {
+            console.error('WalletAccountRepository::lockBalance(): ', {
+                message: error.message,
+                walletAccountId,
+                amount
+            });
+            throw error;
+        }
+    }
+
+    /**
+     * Atomically unlock balance: decrease locked, increase available.
+     * Only succeeds if locked_balance >= amount.
+     */
+    async unlockBalanceAtomic(walletAccountId: string, amount: number): Promise<IWalletAccount | null> {
+        try {
+            const query = `
+                UPDATE "${this.tableName}"
+                SET available_balance = available_balance + $1,
+                    locked_balance = GREATEST(0, locked_balance - $1),
+                    updated_at = NOW()
+                WHERE _id = $2 AND locked_balance >= $1
+                RETURNING *
+            `;
+            const result = await this.executeQuery<IWalletAccount>(query, [amount, walletAccountId]);
+            return (result.rows[0] as any) || null;
+        } catch (error: any) {
+            console.error('WalletAccountRepository::unlockBalanceAtomic(): ', {
+                message: error.message,
+                walletAccountId,
+                amount
+            });
+            throw error;
+        }
+    }
+
     async updateBalance(walletAccountId: string, newBalance: number, newAvailableBalance: number, newLockedBalance: number): Promise<IWalletAccount | null> {
         try {
             const query = `

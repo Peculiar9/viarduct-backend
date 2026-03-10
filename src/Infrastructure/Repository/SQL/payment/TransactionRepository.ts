@@ -1,7 +1,7 @@
 import { inject, injectable } from 'inversify';
 import { BaseRepository } from '../BaseRepository';
 import { TransactionManager } from '../Abstractions/TransactionManager';
-import { ITransaction } from '../../../../Core/Application/Interface/Entities/payments/IPayment';
+import { ITransaction, TransactionStatus, TransactionType, RelatedEntityType } from '../../../../Core/Application/Interface/Entities/payments/IPayment';
 import { TableNames } from '../../../../Core/Application/Enums/TableNames';
 import { TYPES } from '../../../../Core/Types/Constants';
 import { DatabaseError } from '../../../../Core/Application/Error/AppError';
@@ -65,6 +65,126 @@ export class TransactionRepository extends BaseRepository<ITransaction> {
                 tableName: this.tableName
             });
             throw error;
+        }
+    }
+
+    /**
+     * Find transactions for a user with filters (for /me/transactions)
+     */
+    async findWithFiltersForUser(
+        userId: string,
+        filters: {
+            date_from?: string;
+            date_to?: string;
+            status?: TransactionStatus | string;
+            type?: TransactionType | string;
+            currency?: string;
+            related_entity_type?: RelatedEntityType | string;
+        },
+        limit: number = 50,
+        offset: number = 0
+    ): Promise<ITransaction[]> {
+        try {
+            const conditions: string[] = ['user_id = $1'];
+            const values: any[] = [userId];
+            let paramIndex = 2;
+
+            if (filters.date_from) {
+                conditions.push(`created_at >= $${paramIndex}::timestamptz`);
+                values.push(filters.date_from);
+                paramIndex++;
+            }
+            if (filters.date_to) {
+                conditions.push(`created_at <= $${paramIndex}::timestamptz`);
+                values.push(filters.date_to);
+                paramIndex++;
+            }
+            if (filters.status) {
+                conditions.push(`status = $${paramIndex}`);
+                values.push(filters.status);
+                paramIndex++;
+            }
+            if (filters.type) {
+                conditions.push(`type = $${paramIndex}`);
+                values.push(filters.type);
+                paramIndex++;
+            }
+            if (filters.currency) {
+                conditions.push(`currency = $${paramIndex}`);
+                values.push(filters.currency);
+                paramIndex++;
+            }
+            if (filters.related_entity_type) {
+                conditions.push(`related_entity_type = $${paramIndex}`);
+                values.push(filters.related_entity_type);
+                paramIndex++;
+            }
+
+            const query = `SELECT * FROM "${this.tableName}" WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+            values.push(limit, offset);
+
+            const result = await this.executeQuery<ITransaction>(query, values);
+            return result.rows as any[];
+        } catch (error: any) {
+            throw new DatabaseError(`Failed to find transactions for user with filters: ${error.message}`);
+        }
+    }
+
+    /**
+     * Count transactions for a user with filters (for /me/transactions pagination)
+     */
+    async countWithFiltersForUser(
+        userId: string,
+        filters: {
+            date_from?: string;
+            date_to?: string;
+            status?: TransactionStatus | string;
+            type?: TransactionType | string;
+            currency?: string;
+            related_entity_type?: RelatedEntityType | string;
+        }
+    ): Promise<number> {
+        try {
+            const conditions: string[] = ['user_id = $1'];
+            const values: any[] = [userId];
+            let paramIndex = 2;
+
+            if (filters.date_from) {
+                conditions.push(`created_at >= $${paramIndex}::timestamptz`);
+                values.push(filters.date_from);
+                paramIndex++;
+            }
+            if (filters.date_to) {
+                conditions.push(`created_at <= $${paramIndex}::timestamptz`);
+                values.push(filters.date_to);
+                paramIndex++;
+            }
+            if (filters.status) {
+                conditions.push(`status = $${paramIndex}`);
+                values.push(filters.status);
+                paramIndex++;
+            }
+            if (filters.type) {
+                conditions.push(`type = $${paramIndex}`);
+                values.push(filters.type);
+                paramIndex++;
+            }
+            if (filters.currency) {
+                conditions.push(`currency = $${paramIndex}`);
+                values.push(filters.currency);
+                paramIndex++;
+            }
+            if (filters.related_entity_type) {
+                conditions.push(`related_entity_type = $${paramIndex}`);
+                values.push(filters.related_entity_type);
+                paramIndex++;
+            }
+
+            const query = `SELECT COUNT(*) as count FROM "${this.tableName}" WHERE ${conditions.join(' AND ')}`;
+            const result = await this.executeQuery<{ count: string }>(query, values);
+            return parseInt((result.rows[0] as any)?.count || '0', 10);
+        } catch (error: any) {
+            throw new DatabaseError(`Failed to count transactions for user with filters: ${error.message}`);
         }
     }
 

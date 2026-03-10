@@ -1,4 +1,4 @@
-import { ITradingRate } from '../Interface/Entities/trading/ITradingRate';
+import { ITradingRate } from '../Entities/trading/ITradingRate';
 
 export interface ITradingRateService {
     /**
@@ -42,5 +42,5 @@ export interface ITradingRateService {
      * Calculate NGN amount for selling crypto
      */
     calculateSellAmount(cryptoType: string, cryptoAmount: number): Promise<number>;
-}
+}   
 

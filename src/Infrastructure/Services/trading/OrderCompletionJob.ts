@@ -12,20 +12,26 @@ export class OrderCompletionJob implements IOrderCompletionJob {
     private intervalId: NodeJS.Timeout | null = null;
     private isRunning: boolean = false;
     private readonly intervalMinutes: number;
+    private readonly enabled: boolean;
 
     constructor(
         @inject(TYPES.TradingOrderRepository) private readonly tradingOrderRepo: ITradingOrderRepository,
         @inject(TYPES.TradingOrderService) private readonly tradingOrderService: ITradingOrderService,
         @inject(TYPES.BlockchainService) private readonly blockchainService: IBlockchainService
     ) {
-        // Get interval from environment (default: 1 minute for faster processing)
-        this.intervalMinutes = EnvironmentConfig.getNumber('ORDER_COMPLETION_JOB_INTERVAL_MINUTES', 1);
+        // Fallback only - webhook is primary. Default 10 min (Bitcoin confirms ~10-15 min)
+        this.intervalMinutes = EnvironmentConfig.getNumber('ORDER_COMPLETION_JOB_INTERVAL_MINUTES', 10);
+        this.enabled = EnvironmentConfig.get('ORDER_COMPLETION_JOB_ENABLED', 'true').toLowerCase() === 'true';
     }
 
     /**
-     * Start the background job
+     * Start the background job (fallback - only runs if enabled)
      */
     start(): void {
+        if (!this.enabled) {
+            Console.info('ORDER COMPLETION JOB: Disabled (webhook-only mode). Set ORDER_COMPLETION_JOB_ENABLED=true for fallback.');
+            return;
+        }
         if (this.intervalId) {
             Console.warn('Order completion job is already running');
             return;
@@ -62,8 +68,9 @@ export class OrderCompletionJob implements IOrderCompletionJob {
     }
 
     /**
-     * Process pending orders once
-     * Finds all processing orders with transaction hashes and completes them if confirmed
+     * Fallback: Process pending orders missed by webhook.
+     * Primary path is BlockCypher webhook -> processTransaction -> complete order.
+     * This job catches webhook failures (network, server down, etc).
      */
     async processPendingOrders(): Promise<void> {
         if (this.isRunning) {
@@ -75,7 +82,7 @@ export class OrderCompletionJob implements IOrderCompletionJob {
         const startTime = Date.now();
 
         try {
-            Console.info('🔄 ORDER COMPLETION JOB: Starting job cycle...');
+            Console.info('🔄 ORDER COMPLETION JOB (fallback): Starting cycle...');
 
             // Find all processing orders with transaction hashes
             const processingOrders = await this.tradingOrderRepo.findByStatus('processing', 1000);
@@ -92,11 +99,11 @@ export class OrderCompletionJob implements IOrderCompletionJob {
             const allOrdersToCheck = [...processingOrders, ...failedOrdersWithTxHash];
             
             if (allOrdersToCheck.length === 0) {
-                Console.info('✅ ORDER COMPLETION JOB: No orders to check (processing or failed with tx hash)');
+                Console.info('✅ ORDER COMPLETION JOB (fallback): No pending orders (webhook likely handled them)');
                 return;
             }
 
-            Console.info(`📋 ORDER COMPLETION JOB: Found ${processingOrders.length} processing orders and ${failedOrdersWithTxHash.length} failed orders with transaction hashes to retry`);
+            Console.info(`📋 ORDER COMPLETION JOB (fallback): Found ${processingOrders.length} processing + ${failedOrdersWithTxHash.length} failed with tx hash`);
 
             let completedCount = 0;
             let failedCount = 0;

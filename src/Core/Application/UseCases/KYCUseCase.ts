@@ -161,6 +161,9 @@ export class KYCUseCase implements IKYCUseCase {
 
         // Sync to User entity
         user.kyc_stage = KYCStage.IDENTITY_VERIFICATION;
+        // Mark KYC as done when user reaches stage 2 (IDENTITY_VERIFICATION)
+        // This allows them to create trading orders
+        user.has_completed_kyc = true;
         await this.userRepository.update(userId, user);
 
         return updatedKyc;

@@ -7,6 +7,7 @@ import { DatabaseService } from './Infrastructure/Database/DatabaseService';
 import { getRouteInfo } from 'inversify-express-utils';
 
 import './Controllers/InitController';
+import './Controllers/ApiBaseController';
 import './Controllers/auth/AccountController';
 import './Controllers/auth/AuthController';
 import './Controllers/media/MediaController';
@@ -20,6 +21,7 @@ import './Controllers/trading/PublicTradingRateController';
 import './Controllers/trading/TradingRateController';
 import './Controllers/trading/TradingOrderController';
 import './Controllers/trading/AdminTradingOrderController';
+import './Controllers/me/MeController';
 import './Controllers/bitcoin/BitcoinWebhookController';
 
 import { DIContainer } from './Core/DIContainer';
@@ -82,7 +84,7 @@ class App {
             const routeInfo = getRouteInfo(this.container);
             console.log('Registered Routes:', JSON.stringify(routeInfo, null, 2));
 
-            return this.app;
+            return this.app; 
         } catch (error: any) {
             const errorMessage = error.message || 'Unknown error';
             Console.error(error, {message: errorMessage});
@@ -126,12 +128,12 @@ class App {
             try {
                 const orderCompletionJob = this.container.get<IOrderCompletionJob>(TYPES.OrderCompletionJob);
                 orderCompletionJob.stop();
-                Console.info('Background jobs stopped');
+                // Console.info('Background jobs stopped');
             } catch (error: any) {
                 Console.error(error, { message: 'Error stopping background jobs' });
             }
             
-            await DatabaseService.shutdown(this.container);
+            // await DatabaseService.shutdown(this.container);
             process.exit(0);
         };
 

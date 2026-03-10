@@ -7,7 +7,7 @@ import AuthMiddleware from '../../Middleware/AuthMiddleware';
 import { validationMiddleware } from '../../Middleware/ValidationMiddleware';
 import { BaseController } from '../BaseController';
 import { ResponseMessage } from '../../Core/Application/Response/ResponseFormat';
-import { InitializePaymentDTO, VerifyPaymentDTO } from '../../Core/Application/DTOs/PaymentDTO';
+import { InitializePaymentDTO, VerifyPaymentDTO, VerifyInitializationDTO } from '../../Core/Application/DTOs/PaymentDTO';
 import { IUser } from '../../Core/Application/Interface/Entities/auth-and-user/IUser';
 
 @controller(`/${API_PATH}/payment`)
@@ -35,6 +35,28 @@ export class PaystackPaymentController extends BaseController {
             return this.success(res, result, 'Payment initialized successfully');
         } catch (error: any) {
             console.error('Error initializing payment:', error);
+            return this.error(res, error.message, error.statusCode || 400);
+        }
+    }
+
+    /**
+     * Record payment initialization from frontend (e.g. mobile Paystack SDK).
+     * Body: { reference, amount }. Creates pending transaction only; no Paystack API call.
+     * Use the verify endpoint after payment to credit the wallet.
+     * @route POST /api/v1/payment/verify-initialization
+     */
+    @httpPost('/verify-initialization', AuthMiddleware.authenticate(), validationMiddleware(VerifyInitializationDTO))
+    async verifyInitialization(
+        @requestBody() dto: VerifyInitializationDTO,
+        @request() req: Request,
+        @response() res: Response
+    ) {
+        try {
+            const user = req.user as IUser;
+            const result = await this.paymentUseCase.verifyInitialization(user, dto);
+            return this.success(res, result, 'Initialization recorded successfully');
+        } catch (error: any) {
+            console.error('Error recording payment initialization:', error);
             return this.error(res, error.message, error.statusCode || 400);
         }
     }

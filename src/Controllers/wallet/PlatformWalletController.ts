@@ -376,11 +376,11 @@ export class PlatformWalletController extends BaseController {
                 // Convert to our format
                 onChainUTXOs = txrefs.map((txref: any) => ({
                     txid: txref.tx_hash || txref.txid,
-                    vout: txref.tx_output_n || txref.vout,
+                    vout: txref.tx_output_n ?? txref.vout,
                     amount: (txref.value || 0) / 100000000, // Convert satoshis to BTC
                     confirmations: txref.confirmations || 0
                 }));
-                onChainTotal = onChainUTXOs.reduce((sum, utxo) => sum + utxo.amount, 0);
+                onChainTotal = onChainUTXOs.reduce((sum, utxo) => sum + Number(utxo.amount || 0), 0);
             } catch (onChainError: any) {
                 Console.warn('Failed to fetch on-chain UTXOs', { address, error: onChainError.message });
                 // Continue without on-chain data
@@ -451,10 +451,13 @@ export class PlatformWalletController extends BaseController {
                 },
                 comparison: {
                     database_has_utxos: allUTXOs.length > 0,
+                    database_has_available_utxos: availableUTXOs.length > 0,
                     onchain_has_utxos: onChainUTXOs.length > 0,
                     needs_sync: onChainUTXOs.length > 0 && availableUTXOs.length === 0,
                     message: onChainUTXOs.length > 0 && availableUTXOs.length === 0
                         ? 'On-chain UTXOs exist but not in database. Use sync endpoint to add them.'
+                        : allUTXOs.length > 0 && availableUTXOs.length === 0
+                        ? `Database has ${allUTXOs.length} UTXO(s), but none are spendable (likely all reserved/spent).`
                         : onChainUTXOs.length === 0 && availableUTXOs.length === 0
                         ? 'No UTXOs found on-chain or in database'
                         : 'UTXOs are synced'

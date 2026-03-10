@@ -82,6 +82,7 @@ export class BitcoinWebhookService implements IBitcoinWebhookService {
                 hash: event.hash 
             });
 
+            // PRIMARY path for order completion: BlockCypher notifies when tx confirms
             if (event.event === 'tx-confirmation' || event.event === 'unconfirmed-tx') {
                 await this.processTransaction(event, event.address);
             } else if (event.event === 'double-spend-tx') {
@@ -297,7 +298,7 @@ export class BitcoinWebhookService implements IBitcoinWebhookService {
                     });
                 }
 
-                // Check if there's a pending order for this transaction
+                // PRIMARY: Complete buy/sell orders when tx confirms (OrderCompletionJob is fallback)
                 // Use lazy loading to avoid circular dependency
                 try {
                     const container = DIContainer.getInstance();

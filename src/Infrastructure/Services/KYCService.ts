@@ -44,7 +44,7 @@ export class KYCService extends BaseService implements IKYCService {
              const newUserKYC: Partial<IUserKYC> = {
               user_id: userId,
               status: KYCStatus.PENDING,
-              current_stage: KYCStage.FACE_UPLOAD,
+              current_stage: KYCStage.NOT_STARTED,
               stage_metadata: {},
              }
              const createdUserKYC = await this.userKYCRepository.create(newUserKYC);

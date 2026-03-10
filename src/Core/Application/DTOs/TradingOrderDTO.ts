@@ -8,8 +8,15 @@ export class CreateBuyOrderDTO {
     crypto_type: string;
 
     @IsNumber()
+    @IsOptional()
+    @IsNumber()
     @Min(0.00000001, { message: 'Crypto amount must be greater than 0' })
     crypto_amount: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(1, { message: 'Crypto purchase amount must be at least 1' })
+    crypto_purchase_amount?: number;
 }
 
 export class CreateSellOrderDTO {
@@ -19,8 +26,15 @@ export class CreateSellOrderDTO {
     crypto_type: string;
 
     @IsNumber()
+    @IsOptional()
+    @IsNumber()
     @Min(0.00000001, { message: 'Crypto amount must be greater than 0' })
     crypto_amount: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(1, { message: 'Crypto purchase amount must be at least 1' })
+    crypto_purchase_amount?: number;
 }
 
 export class ProcessBuyOrderDTO {

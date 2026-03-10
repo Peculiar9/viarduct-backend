@@ -25,6 +25,21 @@ export class VerifyPaymentDTO {
     reference: string;
 }
 
+/**
+ * For mobile/FE-initiated Paystack: FE sends reference + amount after initializing with Paystack SDK.
+ * Backend only creates the pending transaction record (no Paystack API call).
+ */
+export class VerifyInitializationDTO {
+    @IsNotEmpty({ message: 'Reference is required' })
+    @IsString({ message: 'Reference must be a string' })
+    reference: string;
+
+    @IsNotEmpty({ message: 'Amount is required' })
+    @IsNumber({}, { message: 'Amount must be a number' })
+    @Min(1, { message: 'Minimum amount is ₦1' })
+    amount: number; // Amount in naira
+}
+
 export interface PaymentInitializeResponseDTO {
     authorization_url: string;
     access_code: string;
@@ -36,6 +51,14 @@ export interface PaymentVerifyResponseDTO {
     reference: string;
     amount: number;
     currency: string;
+    status: string;
+    message: string;
+}
+
+export interface VerifyInitializationResponseDTO {
+    reference: string;
+    transaction_id: string;
+    amount: number;
     status: string;
     message: string;
 }

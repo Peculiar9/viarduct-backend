@@ -12,6 +12,7 @@ import { DIContainer } from '../../../Core/DIContainer';
 import { WalletAccountRepository } from '../../Repository/SQL/wallet/WalletAccountRepository';
 import { WalletRepository } from '../../Repository/SQL/wallet/WalletRepository';
 import { CurrencyRepository } from '../../Repository/SQL/wallet/CurrencyRepository';
+import { UserRepository } from '../../Repository/SQL/users/UserRepository';
 import { TransactionManager } from '../../Repository/SQL/Abstractions/TransactionManager';
 import { Console } from '../../Utils/Console';
 import { ServiceError, ValidationError } from '../../../Core/Application/Error/AppError';
@@ -28,22 +29,52 @@ export class TradingOrderService implements ITradingOrderService {
         @inject(TYPES.WalletAccountRepository) private readonly walletAccountRepo: WalletAccountRepository,
         @inject(TYPES.WalletRepository) private readonly walletRepo: WalletRepository,
         @inject(TYPES.CurrencyRepository) private readonly currencyRepo: CurrencyRepository,
+        @inject(TYPES.UserRepository) private readonly userRepo: UserRepository,
         @inject(TYPES.TransactionManager) private readonly transactionManager: TransactionManager
     ) {}
 
     async createBuyOrder(userId: string, data: {
         crypto_type: string;
         crypto_amount: number;
+        crypto_purchase_amount?: number;
     }): Promise<ITradingOrder> {
         try {
-            // 1. Get active trading rate
-            const rate = await this.tradingRateService.getActiveRate(data.crypto_type.toUpperCase());
-            
-            // 2. Calculate NGN amount needed (user buys at sell_rate)
-            const fiatAmount = await this.tradingRateService.calculateBuyAmount(
-                data.crypto_type.toUpperCase(),
-                data.crypto_amount
-            );
+            // 0. Check if user has completed KYC (required for trading orders)
+            const user = await this.userRepo.findById(userId);
+            if (!user) {
+                throw new ValidationError('User not found');
+            }
+            if (!user.has_completed_kyc) {
+                throw new ValidationError('KYC verification is required to create trading orders. Please complete your KYC verification first.');
+            }
+
+         // 1. Get active trading rate
+         const cryptoType = data.crypto_type.toUpperCase();
+         const rate = await this.tradingRateService.getActiveRate(cryptoType);
+         const hasCryptoAmount = data.crypto_amount !== undefined && data.crypto_amount !== null;
+         const hasCryptoPurchaseAmount = data.crypto_purchase_amount !== undefined && data.crypto_purchase_amount !== null;
+         if (!hasCryptoAmount && !hasCryptoPurchaseAmount) {
+             throw new ValidationError('Either crypto_amount or crypto_purchase_amount is required');
+         }
+         if (hasCryptoAmount && hasCryptoPurchaseAmount) {
+             throw new ValidationError('Provide only one of crypto_amount or crypto_purchase_amount, not both');
+         }
+         let cryptoAmount: number;
+         let fiatAmount: number;
+         if (hasCryptoAmount) {
+             // User specified BTC directly
+             cryptoAmount = Number(data.crypto_amount);
+             // Use existing helper to compute NGN needed
+             fiatAmount = await this.tradingRateService.calculateBuyAmount(
+                 cryptoType,
+                 cryptoAmount
+             );
+         } else {
+             // User specified how much NGN they want to spend
+             fiatAmount = Number(data.crypto_purchase_amount);
+             // Invert the rate: fiat = crypto * sell_rate  =>  crypto = fiat / sell_rate
+             cryptoAmount = fiatAmount / rate.sell_rate;
+         }
 
             // 3. Get user's wallet and NGN account
             const wallet = await this.walletRepo.findByUserId(userId);
@@ -101,16 +132,11 @@ export class TradingOrderService implements ITradingOrderService {
                 throw new ValidationError('User BTC wallet account not found');
             }
 
-            // 7. Lock user's NGN balance
-            const newLockedBalance = parseFloat(userNgnAccount.locked_balance?.toString() || '0') + fiatAmount;
-            const newAvailableBalance = availableBalance - fiatAmount;
-
-            await this.walletAccountRepo.updateBalance(
-                userNgnAccount._id!,
-                parseFloat(userNgnAccount.balance?.toString() || '0'),
-                newAvailableBalance,
-                newLockedBalance
-            );
+            // 7. Lock user's NGN balance (atomic - prevents race conditions)
+            const locked = await this.walletAccountRepo.lockBalance(userNgnAccount._id!, fiatAmount);
+            if (!locked) {
+                throw new ValidationError(`Insufficient balance. Need ${fiatAmount} NGN, have ${availableBalance} NGN`);
+            }
 
             // 8. Calculate network fee and reserve UTXOs
             const networkFee = await this.bitcoinTransactionService.calculateNetworkFee('medium');
@@ -121,7 +147,7 @@ export class TradingOrderService implements ITradingOrderService {
                 user_id: userId,
                 type: 'buy',
                 crypto_type: data.crypto_type.toUpperCase(),
-                crypto_amount: data.crypto_amount,
+                crypto_amount: cryptoAmount,
                 fiat_amount: fiatAmount,
                 rate_used: rate.sell_rate, 
                 status: 'pending', // Will update to processing after UTXO reservation
@@ -237,16 +263,45 @@ export class TradingOrderService implements ITradingOrderService {
     async createSellOrder(userId: string, data: {
         crypto_type: string;
         crypto_amount: number;
+        crypto_purchase_amount?: number;
     }): Promise<ITradingOrder> {
         try {
-            // 1. Get active trading rate
-            const rate = await this.tradingRateService.getActiveRate(data.crypto_type.toUpperCase());
-            
-            // 2. Calculate NGN amount user will receive (user sells at buy_rate)
-            const fiatAmount = await this.tradingRateService.calculateSellAmount(
-                data.crypto_type.toUpperCase(),
-                data.crypto_amount
-            );
+            // 0. Check if user has completed KYC (required for trading orders)
+            const user = await this.userRepo.findById(userId);
+            if (!user) {
+                throw new ValidationError('User not found');
+            }
+            if (!user.has_completed_kyc) {
+                throw new ValidationError('KYC verification is required to create trading orders. Please complete your KYC verification first.');
+            }
+
+            const cryptoType = data.crypto_type.toUpperCase();
+            const rate = await this.tradingRateService.getActiveRate(cryptoType);
+            // === NEW: normalize input ===
+            const hasCryptoAmount = data.crypto_amount !== undefined && data.crypto_amount !== null;
+            const hasCryptoPurchaseAmount = data.crypto_purchase_amount !== undefined && data.crypto_purchase_amount !== null;
+            if (!hasCryptoAmount && !hasCryptoPurchaseAmount) {
+                throw new ValidationError('Either crypto_amount or crypto_purchase_amount is required');
+            }
+            if (hasCryptoAmount && hasCryptoPurchaseAmount) {
+                throw new ValidationError('Provide only one of crypto_amount or crypto_purchase_amount, not both');
+            }
+            let cryptoAmount: number;
+            let fiatAmount: number;
+            if (hasCryptoAmount) {
+                // User specified BTC they want to sell
+                cryptoAmount = Number(data.crypto_amount);
+                // Existing helper: how much NGN they receive
+                fiatAmount = await this.tradingRateService.calculateSellAmount(
+                    cryptoType,
+                    cryptoAmount
+                );
+            } else {
+                // User specified NGN they want to receive
+                fiatAmount = Number(data.crypto_purchase_amount);
+                // For sell: fiat = crypto * buy_rate  =>  crypto = fiat / buy_rate
+                cryptoAmount = fiatAmount / rate.buy_rate;
+            }
 
             // 3. Get user's wallet and BTC account
             const wallet = await this.walletRepo.findByUserId(userId);
@@ -304,16 +359,13 @@ export class TradingOrderService implements ITradingOrderService {
                 throw new ServiceError(`Platform has insufficient NGN. Need ${fiatAmount} NGN, have ${platformNgnBalance} NGN`);
             }
 
-            // 6. Lock user's BTC balance
-            const newLockedBalance = parseFloat(userBtcAccount.locked_balance?.toString() || '0') + totalBtcNeeded;
-            const newAvailableBalance = availableBalance - totalBtcNeeded;
-
-            await this.walletAccountRepo.updateBalance(
-                userBtcAccount._id!,
-                parseFloat(userBtcAccount.balance?.toString() || '0'),
-                newAvailableBalance,
-                newLockedBalance
-            );
+            // 6. Lock user's BTC balance (atomic - prevents race conditions)
+            const lockedBtc = await this.walletAccountRepo.lockBalance(userBtcAccount._id!, totalBtcNeeded);
+            if (!lockedBtc) {
+                throw new ValidationError(
+                    `Insufficient balance. Need ${totalBtcNeeded} BTC (${data.crypto_amount} + ${networkFee} fee), have ${availableBalance} BTC`
+                );
+            }
 
             // 7. Get platform BTC account
             const platformBtcAccount = await this.walletAccountRepo.findByWalletIdAndCurrencyId(
@@ -325,23 +377,18 @@ export class TradingOrderService implements ITradingOrderService {
                 throw new ServiceError('Platform BTC account or address not found');
             }
 
-            // 8. Lock platform NGN balance (prevent race conditions)
-            const platformNgnLocked = parseFloat(platformNgnAccount.locked_balance?.toString() || '0') + fiatAmount;
-            const platformNgnAvailable = platformNgnBalance - fiatAmount;
-
-            await this.walletAccountRepo.updateBalance(
-                platformNgnAccount._id!,
-                parseFloat(platformNgnAccount.balance?.toString() || '0'),
-                platformNgnAvailable,
-                platformNgnLocked
-            );
+            // 8. Lock platform NGN balance (atomic - prevents race conditions)
+            const lockedPlatformNgn = await this.walletAccountRepo.lockBalance(platformNgnAccount._id!, fiatAmount);
+            if (!lockedPlatformNgn) {
+                throw new ServiceError(`Platform has insufficient NGN. Need ${fiatAmount} NGN, have ${platformNgnBalance} NGN`);
+            }
 
             // 9. Create order first (status: pending - will update to processing after UTXO reservation)
             const order = await this.tradingOrderRepo.create({
                 user_id: userId,
                 type: 'sell',
                 crypto_type: data.crypto_type.toUpperCase(),
-                crypto_amount: data.crypto_amount,
+                crypto_amount: cryptoAmount,
                 fiat_amount: fiatAmount,
                 rate_used: rate.buy_rate, // User sells at buy_rate
                 network_fee: networkFee,
@@ -469,7 +516,7 @@ export class TradingOrderService implements ITradingOrderService {
             Console.error(error, { message: 'Failed to get user orders', userId });
             throw error;
         }
-    }
+    } 
 
     async getOrderById(orderId: string, userId?: string): Promise<ITradingOrder> {
         try {
@@ -546,6 +593,18 @@ export class TradingOrderService implements ITradingOrderService {
                 if (order.wallet_account_id) {
                     await this.unlockBalance(order.wallet_account_id, totalBtc);
                 }
+                // Unlock platform NGN (was locked at sell creation)
+                const platformWallet = await this.walletRepo.findPlatformWallet();
+                const ngnCurrency = await this.currencyRepo.findByCode('NGN');
+                if (platformWallet?._id && ngnCurrency?._id) {
+                    const platformNgnAccount = await this.walletAccountRepo.findByWalletIdAndCurrencyId(
+                        platformWallet._id,
+                        ngnCurrency._id
+                    );
+                    if (platformNgnAccount) {
+                        await this.unlockBalance(platformNgnAccount._id!, order.fiat_amount);
+                    }
+                }
             }
 
             // Update order
@@ -582,6 +641,17 @@ export class TradingOrderService implements ITradingOrderService {
                 throw new ValidationError(`Cannot process order with status: ${order.status}`);
             }
 
+            // Require on-chain confirmation before completing
+            if (!order.bitcoin_tx_hash_outgoing) {
+                throw new ValidationError('Order has no broadcast transaction. Cannot complete.');
+            }
+            const verification = await this.blockchainService.verifyTransaction(order.bitcoin_tx_hash_outgoing);
+            if (!verification || !verification.confirmed) {
+                throw new ValidationError(
+                    'Transaction not confirmed on blockchain. Wait for confirmation or use admin complete-buy endpoint.'
+                );
+            }
+
             // Update order with payment reference if provided
             if (paymentReference) {
                 await this.tradingOrderRepo.update(orderId, {
@@ -589,13 +659,12 @@ export class TradingOrderService implements ITradingOrderService {
                     status: 'processing'
                 });
             } else if (order.status === 'pending') {
-                // If no payment reference but order is pending, mark as processing
                 await this.tradingOrderRepo.update(orderId, {
                     status: 'processing'
                 });
             }
 
-            // Complete the buy order (debit NGN, credit BTC, send BTC to user)
+            // Complete the buy order (debit NGN, credit BTC)
             return await this.completeBuyOrder(orderId);
         } catch (error: any) {
             Console.error(error, { message: 'Failed to process buy order', orderId, paymentReference });
@@ -717,6 +786,41 @@ export class TradingOrderService implements ITradingOrderService {
             throw new ServiceError('Platform wallet accounts not found');
         }
 
+        // Fetch blockchain data OUTSIDE transaction (avoids holding DB lock during network I/O)
+        let parsedOutputs: Array<{ index: number; addresses: string[]; value: number; spent_by?: any[] }> = [];
+        if (order.bitcoin_tx_hash_outgoing && userBtcAccount.address) {
+            try {
+                const httpClient = (this.blockchainService as any).httpClient;
+                const blockstreamClient = (this.blockchainService as any).blockstreamClient;
+                let txData: any = null;
+                let usedBlockstream = false;
+                try {
+                    txData = await httpClient.get(`/txs/${order.bitcoin_tx_hash_outgoing}`);
+                } catch {
+                    try {
+                        txData = await blockstreamClient.get(`/tx/${order.bitcoin_tx_hash_outgoing}`);
+                        usedBlockstream = true;
+                    } catch {
+                        Console.warn('Could not fetch tx for UTXO creation', { orderId });
+                    }
+                }
+                if (txData) {
+                    if (usedBlockstream && txData.vout) {
+                        parsedOutputs = txData.vout.map((vout: any, index: number) => ({
+                            index,
+                            addresses: vout.scriptpubkey_address ? [vout.scriptpubkey_address] : [],
+                            value: vout.value || 0,
+                            spent_by: vout.spent ? [{ txid: 'spent' }] : []
+                        }));
+                    } else {
+                        parsedOutputs = txData.outputs || [];
+                    }
+                }
+            } catch (err: any) {
+                Console.warn('Failed to pre-fetch tx for UTXO creation', { orderId, error: err.message });
+            }
+        }
+
         // Start database transaction for atomicity
         let transactionStarted = false;
         try {
@@ -814,67 +918,14 @@ export class TradingOrderService implements ITradingOrderService {
                 parseFloat(userBtcAccount.locked_balance?.toString() || '0')
             );
 
-            // 6. Create UTXOs for user address so they can sell later
-            // This is critical - without UTXOs, users can't create sell orders
-            // This runs in background job when transaction is confirmed, so it's more reliable than webhooks
-            if (order.bitcoin_tx_hash_outgoing && userBtcAccount.address && userBtcAccount._id) {
+            // 6. Create UTXOs for user address (using pre-fetched tx data - no network calls inside txn)
+            if (order.bitcoin_tx_hash_outgoing && userBtcAccount.address && userBtcAccount._id && parsedOutputs.length > 0) {
                 try {
-                    Console.info('Creating UTXOs for user address via background job', {
-                        orderId,
-                        address: userBtcAccount.address,
-                        txHash: order.bitcoin_tx_hash_outgoing
-                    });
-
-                    // Get transaction details from blockchain to find outputs
-                    // We need to fetch the full transaction to see which outputs went to user address
                     const container = DIContainer.getInstance();
                     const utxoManagerService = container.get<IUTXOManagerService>(TYPES.UTXOManagerService);
+                    const outputs = parsedOutputs;
                     
-                    // Try to get transaction from blockchain
-                    // Use blockchainService's internal httpClient to fetch transaction
-                    const httpClient = (this.blockchainService as any).httpClient;
-                    const blockstreamClient = (this.blockchainService as any).blockstreamClient;
-                    
-                    let txData: any = null;
-                    let usedBlockstream = false;
-                    
-                    try {
-                        // Try BlockCypher first
-                        txData = await httpClient.get(`/txs/${order.bitcoin_tx_hash_outgoing}`);
-                    } catch (blockcypherError: any) {
-                        // Fallback to Blockstream
-                        try {
-                            txData = await blockstreamClient.get(`/tx/${order.bitcoin_tx_hash_outgoing}`);
-                            usedBlockstream = true;
-                        } catch (blockstreamError: any) {
-                            Console.warn('Failed to fetch transaction from both APIs for UTXO creation', {
-                                orderId,
-                                txHash: order.bitcoin_tx_hash_outgoing,
-                                blockcypherError: blockcypherError?.message,
-                                blockstreamError: blockstreamError?.message
-                            });
-                        }
-                    }
-                    
-                    if (txData) {
-                        // Parse outputs based on API provider
-                        let outputs: any[] = [];
-                        if (usedBlockstream) {
-                            // Blockstream format
-                            if (txData.vout && Array.isArray(txData.vout)) {
-                                outputs = txData.vout.map((vout: any, index: number) => ({
-                                    index,
-                                    addresses: vout.scriptpubkey_address ? [vout.scriptpubkey_address] : [],
-                                    value: vout.value || 0,
-                                    spent_by: vout.spent ? [{ txid: 'spent' }] : []
-                                }));
-                            }
-                        } else {
-                            // BlockCypher format
-                            outputs = txData.outputs || [];
-                        }
-                        
-                        // Find all outputs that went to user address
+                    // Find all outputs that went to user address
                         let utxosCreated = 0;
                         for (let i = 0; i < outputs.length; i++) {
                             const output = outputs[i];
@@ -944,41 +995,22 @@ export class TradingOrderService implements ITradingOrderService {
                                 txHash: order.bitcoin_tx_hash_outgoing
                             });
                         }
-                    } else {
-                        // Fallback: Try to create UTXO with default vout 0 (most common case)
-                        // This is less accurate but better than nothing
-                        Console.warn('Could not fetch transaction details, attempting to create UTXO with default vout', {
-                            orderId,
-                            txHash: order.bitcoin_tx_hash_outgoing
-                        });
-                        try {
-                            await utxoManagerService.createUTXOFromTransaction(
-                                order.bitcoin_tx_hash_outgoing,
-                                0, // Default to vout 0
-                                userBtcAccount.address,
-                                userBtcAccount._id
-                            );
-                            Console.info('UTXO created with default vout', {
-                                orderId,
-                                address: userBtcAccount.address,
-                                txHash: order.bitcoin_tx_hash_outgoing
-                            });
-                        } catch (utxoError: any) {
-                            Console.warn('Failed to create UTXO with default vout, will need manual sync', {
-                                orderId,
-                                error: utxoError.message
-                            });
-                        }
-                    }
-                } catch (error: any) {
-                    // Don't fail the order completion if UTXO creation fails
-                    // It can be retried later via sync endpoint
-                    Console.warn('Error creating UTXOs for user address in background job', {
-                        orderId,
-                        address: userBtcAccount.address,
-                        txHash: order.bitcoin_tx_hash_outgoing,
-                        error: error.message
-                    });
+                } catch (utxoErr: any) {
+                    Console.warn('Error creating UTXOs in completion', { orderId, error: utxoErr.message });
+                }
+            } else if (order.bitcoin_tx_hash_outgoing && userBtcAccount.address && userBtcAccount._id) {
+                // Fallback when pre-fetch failed: try default vout 0
+                try {
+                    const container = DIContainer.getInstance();
+                    const utxoManagerService = container.get<IUTXOManagerService>(TYPES.UTXOManagerService);
+                    await utxoManagerService.createUTXOFromTransaction(
+                        order.bitcoin_tx_hash_outgoing,
+                        0,
+                        userBtcAccount.address,
+                        userBtcAccount._id
+                    );
+                } catch (utxoError: any) {
+                    Console.warn('Fallback UTXO creation failed, will need manual sync', { orderId });
                 }
             } else {
                 Console.warn('Cannot create UTXOs - missing transaction hash or user address', {
@@ -993,7 +1025,7 @@ export class TradingOrderService implements ITradingOrderService {
                 try {
                     const availableUTXOs = await this.utxoManagerService.getAvailableUTXOs(platformBtcAccount.address);
                     const totalUTXOAmount = availableUTXOs.reduce((sum, utxo) => {
-                        let amount = parseFloat(utxo.amount.toString());
+                        let amount = Number(parseFloat(String(utxo.amount)));
                         // If amount is suspiciously large (> 1), it might be in satoshis - convert to BTC
                         if (amount > 1) {
                             amount = amount / 100000000;
@@ -1003,9 +1035,9 @@ export class TradingOrderService implements ITradingOrderService {
 
                     await this.walletAccountRepo.updateBalance(
                         platformBtcAccount._id,
-                        totalUTXOAmount,
-                        totalUTXOAmount,
-                        parseFloat(platformBtcAccount.locked_balance?.toString() || '0')
+                        Number(totalUTXOAmount),
+                        Number(totalUTXOAmount),
+                        Number(parseFloat(platformBtcAccount.locked_balance?.toString() || '0'))
                     );
 
                     Console.info('Platform BTC balance updated from UTXOs', {
@@ -1022,10 +1054,10 @@ export class TradingOrderService implements ITradingOrderService {
                 }
             }
 
-            // 8. Update order status to completed
+            // 8. Update order status to completed (coerce network_fee to number - pg can return Decimal as string)
             const updated = await this.tradingOrderRepo.update(orderId, {
                 status: 'completed',
-                network_fee: order.network_fee || await this.bitcoinTransactionService.calculateNetworkFee('medium'),
+                network_fee: Number(order.network_fee ?? await this.bitcoinTransactionService.calculateNetworkFee('medium')),
                 completed_at: new Date().toISOString()
             });
 
@@ -1106,13 +1138,24 @@ export class TradingOrderService implements ITradingOrderService {
     }
 
     /**
-     * Complete sell order: Debit BTC, credit NGN
+     * Complete sell order: Debit BTC, credit NGN.
+     * Wrapped in transaction for atomicity; idempotent (safe to retry).
      */
     private async completeSellOrder(orderId: string): Promise<ITradingOrder> {
         const order = await this.tradingOrderRepo.findById(orderId);
         if (!order) throw new ServiceError('Order not found');
 
+        // Idempotency: already completed
+        if (order.status === 'completed') {
+            Console.info('Sell order already completed, skipping', { orderId });
+            return order;
+        }
+
+        let transactionStarted = false;
         try {
+            await this.transactionManager.beginTransaction();
+            transactionStarted = true;
+
             // 1. Get user's wallet accounts
             const wallet = await this.walletRepo.findByUserId(order.user_id);
             if (!wallet || !wallet._id) {
@@ -1152,50 +1195,55 @@ export class TradingOrderService implements ITradingOrderService {
             }
 
             // 3. Debit user's BTC (unlock and deduct, including fee)
-            const cryptoAmount = parseFloat(order.crypto_amount?.toString() || '0');
-            const networkFee = parseFloat(order.network_fee?.toString() || '0');
+            // Coerce to number to avoid string concatenation (pg Decimal can return strings)
+            const cryptoAmount = Number(parseFloat(order.crypto_amount?.toString() || '0'));
+            const fiatAmount = Number(parseFloat(order.fiat_amount?.toString() || '0'));
+            const networkFee = Number(parseFloat(order.network_fee?.toString() || '0'));
             const totalBtcDeducted = cryptoAmount + networkFee;
-            const userBtcLocked = parseFloat(userBtcAccount.locked_balance?.toString() || '0');
-            const userBtcBalance = parseFloat(userBtcAccount.balance?.toString() || '0');
+            const userBtcLocked = Number(parseFloat(userBtcAccount.locked_balance?.toString() || '0'));
+            const userBtcBalance = Number(parseFloat(userBtcAccount.balance?.toString() || '0'));
 
             await this.walletAccountRepo.updateBalance(
                 userBtcAccount._id!,
-                userBtcBalance - totalBtcDeducted,
-                (parseFloat(userBtcAccount.available_balance?.toString() || '0') + userBtcLocked) - totalBtcDeducted,
-                userBtcLocked - totalBtcDeducted
+                Number(userBtcBalance - totalBtcDeducted),
+                Number((Number(parseFloat(userBtcAccount.available_balance?.toString() || '0')) + userBtcLocked) - totalBtcDeducted),
+                Number(userBtcLocked - totalBtcDeducted)
             );
 
             // 4. Credit platform's BTC
-            const platformBtcBalance = parseFloat(platformBtcAccount.balance?.toString() || '0');
-            const platformBtcAvailable = parseFloat(platformBtcAccount.available_balance?.toString() || '0');
+            const platformBtcBalance = Number(parseFloat(platformBtcAccount.balance?.toString() || '0'));
+            const platformBtcAvailable = Number(parseFloat(platformBtcAccount.available_balance?.toString() || '0'));
 
             await this.walletAccountRepo.updateBalance(
                 platformBtcAccount._id!,
-                platformBtcBalance + order.crypto_amount,
-                platformBtcAvailable + order.crypto_amount,
-                parseFloat(platformBtcAccount.locked_balance?.toString() || '0')
+                Number(platformBtcBalance + cryptoAmount),
+                Number(platformBtcAvailable + cryptoAmount),
+                Number(parseFloat(platformBtcAccount.locked_balance?.toString() || '0'))
             );
 
             // 5. Credit user's NGN
-            const userNgnBalance = parseFloat(userNgnAccount.balance?.toString() || '0');
-            const userNgnAvailable = parseFloat(userNgnAccount.available_balance?.toString() || '0');
+            const userNgnBalance = Number(parseFloat(userNgnAccount.balance?.toString() || '0'));
+            const userNgnAvailable = Number(parseFloat(userNgnAccount.available_balance?.toString() || '0'));
 
             await this.walletAccountRepo.updateBalance(
                 userNgnAccount._id!,
-                userNgnBalance + order.fiat_amount,
-                userNgnAvailable + order.fiat_amount,
-                parseFloat(userNgnAccount.locked_balance?.toString() || '0')
+                Number(userNgnBalance + fiatAmount),
+                Number(userNgnAvailable + fiatAmount),
+                Number(parseFloat(userNgnAccount.locked_balance?.toString() || '0'))
             );
 
-            // 6. Debit platform's NGN
-            const platformNgnBalance = parseFloat(platformNgnAccount.balance?.toString() || '0');
-            const platformNgnAvailable = parseFloat(platformNgnAccount.available_balance?.toString() || '0');
+            // 6. Debit platform's NGN (release lock and pay out)
+            // At sell creation we locked: available -= fiatAmount, locked += fiatAmount
+            // On completion: release lock (locked -= fiatAmount) and debit balance
+            const platformNgnBalance = Number(parseFloat(platformNgnAccount.balance?.toString() || '0'));
+            const platformNgnLocked = Number(parseFloat(platformNgnAccount.locked_balance?.toString() || '0'));
+            const platformNgnAvailable = Number(parseFloat(platformNgnAccount.available_balance?.toString() || '0'));
 
             await this.walletAccountRepo.updateBalance(
                 platformNgnAccount._id!,
-                platformNgnBalance - order.fiat_amount,
-                platformNgnAvailable - order.fiat_amount,
-                parseFloat(platformNgnAccount.locked_balance?.toString() || '0')
+                Number(platformNgnBalance - fiatAmount),
+                Number(platformNgnAvailable), // unchanged – already reduced when locked
+                Number(platformNgnLocked - fiatAmount)
             );
 
             // 7. Update order
@@ -1203,6 +1251,9 @@ export class TradingOrderService implements ITradingOrderService {
                 status: 'completed',
                 completed_at: new Date().toISOString()
             });
+
+            await this.transactionManager.commit();
+            transactionStarted = false;
 
             Console.info('Sell order completed', {
                 orderId,
@@ -1214,6 +1265,13 @@ export class TradingOrderService implements ITradingOrderService {
 
             return updated!;
         } catch (error: any) {
+            if (transactionStarted) {
+                try {
+                    await this.transactionManager.rollback();
+                } catch (rollbackError: any) {
+                    Console.error(rollbackError, { message: 'Failed to rollback sell completion', orderId });
+                }
+            }
             Console.error(error, { message: 'Failed to complete sell order', orderId });
             
             // Mark order as failed
@@ -1227,25 +1285,30 @@ export class TradingOrderService implements ITradingOrderService {
     }
 
     /**
-     * Helper method to unlock balance
+     * Helper method to unlock balance (uses atomic update to prevent race conditions)
      */
     private async unlockBalance(walletAccountId: string, amount: number): Promise<void> {
-        const account = await this.walletAccountRepo.findById(walletAccountId);
-        if (!account) {
-            throw new ServiceError('Wallet account not found');
+        const result = await this.walletAccountRepo.unlockBalanceAtomic(walletAccountId, amount);
+        if (!result) {
+            Console.warn('unlockBalance: insufficient locked balance or account not found', {
+                walletAccountId,
+                amount
+            });
+            // Fallback to non-atomic unlock for edge cases (e.g. negative locked from previous bugs)
+            const account = await this.walletAccountRepo.findById(walletAccountId);
+            if (account) {
+                const currentLocked = parseFloat(account.locked_balance?.toString() || '0');
+                const currentAvailable = parseFloat(account.available_balance?.toString() || '0');
+                const newLocked = Math.max(0, currentLocked - amount);
+                const newAvailable = currentAvailable + Math.min(amount, currentLocked);
+                await this.walletAccountRepo.updateBalance(
+                    walletAccountId,
+                    parseFloat(account.balance?.toString() || '0'),
+                    newAvailable,
+                    newLocked
+                );
+            }
         }
-
-        const currentLocked = parseFloat(account.locked_balance?.toString() || '0');
-        const currentAvailable = parseFloat(account.available_balance?.toString() || '0');
-        const newLocked = Math.max(0, currentLocked - amount);
-        const newAvailable = currentAvailable + (currentLocked - newLocked);
-
-        await this.walletAccountRepo.updateBalance(
-            walletAccountId,
-            parseFloat(account.balance?.toString() || '0'),
-            newAvailable,
-            newLocked
-        );
     }
 }
 

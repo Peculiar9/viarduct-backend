@@ -28,5 +28,29 @@ export interface ITradingOrderRepository {
         limit?: number,
         offset?: number
     ): Promise<ITradingOrder[]>;
+
+    findWithFiltersForUser(
+        userId: string,
+        filters: {
+            date_from?: string;
+            date_to?: string;
+            status?: TradingOrderStatus;
+            type?: TradingOrderType;
+            crypto_type?: string;
+        },
+        limit?: number,
+        offset?: number
+    ): Promise<ITradingOrder[]>;
+
+    countWithFiltersForUser(
+        userId: string,
+        filters: {
+            date_from?: string;
+            date_to?: string;
+            status?: TradingOrderStatus;
+            type?: TradingOrderType;
+            crypto_type?: string;
+        }
+    ): Promise<number>;
 }
 

@@ -8,8 +8,10 @@ import { TransactionManager } from '../../../Infrastructure/Repository/SQL/Abstr
 import { 
     InitializePaymentDTO, 
     VerifyPaymentDTO,
+    VerifyInitializationDTO,
     PaymentInitializeResponseDTO,
-    PaymentVerifyResponseDTO
+    PaymentVerifyResponseDTO,
+    VerifyInitializationResponseDTO
 } from '../DTOs/PaymentDTO';
 import { ITransaction, TransactionType, TransactionStatus, RelatedEntityType } from '../Interface/Entities/payments/IPayment';
 import { ServiceError, ValidationError } from '../Error/AppError';
@@ -18,6 +20,7 @@ import { IUser } from '../Interface/Entities/auth-and-user/IUser';
 
 export interface IPaymentUseCase {
     initializePayment(user: IUser, dto: InitializePaymentDTO): Promise<PaymentInitializeResponseDTO>;
+    verifyInitialization(user: IUser, dto: VerifyInitializationDTO): Promise<VerifyInitializationResponseDTO>;
     verifyPayment(user: IUser, dto: VerifyPaymentDTO): Promise<PaymentVerifyResponseDTO>;
 }
 
@@ -101,6 +104,70 @@ export class PaymentUseCase implements IPaymentUseCase {
                 await this.transactionManager.rollback();
             }
             Console.error(error, { message: 'Failed to initialize payment', userId: user._id });
+            throw error;
+        }
+    }
+
+    /**
+     * Record a payment initialization from the frontend (e.g. mobile Paystack SDK).
+     * Creates only the pending transaction record; does not call Paystack.
+     * Later, the existing verify endpoint is used to verify the reference and credit the wallet.
+     */
+    async verifyInitialization(user: IUser, dto: VerifyInitializationDTO): Promise<VerifyInitializationResponseDTO> {
+        let transactionStarted = false;
+        try {
+            await this.transactionManager.beginTransaction();
+            transactionStarted = true;
+
+            // Avoid duplicate registration for the same reference
+            const existing = await this.transactionRepository.findByReference(dto.reference);
+            if (existing) {
+                throw new ValidationError('This reference is already registered');
+            }
+
+            const transactionId = `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            const transactionData: Partial<ITransaction> = {
+                transaction_id: transactionId,
+                user_id: user._id!,
+                related_entity_type: RelatedEntityType.DEPOSIT,
+                related_entity_id: user._id!,
+                type: TransactionType.PAYMENT,
+                amount: dto.amount,
+                currency: 'NGN',
+                status: TransactionStatus.PENDING,
+                payment_reference: dto.reference,
+                description: `Wallet deposit of ₦${dto.amount.toFixed(2)} (FE-initiated)`,
+                metadata: {
+                    payment_method: 'paystack',
+                    paystack_reference: dto.reference,
+                    initiated_from: 'frontend'
+                }
+            };
+
+            const transaction = await this.transactionRepository.create(transactionData as ITransaction);
+
+            await this.transactionManager.commit();
+
+            Console.info('Payment initialization recorded (FE-initiated)', {
+                userId: user._id,
+                transactionId,
+                reference: dto.reference,
+                amount: dto.amount
+            });
+
+            return {
+                reference: dto.reference,
+                transaction_id: transactionId,
+                amount: dto.amount,
+                status: TransactionStatus.PENDING,
+                message: 'Initialization recorded. Use the verify endpoint after payment to credit your wallet.'
+            };
+        } catch (error: any) {
+            if (transactionStarted) {
+                await this.transactionManager.rollback();
+            }
+            Console.error(error, { message: 'Failed to record payment initialization', userId: user._id });
             throw error;
         }
     }

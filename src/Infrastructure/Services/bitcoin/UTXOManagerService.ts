@@ -92,7 +92,7 @@ export class UTXOManagerService implements IUTXOManagerService {
                                         if (!isSpent) {
                                             txrefs.push({
                                                 tx_hash: tx.hash || tx.tx_hash,
-                                                tx_output_n: output.n || output.index,
+                                                tx_output_n: output.n ?? output.index,
                                                 value: output.value || 0,
                                                 script: output.script || output.script_hex
                                             });
@@ -372,7 +372,8 @@ export class UTXOManagerService implements IUTXOManagerService {
 
                 // Check if this output goes to our address (change)
                 if (outputAddresses.includes(address)) {
-                    const amountInSatoshis = output.value || 0;
+                    // Coerce to number to avoid string concatenation when storing (pg numeric)
+                    const amountInSatoshis = Number(output.value || 0);
                     const amount = amountInSatoshis / 100000000; // Convert to BTC
 
                     // Check if this UTXO already exists
@@ -385,11 +386,11 @@ export class UTXOManagerService implements IUTXOManagerService {
                     // Get script from output
                     const script = output.script || output.script_hex || '';
 
-                    // Create new UTXO for change
+                    // Create new UTXO for change (ensure amount is number)
                     changeUTXO = await this.utxoRepo.create({
                         txid,
                         vout: i,
-                        amount,
+                        amount: Number(amount),
                         address,
                         script: script || undefined,
                         status: 'available',
@@ -660,9 +661,8 @@ export class UTXOManagerService implements IUTXOManagerService {
                 throw new ServiceError(`Output ${targetVout} in transaction ${txHash} is already spent`);
             }
 
-            // Extract amount and script
-            const amountInSatoshis = targetOutput.value || 0;
-            // Ensure we convert satoshis to BTC (amount should always be in BTC for storage)
+            // Extract amount and script (coerce to number to avoid string concat when storing)
+            const amountInSatoshis = Number(targetOutput.value || 0);
             const amount = amountInSatoshis / 100000000; // Convert to BTC
             
             // Safety check: if amount seems too large (likely stored as satoshis), convert it
@@ -687,11 +687,11 @@ export class UTXOManagerService implements IUTXOManagerService {
                     return existing;
                 }
 
-                // Create new UTXO with corrected amount
+                // Create new UTXO with corrected amount (ensure number)
                 const utxo = await this.utxoRepo.create({
                     txid: txHash,
                     vout: targetVout,
-                    amount: correctedAmount,
+                    amount: Number(correctedAmount),
                     address: outputAddress,
                     script: script || undefined,
                     status: 'available',
@@ -725,11 +725,11 @@ export class UTXOManagerService implements IUTXOManagerService {
                 return existing;
             }
 
-            // Create new UTXO
+            // Create new UTXO (ensure amount is number)
             const utxo = await this.utxoRepo.create({
                 txid: txHash,
                 vout: targetVout,
-                amount,
+                amount: Number(amount),
                 address: outputAddress,
                 script: script || undefined,
                 status: 'available',

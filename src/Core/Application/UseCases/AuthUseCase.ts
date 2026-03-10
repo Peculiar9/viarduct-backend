@@ -322,10 +322,10 @@ export class AuthUseCase implements IAuthUseCase {
 
             // Get user
             const user = await this._userRepository.findById(verification.user_id!);
-            if (!user) {
-                throw new ValidationError('User not found');
-            }
-
+        if (!user) {
+            throw new ValidationError('User not found');
+        }
+        
             // Verify OTP code
             const salt = user.salt;
             if (!salt) {
@@ -358,11 +358,11 @@ export class AuthUseCase implements IAuthUseCase {
             const tempToken = this._tokenService.generateTempToken(user._id!, user.email!);
 
             await this._transactionManager.commit();
-
-            return {
-                status: true,
-                temp_token: tempToken
-            };
+        
+        return {
+            status: true,
+            temp_token: tempToken
+        };
         } catch (error: any) {
             if (transactionStarted) await this._transactionManager.rollback();
             if (error instanceof ValidationError || error instanceof UnprocessableEntityError) {
