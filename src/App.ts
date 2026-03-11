@@ -22,6 +22,9 @@ import './Controllers/trading/TradingRateController';
 import './Controllers/trading/TradingOrderController';
 import './Controllers/trading/AdminTradingOrderController';
 import './Controllers/me/MeController';
+import './Controllers/withdrawal/WithdrawalController';
+import './Controllers/giftcard/GiftCardController';
+import './Controllers/giftcard/AdminGiftCardController';
 import './Controllers/bitcoin/BitcoinWebhookController';
 
 import { DIContainer } from './Core/DIContainer';

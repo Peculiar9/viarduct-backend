@@ -99,5 +99,34 @@ export interface IPaystackService {
         amount: number,
         metadata?: Record<string, any>
     ): Promise<any>;
+
+    verifyAccountNumber(accountNumber: string, bankCode: string): Promise<PaystackResolveAccountResponse>;
+    createTransferRecipient(accountNumber: string, bankCode: string, accountName: string): Promise<PaystackTransferRecipientResponse>;
+    initiateTransfer(amountInNaira: number, recipientCode: string, reason?: string): Promise<PaystackTransferResponse>;
+    fetchBanks(): Promise<PaystackBanksResponse>;
+}
+
+export interface PaystackResolveAccountResponse {
+    status: boolean;
+    message: string;
+    data: { account_number: string; account_name: string; bank_id: number; bank?: { name: string; id: number; code: string } };
+}
+
+export interface PaystackTransferRecipientResponse {
+    status: boolean;
+    message: string;
+    data: { recipient_code: string; details: { account_number: string; account_name: string; bank_code: string; bank_name: string } };
+}
+
+export interface PaystackTransferResponse {
+    status: boolean;
+    message: string;
+    data: { transfer_code: string; reference: string; status: string };
+}
+
+export interface PaystackBanksResponse {
+    status: boolean;
+    message: string;
+    data: Array<{ id: number; name: string; code: string; longcode: string }>;
 }
 

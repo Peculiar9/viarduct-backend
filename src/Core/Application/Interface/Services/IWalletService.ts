@@ -51,6 +51,14 @@ export interface IWalletService {
     }>;
 
     /**
+     * Debit user wallet (NGN) - e.g. for withdrawals
+     * @param userId User ID
+     * @param amount Amount in Naira
+     * @returns Updated wallet account
+     */
+    debitUserWallet(userId: string, amount: number): Promise<IWalletAccount>;
+
+    /**
      * Generate or get Bitcoin address for user's BTC wallet account
      * @param userId User ID
      * @returns Bitcoin address

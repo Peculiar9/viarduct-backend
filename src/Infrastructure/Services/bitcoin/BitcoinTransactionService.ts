@@ -101,10 +101,10 @@ export class BitcoinTransactionService implements IBitcoinTransactionService {
                 throw new ServiceError(`No unspent outputs found for address: ${fromAddress}`);
             }
 
-            // Calculate fee if not provided
-            const networkFee = fee || await this.calculateNetworkFee();
-            const feeInSatoshis = Math.ceil(networkFee * 100000000);
-            const amountInSatoshis = Math.floor(amount * 100000000);
+            // Calculate fee if not provided - ensure valid numbers
+            const networkFee = fee ?? await this.calculateNetworkFee();
+            const feeInSatoshis = Math.max(1, Math.ceil(Number(networkFee) * 100000000) || 1);
+            const amountInSatoshis = Math.floor(Number(amount) * 100000000) || 0;
 
             // Select UTXOs to cover amount + fee
             let totalInput = 0;
@@ -123,20 +123,22 @@ export class BitcoinTransactionService implements IBitcoinTransactionService {
                 throw new ServiceError(`Insufficient balance. Need ${(amountInSatoshis + feeInSatoshis) / 100000000} BTC, have ${totalInput / 100000000} BTC`);
             }
 
-            // Calculate change
-            const change = totalInput - amountInSatoshis - feeInSatoshis;
+            // Calculate change - ensure valid integer for BigInt
+            const change = Math.floor(totalInput - amountInSatoshis - feeInSatoshis);
+            const safeChange = Number.isNaN(change) ? 0 : Math.max(0, change);
 
             // Build transaction
             const psbt = new bitcoin.Psbt({ network: this.network });
 
             // Add inputs
             for (const utxo of selectedUTXOs) {
+                const v = Math.floor(Number(utxo.value)) || 0;
                 psbt.addInput({
                     hash: utxo.tx_hash,
                     index: utxo.tx_output_n,
                     witnessUtxo: {
                         script: Buffer.from(utxo.script, 'hex'),
-                        value: BigInt(utxo.value)
+                        value: BigInt(Number.isNaN(v) ? 0 : v)
                     }
                 });
             }
@@ -144,14 +146,14 @@ export class BitcoinTransactionService implements IBitcoinTransactionService {
             // Add outputs
             psbt.addOutput({
                 address: toAddress,
-                value: BigInt(amountInSatoshis)
+                value: BigInt(Number.isNaN(amountInSatoshis) ? 0 : amountInSatoshis)
             });
 
             // Add change output if there's change
-            if (change > 0) {
+            if (safeChange > 0) {
                 psbt.addOutput({
                     address: fromAddress,
-                    value: BigInt(change)
+                    value: BigInt(safeChange)
                 });
             }
 
@@ -371,6 +373,14 @@ export class BitcoinTransactionService implements IBitcoinTransactionService {
     }
 
     /**
+     * Safe number for BigInt - ensures valid integer (prevents NaN)
+     */
+    private safeSatoshis(value: number): number {
+        const n = Math.floor(Number(value));
+        return Number.isNaN(n) ? 0 : Math.max(0, n);
+    }
+
+    /**
      * Build a Bitcoin transaction using specific UTXOs from database
      * This is used when UTXOs are already reserved
      */
@@ -386,36 +396,43 @@ export class BitcoinTransactionService implements IBitcoinTransactionService {
                 throw new ServiceError('No UTXOs provided');
             }
 
-            // Calculate fee if not provided
-            const networkFee = fee || await this.calculateNetworkFee();
-            let feeInSatoshis = Math.ceil(networkFee * 100000000); // Use let so we can add dust to it
-            const amountInSatoshis = Math.floor(amount * 100000000);
+            // Calculate fee if not provided - ensure valid numbers
+            const networkFee = fee ?? await this.calculateNetworkFee();
+            const networkFeeNum = Number(networkFee);
+            if (Number.isNaN(networkFeeNum) || networkFeeNum < 0) {
+                throw new ServiceError('Invalid network fee');
+            }
+            let feeInSatoshis = this.safeSatoshis(networkFeeNum * 100000000) || 1;
+
+            const amountNum = Number(amount);
+            if (Number.isNaN(amountNum) || amountNum <= 0) {
+                throw new ServiceError('Invalid amount for transaction');
+            }
+            const amountInSatoshis = this.safeSatoshis(amountNum * 100000000);
 
             // Calculate total input from provided UTXOs
             let totalInput = 0;
             const selectedUTXOs: any[] = [];
             
             for (const utxo of utxos) {
-                // Convert amount to satoshis
-                // Check if amount is already in satoshis (if > 1, likely satoshis) or BTC
+                // Convert amount to satoshis - handle Decimal/string/undefined safely
+                const rawAmount = typeof utxo.amount === 'number' ? utxo.amount : parseFloat(String(utxo.amount ?? 0));
                 let utxoAmountInBTC: number;
-                const utxoAmount = utxo.amount; // Already a number from interface
-                
-                // If amount > 1, it's likely stored as satoshis, convert to BTC first
-                if (utxoAmount > 1) {
-                    utxoAmountInBTC = utxoAmount / 100000000;
+                if (Number.isNaN(rawAmount)) {
+                    utxoAmountInBTC = 0;
+                } else if (rawAmount > 1 && rawAmount < 21000000 * 100000000) {
+                    utxoAmountInBTC = rawAmount / 100000000;
                     Console.warn('UTXO amount appears to be in satoshis, converting to BTC', {
-                        original: utxoAmount,
+                        original: rawAmount,
                         converted: utxoAmountInBTC,
                         txid: utxo.txid,
                         vout: utxo.vout
                     });
                 } else {
-                    utxoAmountInBTC = utxoAmount;
+                    utxoAmountInBTC = rawAmount;
                 }
                 
-                // Now convert BTC to satoshis for transaction
-                const utxoValue = Math.floor(utxoAmountInBTC * 100000000);
+                const utxoValue = this.safeSatoshis(utxoAmountInBTC * 100000000);
                 
                 selectedUTXOs.push({
                     tx_hash: utxo.txid,
@@ -438,8 +455,8 @@ export class BitcoinTransactionService implements IBitcoinTransactionService {
                 );
             }
 
-            // Calculate change
-            let change = totalInput - amountInSatoshis - feeInSatoshis;
+            // Calculate change - ensure valid integer
+            let change = this.safeSatoshis(totalInput - amountInSatoshis - feeInSatoshis);
 
             // Bitcoin dust threshold: 546 satoshis (0.00000546 BTC)
             // If change is dust, add it to the fee instead of creating a dust output
@@ -517,28 +534,28 @@ export class BitcoinTransactionService implements IBitcoinTransactionService {
                         'Sync UTXOs again or backfill script from transaction details.'
                     );
                 }
-                
+                const inputValue = this.safeSatoshis(utxo.value);
                 psbt.addInput({
                     hash: utxo.tx_hash,
-                    index: utxo.tx_output_n,
+                    index: typeof utxo.tx_output_n === 'number' ? utxo.tx_output_n : parseInt(String(utxo.tx_output_n ?? 0), 10),
                     witnessUtxo: {
                         script: Buffer.from(utxo.script, 'hex'),
-                        value: BigInt(utxo.value)
+                        value: BigInt(inputValue)
                     }
                 });
             }
 
-            // Add outputs
+            // Add outputs - ensure all values are valid integers for BigInt
             psbt.addOutput({
                 address: toAddress,
-                value: BigInt(amountInSatoshis)
+                value: BigInt(this.safeSatoshis(amountInSatoshis))
             });
 
             // Add change output only if change is above dust threshold
             if (change >= DUST_THRESHOLD) {
                 psbt.addOutput({
                     address: fromAddress,
-                    value: BigInt(change)
+                    value: BigInt(this.safeSatoshis(change))
                 });
             }
 

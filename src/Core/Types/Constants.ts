@@ -129,6 +129,15 @@ export const TYPES = {
     // UTXO System
     UTXORepository: Symbol.for('UTXORepository'),
     UTXOManagerService: Symbol.for('UTXOManagerService'),
+
+    // Withdrawal
+    WithdrawalRequestRepository: Symbol.for('WithdrawalRequestRepository'),
+    UserTransactionPinRepository: Symbol.for('UserTransactionPinRepository'),
+    WithdrawalService: Symbol.for('WithdrawalService'),
+
+    // Gift cards
+    GiftCardSubmissionRepository: Symbol.for('GiftCardSubmissionRepository'),
+    GiftCardService: Symbol.for('GiftCardService'),
 } as const;
 
 export const APP_VERSION = 'v1';

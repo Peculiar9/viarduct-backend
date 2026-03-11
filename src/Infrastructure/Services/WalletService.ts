@@ -270,6 +270,48 @@ export class WalletService implements IWalletService {
     }
 
     /**
+     * Debit user wallet (NGN) - for withdrawals
+     */
+    async debitUserWallet(userId: string, amount: number): Promise<IWalletAccount> {
+        try {
+            const wallet = await this.walletRepository.findByUserId(userId);
+            if (!wallet || !wallet._id) {
+                throw new ValidationError('Wallet not found for user');
+            }
+            const ngnCurrency = await this.currencyRepository.findByCode('NGN');
+            if (!ngnCurrency || !ngnCurrency._id) {
+                throw new ServiceError('NGN currency not found');
+            }
+            const walletAccount = await this.walletAccountRepository.findByWalletIdAndCurrencyId(wallet._id, ngnCurrency._id);
+            if (!walletAccount) {
+                throw new ValidationError('NGN wallet account not found');
+            }
+            const availableBalance = parseFloat(String(walletAccount.available_balance ?? 0));
+            const currentBalance = parseFloat(String(walletAccount.balance ?? 0));
+            const lockedBalance = parseFloat(String(walletAccount.locked_balance ?? 0));
+            if (availableBalance < amount) {
+                throw new ValidationError(`Insufficient balance. Need ${amount} NGN, have ${availableBalance} NGN`);
+            }
+            const newBalance = currentBalance - amount;
+            const newAvailableBalance = availableBalance - amount;
+            const updated = await this.walletAccountRepository.updateBalance(
+                walletAccount._id!,
+                newBalance,
+                newAvailableBalance,
+                lockedBalance
+            );
+            if (!updated) {
+                throw new ServiceError('Failed to debit wallet');
+            }
+            Console.info('Wallet debited', { userId, amount, newBalance: newAvailableBalance });
+            return updated;
+        } catch (error: any) {
+            Console.error(error, { message: 'Failed to debit user wallet', userId, amount });
+            throw error;
+        }
+    }
+
+    /**
      * Generate or get Bitcoin address for user's BTC wallet account
      */
     async generateBitcoinAddress(userId: string): Promise<string> {

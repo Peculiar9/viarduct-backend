@@ -140,7 +140,7 @@ export class TradingOrderService implements ITradingOrderService {
 
             // 8. Calculate network fee and reserve UTXOs
             const networkFee = await this.bitcoinTransactionService.calculateNetworkFee('medium');
-            const totalBtcNeeded = data.crypto_amount + networkFee;
+            const totalBtcNeeded = cryptoAmount + networkFee;
 
             // 9. Create order first (status: pending - will update to processing after UTXO reservation)
             const order = await this.tradingOrderRepo.create({
@@ -184,7 +184,7 @@ export class TradingOrderService implements ITradingOrderService {
             Console.info('Buy order created with reserved UTXOs', {
                 orderId: order._id,
                 userId,
-                cryptoAmount: data.crypto_amount,
+                cryptoAmount,
                 fiatAmount,
                 rate: rate.sell_rate,
                 utxoCount: reservedUTXOs.length
@@ -200,14 +200,14 @@ export class TradingOrderService implements ITradingOrderService {
                 const transaction = await this.bitcoinTransactionService.buildTransactionWithUTXOs(
                     platformBtcAccount.address,
                     userBtcAccount.address,
-                    data.crypto_amount,
+                    cryptoAmount,
                     reservedUTXOs.map(u => ({
-                        txid: u.txid,
-                        vout: u.vout,
-                        amount: parseFloat(u.amount.toString()),
+                        txid: u.txid!,
+                        vout: Number(u.vout) ?? 0,
+                        amount: parseFloat(String(u.amount ?? 0)) || 0,
                         script: u.script || undefined
                     })),
-                    networkFee
+                    Number(networkFee) || undefined
                 );
 
                 // Sign transaction
@@ -325,12 +325,12 @@ export class TradingOrderService implements ITradingOrderService {
 
             // 4. Check if user has sufficient BTC balance (including network fee)
             const networkFee = await this.bitcoinTransactionService.calculateNetworkFee('medium');
-            const totalBtcNeeded = data.crypto_amount + networkFee; // User pays fee for sell orders
+            const totalBtcNeeded = cryptoAmount + networkFee; // User pays fee for sell orders
 
             const availableBalance = parseFloat(userBtcAccount.available_balance?.toString() || '0');
             if (availableBalance < totalBtcNeeded) {
                 throw new ValidationError(
-                    `Insufficient balance. Need ${totalBtcNeeded} BTC (${data.crypto_amount} + ${networkFee} fee), have ${availableBalance} BTC`
+                    `Insufficient balance. Need ${totalBtcNeeded} BTC (${cryptoAmount} + ${networkFee} fee), have ${availableBalance} BTC`
                 );
             }
 
@@ -363,7 +363,7 @@ export class TradingOrderService implements ITradingOrderService {
             const lockedBtc = await this.walletAccountRepo.lockBalance(userBtcAccount._id!, totalBtcNeeded);
             if (!lockedBtc) {
                 throw new ValidationError(
-                    `Insufficient balance. Need ${totalBtcNeeded} BTC (${data.crypto_amount} + ${networkFee} fee), have ${availableBalance} BTC`
+                    `Insufficient balance. Need ${totalBtcNeeded} BTC (${cryptoAmount} + ${networkFee} fee), have ${availableBalance} BTC`
                 );
             }
 
@@ -407,7 +407,7 @@ export class TradingOrderService implements ITradingOrderService {
 
                 reservedUTXOs = await this.utxoManagerService.reserveUTXOsForOrder(
                     userBtcAccount.address,
-                    totalBtcNeeded,
+                    totalBtcNeeded, 
                     order._id!
                 );
             } catch (error: any) {
@@ -430,7 +430,7 @@ export class TradingOrderService implements ITradingOrderService {
             Console.info('Sell order created with reserved UTXOs', {
                 orderId: order._id,
                 userId,
-                cryptoAmount: data.crypto_amount,
+                cryptoAmount,
                 fiatAmount,
                 rate: rate.buy_rate,
                 utxoCount: reservedUTXOs.length
@@ -446,14 +446,14 @@ export class TradingOrderService implements ITradingOrderService {
                 const transaction = await this.bitcoinTransactionService.buildTransactionWithUTXOs(
                     userBtcAccount.address,
                     platformBtcAccount.address,
-                    data.crypto_amount,
+                    cryptoAmount,
                     reservedUTXOs.map(u => ({
-                        txid: u.txid,
-                        vout: u.vout,
-                        amount: parseFloat(u.amount.toString()),
+                        txid: u.txid!,
+                        vout: Number(u.vout) ?? 0,
+                        amount: parseFloat(String(u.amount ?? 0)) || 0,
                         script: u.script || undefined
                     })),
-                    networkFee
+                    Number(networkFee) || undefined
                 );
 
                 // Sign transaction

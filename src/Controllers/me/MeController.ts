@@ -1,12 +1,15 @@
 import { Request, Response } from 'express';
-import { controller, httpGet, request, response } from 'inversify-express-utils';
+import { controller, httpGet, httpPost, httpPut, request, response, requestBody } from 'inversify-express-utils';
 import { inject } from 'inversify';
 import { API_PATH, TYPES } from '../../Core/Types/Constants';
 import { ITradingOrderRepository } from '../../Core/Application/Interface/Repositories/ITradingOrderRepository';
 import { TransactionRepository } from '../../Infrastructure/Repository/SQL/payment/TransactionRepository';
+import { IWithdrawalService } from '../../Core/Application/Interface/Services/IWithdrawalService';
 import AuthMiddleware from '../../Middleware/AuthMiddleware';
 import { BaseController } from '../BaseController';
 import { IUser } from '../../Core/Application/Interface/Entities/auth-and-user/IUser';
+import { validationMiddleware } from '../../Middleware/ValidationMiddleware';
+import { SetTransactionPinDTO, ChangeTransactionPinDTO } from '../../Core/Application/DTOs/WithdrawalDTO';
 import { TradingOrderStatus, TradingOrderType } from '../../Core/Application/Interface/Entities/trading/ITradingOrder';
 import { TransactionStatus, TransactionType, RelatedEntityType } from '../../Core/Application/Interface/Entities/payments/IPayment';
 import { ResponseMessage } from '../../Core/Application/Response/ResponseFormat';
@@ -21,7 +24,8 @@ const MAX_LIMIT = 100;
 export class MeController extends BaseController {
     constructor(
         @inject(TYPES.TradingOrderRepository) private readonly tradingOrderRepo: ITradingOrderRepository,
-        @inject(TYPES.TransactionRepository) private readonly transactionRepo: TransactionRepository
+        @inject(TYPES.TransactionRepository) private readonly transactionRepo: TransactionRepository,
+        @inject(TYPES.WithdrawalService) private readonly withdrawalService: IWithdrawalService
     ) {
         super();
     }
@@ -128,6 +132,37 @@ export class MeController extends BaseController {
             }, ResponseMessage.SUCCESSFUL_REQUEST_MESSAGE);
         } catch (error: any) {
             return this.error(res, error.message, error.statusCode || 500, error);
+        }
+    }
+
+    @httpPost('/transaction-pin', AuthMiddleware.authenticate(), validationMiddleware(SetTransactionPinDTO))
+    async setTransactionPin(@request() req: Request, @response() res: Response) {
+        try {
+            const user = req.user as IUser;
+            const { pin, confirm_pin } = req.body;
+            await this.withdrawalService.setTransactionPin(user._id!, pin, confirm_pin);
+            return this.success(res, { message: 'Transaction PIN set successfully' }, 'PIN set successfully');
+        } catch (error: any) {
+            return this.error(res, error.message, error.statusCode || 400, error);
+        }
+    }
+
+    @httpPut('/transaction-pin', AuthMiddleware.authenticate(), validationMiddleware(ChangeTransactionPinDTO))
+    async changeTransactionPin(@request() req: Request, @response() res: Response) {
+        try {
+            const user = req.user as IUser;
+            const { current_pin, new_pin, confirm_new_pin } = req.body;
+            if (new_pin !== confirm_new_pin) {
+                return this.error(res, 'New PIN and confirm PIN do not match', 400);
+            }
+            const valid = await this.withdrawalService.verifyTransactionPin(user._id!, current_pin);
+            if (!valid) {
+                return this.error(res, 'Invalid current PIN', 400);
+            }
+            await this.withdrawalService.setTransactionPin(user._id!, new_pin, confirm_new_pin);
+            return this.success(res, { message: 'Transaction PIN updated successfully' }, 'PIN updated successfully');
+        } catch (error: any) {
+            return this.error(res, error.message, error.statusCode || 400, error);
         }
     }
 }

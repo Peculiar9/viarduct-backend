@@ -90,6 +90,16 @@ import { UTXORepository } from '../Infrastructure/Repository/SQL/UTXORepository'
 import { IUTXORepository } from './Application/Interface/Repositories/IUTXORepository';
 import { UTXOManagerService } from '../Infrastructure/Services/bitcoin/UTXOManagerService';
 import { IUTXOManagerService } from './Application/Interface/Services/IUTXOManagerService';
+import { WithdrawalRequestRepository } from '../Infrastructure/Repository/SQL/withdrawal/WithdrawalRequestRepository';
+import { IWithdrawalRequestRepository } from './Application/Interface/Repositories/IWithdrawalRequestRepository';
+import { UserTransactionPinRepository } from '../Infrastructure/Repository/SQL/withdrawal/UserTransactionPinRepository';
+import { IUserTransactionPinRepository } from './Application/Interface/Repositories/IUserTransactionPinRepository';
+import { WithdrawalService } from '../Infrastructure/Services/withdrawal/WithdrawalService';
+import { IWithdrawalService } from './Application/Interface/Services/IWithdrawalService';
+import { GiftCardSubmissionRepository } from '../Infrastructure/Repository/SQL/giftcard/GiftCardSubmissionRepository';
+import { IGiftCardSubmissionRepository } from './Application/Interface/Repositories/IGiftCardSubmissionRepository';
+import { GiftCardService } from '../Infrastructure/Services/giftcard/GiftCardService';
+import { IGiftCardService } from './Application/Interface/Services/IGiftCardService';
 
 
 /**
@@ -183,6 +193,11 @@ export class DIContainer {
         container.bind<ITradingOrderRepository>(TYPES.TradingOrderRepository).to(TradingOrderRepository).inRequestScope();
         container.bind<IUTXORepository>(TYPES.UTXORepository).to(UTXORepository).inRequestScope();
         container.bind<IUTXOManagerService>(TYPES.UTXOManagerService).to(UTXOManagerService).inRequestScope();
+        container.bind<IWithdrawalRequestRepository>(TYPES.WithdrawalRequestRepository).to(WithdrawalRequestRepository).inRequestScope();
+        container.bind<IUserTransactionPinRepository>(TYPES.UserTransactionPinRepository).to(UserTransactionPinRepository).inRequestScope();
+        container.bind<IGiftCardSubmissionRepository>(TYPES.GiftCardSubmissionRepository).to(GiftCardSubmissionRepository).inRequestScope();
+        container.bind<IWithdrawalService>(TYPES.WithdrawalService).to(WithdrawalService).inRequestScope();
+        container.bind<IGiftCardService>(TYPES.GiftCardService).to(GiftCardService).inRequestScope();
         container.bind<AuthServiceHelper>(TYPES.AuthServiceHelper).to(AuthServiceHelper).inRequestScope();
 
         // Use Cases

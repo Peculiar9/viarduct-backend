@@ -52,7 +52,8 @@ export enum RelatedEntityType {
     JOB = 'job',
     SUBSCRIPTION = 'subscription',
     PAYOUT = 'payout',
-    DEPOSIT = 'deposit'
+    DEPOSIT = 'deposit',
+    GIFTCARD_SALE = 'giftcard_sale'
 }
 
 /**

@@ -141,12 +141,34 @@ export class UTXOManagerService implements IUTXOManagerService {
                     );
                 }
             }
-            
+
+            // If BlockCypher returned successfully but empty, try Blockstream (common on testnet)
+            if (txrefs.length === 0) {
+                Console.info('BlockCypher returned no UTXOs, trying Blockstream as fallback', { address });
+                try {
+                    const blockstreamResponse = await this.blockstreamClient.get<any>(`/address/${address}/utxo`);
+                    if (Array.isArray(blockstreamResponse) && blockstreamResponse.length > 0) {
+                        txrefs = blockstreamResponse.map((utxo: any) => ({
+                            tx_hash: utxo.txid,
+                            tx_output_n: utxo.vout,
+                            value: utxo.value,
+                            script: utxo.scriptpubkey || ''
+                        }));
+                        Console.info('Found UTXOs via Blockstream (BlockCypher was empty)', {
+                            address,
+                            count: txrefs.length
+                        });
+                    }
+                } catch (blockstreamError: any) {
+                    Console.warn('Blockstream fallback also failed', { address, error: blockstreamError?.message });
+                }
+            }
+
             if (txrefs.length === 0) {
                 Console.warn('No UTXOs found for address after trying all methods', { address });
                 return 0;
             }
-            
+
             Console.info(`Found ${txrefs.length} UTXOs from blockchain`, { address });
 
             let syncedCount = 0;
@@ -156,8 +178,8 @@ export class UTXOManagerService implements IUTXOManagerService {
                 try {
                     const txid = txref.tx_hash;
                     const vout = txref.tx_output_n;
-                    const amountInSatoshis = txref.value || 0;
-                    const amount = amountInSatoshis / 100000000; // Convert to BTC
+                    const amountInSatoshis = Number(txref.value) || 0;
+                    const amount = Number.isNaN(amountInSatoshis) ? 0 : amountInSatoshis / 100000000; // Convert to BTC
 
                     // Check if UTXO already exists
                     const existing = await this.utxoRepo.findByTxidAndVout(txid, vout);

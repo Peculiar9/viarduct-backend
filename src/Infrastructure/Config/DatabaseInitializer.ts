@@ -19,6 +19,9 @@ import { TradingOrder } from '../../Core/Application/Entities/TradingOrder';
 import { Transaction } from '../../Core/Application/Entities/Transaction';
 import { BitcoinTransaction } from '../../Core/Application/Entities/BitcoinTransaction';
 import { UTXO } from '../../Core/Application/Entities/UTXO';
+import { WithdrawalRequest } from '../../Core/Application/Entities/WithdrawalRequest';
+import { UserTransactionPin } from '../../Core/Application/Entities/UserTransactionPin';
+import { GiftCardSubmission } from '../../Core/Application/Entities/GiftCardSubmission';
 
 @injectable()
 export class DatabaseInitializer {
@@ -43,6 +46,9 @@ export class DatabaseInitializer {
             { entity: Verification, tableName: TableNames.VERIFICATIONS },
             { entity: BitcoinTransaction, tableName: TableNames.BITCOIN_TRANSACTIONS },
             { entity: UTXO, tableName: TableNames.UTXOS },
+            { entity: WithdrawalRequest, tableName: TableNames.WITHDRAWAL_REQUESTS },
+            { entity: UserTransactionPin, tableName: TableNames.USER_TRANSACTION_PINS },
+            { entity: GiftCardSubmission, tableName: TableNames.GIFT_CARD_SUBMISSIONS },
         ];
 
         // STEP 2: PROCESS EACH TABLE INDIVIDUALLY TO ISOLATE FAILURES

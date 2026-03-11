@@ -34,4 +34,7 @@ export enum TableNames {
     BITCOIN_TRANSACTIONS = 'bitcoin_transactions',
     TRADING_ORDERS = 'trading_orders',
     UTXOS = 'utxos',
+    WITHDRAWAL_REQUESTS = 'withdrawal_requests',
+    USER_TRANSACTION_PINS = 'user_transaction_pins',
+    GIFT_CARD_SUBMISSIONS = 'gift_card_submissions',
 }
