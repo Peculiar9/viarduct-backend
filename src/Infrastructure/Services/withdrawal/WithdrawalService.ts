@@ -9,6 +9,7 @@ import { IUserTransactionPinRepository } from '../../../Core/Application/Interfa
 import { ValidationError, ServiceError } from '../../../Core/Application/Error/AppError';
 import { Console } from '../../Utils/Console';
 import * as bcrypt from 'bcryptjs';
+import { UserRepository } from '../../Repository/SQL/users/UserRepository';
 
 const PIN_SALT_ROUNDS = 10;
 
@@ -18,7 +19,8 @@ export class WithdrawalService implements IWithdrawalService {
         @inject(TYPES.PaystackService) private readonly paystackService: IPaystackService,
         @inject(TYPES.WalletService) private readonly walletService: IWalletService,
         @inject(TYPES.WithdrawalRequestRepository) private readonly withdrawalRequestRepo: IWithdrawalRequestRepository,
-        @inject(TYPES.UserTransactionPinRepository) private readonly transactionPinRepo: IUserTransactionPinRepository
+        @inject(TYPES.UserTransactionPinRepository) private readonly transactionPinRepo: IUserTransactionPinRepository,
+        @inject(TYPES.UserRepository) private readonly userRepository: UserRepository
     ) {}
 
     async validateAccountAndCreateRequest(userId: string, accountNumber: string, bankCode: string): Promise<{
@@ -193,6 +195,7 @@ export class WithdrawalService implements IWithdrawalService {
                 updated_at: now
             });
         }
+        await this.userRepository.update(userId, { has_set_transaction_pin: true });
     }
 
     async verifyTransactionPin(userId: string, pin: string): Promise<boolean> {

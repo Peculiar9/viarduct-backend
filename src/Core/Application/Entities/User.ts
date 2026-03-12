@@ -181,6 +181,9 @@ export class User implements IUser {
     @Column('VARCHAR(50) DEFAULT \'not-started\'')
     public kyc_stage: KYCStage;
 
+    @Column('BOOLEAN DEFAULT false')
+    public has_set_transaction_pin: boolean;
+
     // state_code column
     @Column('VARCHAR(255) DEFAULT NULL')
     public state_code: string;

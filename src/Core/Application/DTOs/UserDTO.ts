@@ -344,6 +344,7 @@ export interface UserResponseDTO {
   stage_meta_data?: any;
   wallet?: WalletResponseDTO | null;  // Add wallet field
   orders?: any[];  // Add orders field - user's trading orders
+  has_set_transaction_pin?: boolean;
 }
 
 export class createAdminUserDTO {

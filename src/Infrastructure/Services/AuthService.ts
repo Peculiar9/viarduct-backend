@@ -81,6 +81,7 @@ export class AuthService implements IAuthService {
             is_active: user.is_active as boolean,
             created_at: user.created_at as string,
             updated_at: user.updated_at as string,
+            has_set_transaction_pin: user.has_set_transaction_pin ?? false,
         };
     }
  

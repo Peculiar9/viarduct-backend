@@ -53,6 +53,7 @@ export interface IUser{
     created_at: string;
     has_completed_kyc?: boolean;
     kyc_stage?: string;
+    has_set_transaction_pin?: boolean;
     updated_at: string;
     __v: number;
 }

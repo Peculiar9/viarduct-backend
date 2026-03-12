@@ -67,6 +67,7 @@ export class AuthHelpers {
             expiry: 0,
             created_at: user.created_at || '',
             updated_at: user.updated_at || '',
+            has_set_transaction_pin: user.has_set_transaction_pin ?? false,
         };
     }
 
