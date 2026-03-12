@@ -29,14 +29,28 @@ export class CurrencySeeder {
 
     private async createCurrencies(): Promise<void> {
         const currencies = [
-            {
-                code: 'NGN',
-                name: 'Nigerian Naira',
-                symbol: '₦',
-                type: 'fiat' as const,
-                decimals: 2,
-                is_active: true
-            },
+            { code: 'NGN', name: 'Nigerian Naira', symbol: '₦', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'USD', name: 'US Dollar', symbol: '$', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'GBP', name: 'British Pound', symbol: '£', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'EUR', name: 'Euro', symbol: '€', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'AUD', name: 'Australian Dollar', symbol: 'A$', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'CHF', name: 'Swiss Franc', symbol: 'CHF', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'JPY', name: 'Japanese Yen', symbol: '¥', type: 'fiat' as const, decimals: 0, is_active: true },
+            { code: 'CNY', name: 'Chinese Yuan', symbol: '¥', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'ZAR', name: 'South African Rand', symbol: 'R', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'KES', name: 'Kenyan Shilling', symbol: 'KSh', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'GHS', name: 'Ghanaian Cedi', symbol: '₵', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'XOF', name: 'West African CFA Franc', symbol: 'CFA', type: 'fiat' as const, decimals: 0, is_active: true },
+            { code: 'XAF', name: 'Central African CFA Franc', symbol: 'FCFA', type: 'fiat' as const, decimals: 0, is_active: true },
+            { code: 'EGP', name: 'Egyptian Pound', symbol: 'E£', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'MAD', name: 'Moroccan Dirham', symbol: 'DH', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'INR', name: 'Indian Rupee', symbol: '₹', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'BRL', name: 'Brazilian Real', symbol: 'R$', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'MXN', name: 'Mexican Peso', symbol: '$', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'TRY', name: 'Turkish Lira', symbol: '₺', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'SAR', name: 'Saudi Riyal', symbol: '﷼', type: 'fiat' as const, decimals: 2, is_active: true },
+            { code: 'AED', name: 'UAE Dirham', symbol: 'د.إ', type: 'fiat' as const, decimals: 2, is_active: true },
             {
                 code: 'BTC',
                 name: 'Bitcoin',

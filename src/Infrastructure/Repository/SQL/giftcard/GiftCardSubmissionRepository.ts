@@ -69,14 +69,19 @@ export class GiftCardSubmissionRepository extends BaseRepository<IGiftCardSubmis
         const conditions: string[] = ['user_id = $1'];
         const values: any[] = [userId];
         let paramIndex = 2;
+        if (filters.card_name != null && filters.card_name !== '') {
+            conditions.push(`card_name = $${paramIndex}`);
+            values.push(filters.card_name);
+            paramIndex++;
+        }
         if (filters.card_type != null && filters.card_type !== '') {
             conditions.push(`card_type = $${paramIndex}`);
             values.push(filters.card_type);
             paramIndex++;
         }
-        if (filters.amount_ngn != null) {
+        if (filters.amount != null) {
             conditions.push(`amount_ngn = $${paramIndex}`);
-            values.push(filters.amount_ngn);
+            values.push(filters.amount);
             paramIndex++;
         }
         if (filters.status != null && filters.status !== '') {
@@ -107,14 +112,19 @@ export class GiftCardSubmissionRepository extends BaseRepository<IGiftCardSubmis
         const conditions: string[] = ['user_id = $1'];
         const values: any[] = [userId];
         let paramIndex = 2;
+        if (filters.card_name != null && filters.card_name !== '') {
+            conditions.push(`card_name = $${paramIndex}`);
+            values.push(filters.card_name);
+            paramIndex++;
+        }
         if (filters.card_type != null && filters.card_type !== '') {
             conditions.push(`card_type = $${paramIndex}`);
             values.push(filters.card_type);
             paramIndex++;
         }
-        if (filters.amount_ngn != null) {
+        if (filters.amount != null) {
             conditions.push(`amount_ngn = $${paramIndex}`);
-            values.push(filters.amount_ngn);
+            values.push(filters.amount);
             paramIndex++;
         }
         if (filters.status != null && filters.status !== '') {
@@ -153,14 +163,19 @@ export class GiftCardSubmissionRepository extends BaseRepository<IGiftCardSubmis
             values.push(filters.user_id);
             paramIndex++;
         }
+        if (filters.card_name != null && filters.card_name !== '') {
+            conditions.push(`card_name = $${paramIndex}`);
+            values.push(filters.card_name);
+            paramIndex++;
+        }
         if (filters.card_type != null && filters.card_type !== '') {
             conditions.push(`card_type = $${paramIndex}`);
             values.push(filters.card_type);
             paramIndex++;
         }
-        if (filters.amount_ngn != null) {
+        if (filters.amount != null) {
             conditions.push(`amount_ngn = $${paramIndex}`);
-            values.push(filters.amount_ngn);
+            values.push(filters.amount);
             paramIndex++;
         }
         if (filters.date_from) {

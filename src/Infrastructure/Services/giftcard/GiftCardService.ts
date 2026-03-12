@@ -10,6 +10,7 @@ import {
 import { IWithdrawalService } from '../../../Core/Application/Interface/Services/IWithdrawalService';
 import { IWalletService } from '../../../Core/Application/Interface/Services/IWalletService';
 import { TransactionRepository } from '../../Repository/SQL/payment/TransactionRepository';
+import { CurrencyRepository } from '../../Repository/SQL/wallet/CurrencyRepository';
 import { ValidationError, ServiceError } from '../../../Core/Application/Error/AppError';
 import { Console } from '../../Utils/Console';
 import {
@@ -27,27 +28,46 @@ export class GiftCardService implements IGiftCardService {
         @inject(TYPES.GiftCardSubmissionRepository) private readonly submissionRepo: IGiftCardSubmissionRepository,
         @inject(TYPES.WithdrawalService) private readonly withdrawalService: IWithdrawalService,
         @inject(TYPES.WalletService) private readonly walletService: IWalletService,
-        @inject(TYPES.TransactionRepository) private readonly transactionRepo: TransactionRepository
+        @inject(TYPES.TransactionRepository) private readonly transactionRepo: TransactionRepository,
+        @inject(TYPES.CurrencyRepository) private readonly currencyRepo: CurrencyRepository
     ) {}
 
     async submit(
         userId: string,
-        cardType: string,
-        amountNgn: number,
-        imageUrls: string[],
-        pin: string
+        data: {
+            card_name: string;
+            card_type: 'digital' | 'physical';
+            digital_code?: string;
+            amount: number;
+            currencyId: string;
+            image_urls: string[];
+            pin: string;
+            denomination?: string;
+            expiry_date?: string;
+            notes?: string;
+            reference?: string;
+            serial_number?: string;
+            country?: string;
+        }
     ): Promise<IGiftCardSubmission> {
-        if (!cardType || cardType.trim() === '') {
-            throw new ValidationError('Card type is required');
+        if (!data.card_name || data.card_name.trim() === '') {
+            throw new ValidationError('Card name is required');
         }
-        if (amountNgn < MIN_AMOUNT_NGN) {
-            throw new ValidationError(`Minimum amount is ${MIN_AMOUNT_NGN} NGN`);
+        if (data.amount < MIN_AMOUNT_NGN) {
+            throw new ValidationError(`Minimum amount is ${MIN_AMOUNT_NGN}`);
         }
-        if (!imageUrls || imageUrls.length === 0) {
+        if (!data.image_urls || data.image_urls.length === 0) {
             throw new ValidationError('At least one gift card image is required');
         }
+        if (!data.currencyId || data.currencyId.trim() === '') {
+            throw new ValidationError('Currency is required');
+        }
+        const currency = await this.currencyRepo.findById(data.currencyId.trim());
+        if (!currency) {
+            throw new ValidationError('Invalid currency. Please select a valid currency.');
+        }
 
-        const pinValid = await this.withdrawalService.verifyTransactionPin(userId, pin);
+        const pinValid = await this.withdrawalService.verifyTransactionPin(userId, data.pin);
         if (!pinValid) {
             throw new ValidationError('Invalid transaction PIN');
         }
@@ -55,9 +75,18 @@ export class GiftCardService implements IGiftCardService {
         const now = new Date().toISOString();
         const submission = await this.submissionRepo.create({
             user_id: userId,
-            card_type: cardType.trim(),
-            amount_ngn: amountNgn,
-            image_urls: imageUrls,
+            card_name: data.card_name.trim(),
+            card_type: data.card_type,
+            digital_code: data.digital_code?.trim() || null,
+            amount_ngn: data.amount,
+            currency_id: data.currencyId.trim() || null,
+            image_urls: data.image_urls,
+            denomination: data.denomination?.trim() || null,
+            expiry_date: data.expiry_date?.trim() || null,
+            notes: data.notes?.trim() || null,
+            reference: data.reference?.trim() || null,
+            serial_number: data.serial_number?.trim() || null,
+            country: data.country?.trim() || null,
             status: 'pending_validation',
             created_at: now,
             updated_at: now
@@ -66,8 +95,8 @@ export class GiftCardService implements IGiftCardService {
         Console.info('Gift card submission created', {
             submissionId: submission._id,
             userId,
-            cardType,
-            amountNgn
+            card_name: data.card_name,
+            amount: data.amount
         });
         return submission;
     }

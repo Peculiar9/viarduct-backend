@@ -6,6 +6,7 @@ import { DatabaseInitializer } from '../Config/DatabaseInitializer';
 import { RolePermissionSeeder } from '../Config/RolePermissionSeeder';
 import { UserSeeder } from '../Config/UserSeeder';
 import { CurrencySeeder } from '../Config/CurrencySeeder';
+import { CardSeeder } from '../Config/CardSeeder';
 import { IWalletService } from '../../Core/Application/Interface/Services/IWalletService';
 import { WalletRepository } from '../Repository/SQL/wallet/WalletRepository';
 import { Console } from '../Utils/Console';
@@ -30,6 +31,10 @@ export class DatabaseService {
             // Seed currencies (must be before wallets)
             const currencySeeder = container.get<CurrencySeeder>(TYPES.CurrencySeeder);
             await currencySeeder.seed();
+
+            // Seed gift card catalog
+            const cardSeeder = container.get<CardSeeder>(TYPES.CardSeeder);
+            await cardSeeder.seed();
             
             // Seed roles and permissions
             const rolePermissionSeeder = container.get<RolePermissionSeeder>(TYPES.RolePermissionSeeder);

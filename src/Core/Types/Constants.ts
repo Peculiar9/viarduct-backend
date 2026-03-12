@@ -138,6 +138,9 @@ export const TYPES = {
     // Gift cards
     GiftCardSubmissionRepository: Symbol.for('GiftCardSubmissionRepository'),
     GiftCardService: Symbol.for('GiftCardService'),
+    CardRepository: Symbol.for('CardRepository'),
+    CardService: Symbol.for('CardService'),
+    CardSeeder: Symbol.for('CardSeeder'),
 } as const;
 
 export const APP_VERSION = 'v1';

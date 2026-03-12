@@ -22,6 +22,7 @@ import { UTXO } from '../../Core/Application/Entities/UTXO';
 import { WithdrawalRequest } from '../../Core/Application/Entities/WithdrawalRequest';
 import { UserTransactionPin } from '../../Core/Application/Entities/UserTransactionPin';
 import { GiftCardSubmission } from '../../Core/Application/Entities/GiftCardSubmission';
+import { Card } from '../../Core/Application/Entities/Card';
 
 @injectable()
 export class DatabaseInitializer {
@@ -48,6 +49,7 @@ export class DatabaseInitializer {
             { entity: UTXO, tableName: TableNames.UTXOS },
             { entity: WithdrawalRequest, tableName: TableNames.WITHDRAWAL_REQUESTS },
             { entity: UserTransactionPin, tableName: TableNames.USER_TRANSACTION_PINS },
+            { entity: Card, tableName: TableNames.CARDS },
             { entity: GiftCardSubmission, tableName: TableNames.GIFT_CARD_SUBMISSIONS },
         ];
 

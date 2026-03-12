@@ -100,6 +100,11 @@ import { GiftCardSubmissionRepository } from '../Infrastructure/Repository/SQL/g
 import { IGiftCardSubmissionRepository } from './Application/Interface/Repositories/IGiftCardSubmissionRepository';
 import { GiftCardService } from '../Infrastructure/Services/giftcard/GiftCardService';
 import { IGiftCardService } from './Application/Interface/Services/IGiftCardService';
+import { CardRepository } from '../Infrastructure/Repository/SQL/giftcard/CardRepository';
+import { ICardRepository } from './Application/Interface/Repositories/ICardRepository';
+import { CardService } from '../Infrastructure/Services/giftcard/CardService';
+import { ICardService } from './Application/Interface/Services/ICardService';
+import { CardSeeder } from '../Infrastructure/Config/CardSeeder';
 
 
 /**
@@ -198,6 +203,9 @@ export class DIContainer {
         container.bind<IGiftCardSubmissionRepository>(TYPES.GiftCardSubmissionRepository).to(GiftCardSubmissionRepository).inRequestScope();
         container.bind<IWithdrawalService>(TYPES.WithdrawalService).to(WithdrawalService).inRequestScope();
         container.bind<IGiftCardService>(TYPES.GiftCardService).to(GiftCardService).inRequestScope();
+        container.bind<ICardRepository>(TYPES.CardRepository).to(CardRepository).inRequestScope();
+        container.bind<ICardService>(TYPES.CardService).to(CardService).inRequestScope();
+        container.bind<CardSeeder>(TYPES.CardSeeder).to(CardSeeder).inRequestScope();
         container.bind<AuthServiceHelper>(TYPES.AuthServiceHelper).to(AuthServiceHelper).inRequestScope();
 
         // Use Cases

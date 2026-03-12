@@ -1,8 +1,9 @@
 import { IGiftCardSubmission } from '../Entities/giftcard/IGiftCardSubmission';
 
 export interface GiftCardSubmissionFiltersForUser {
-    card_type?: string;
-    amount_ngn?: number;
+    card_name?: string;
+    card_type?: string;  // 'digital' | 'physical'
+    amount?: number;
     status?: string;
     date_from?: string;
     date_to?: string;
@@ -11,8 +12,9 @@ export interface GiftCardSubmissionFiltersForUser {
 export interface GiftCardSubmissionFiltersForAdmin {
     status?: string;
     user_id?: string;
-    card_type?: string;
-    amount_ngn?: number;
+    card_name?: string;
+    card_type?: string;  // 'digital' | 'physical'
+    amount?: number;
     date_from?: string;
     date_to?: string;
     transaction_id?: string;

@@ -25,8 +25,9 @@ export class AdminGiftCardController extends BaseController {
             const filters = {
                 status: req.query.status as string | undefined,
                 user_id: req.query.user_id as string | undefined,
+                card_name: req.query.card_name as string | undefined,
                 card_type: req.query.card_type as string | undefined,
-                amount_ngn: req.query.amount_ngn != null ? Number(req.query.amount_ngn) : undefined,
+                amount: req.query.amount != null ? Number(req.query.amount) : undefined,
                 date_from: req.query.date_from as string | undefined,
                 date_to: req.query.date_to as string | undefined,
                 transaction_id: req.query.transaction_id as string | undefined,

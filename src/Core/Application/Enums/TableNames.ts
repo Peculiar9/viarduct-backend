@@ -37,4 +37,5 @@ export enum TableNames {
     WITHDRAWAL_REQUESTS = 'withdrawal_requests',
     USER_TRANSACTION_PINS = 'user_transaction_pins',
     GIFT_CARD_SUBMISSIONS = 'gift_card_submissions',
+    CARDS = 'cards',
 }

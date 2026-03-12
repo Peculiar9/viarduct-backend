@@ -64,6 +64,36 @@ export class CurrencyRepository extends BaseRepository<ICurrency> {
         }
     }
 
+    async findWithFilters(filters: { type?: 'fiat' | 'crypto'; name?: string }): Promise<ICurrency[]> {
+        try {
+            const conditions: string[] = ['is_active = true'];
+            const values: any[] = [];
+            let paramIndex = 1;
+            if (filters.type) {
+                conditions.push(`type = $${paramIndex}`);
+                values.push(filters.type);
+                paramIndex++;
+            }
+            if (filters.name != null && filters.name.trim() !== '') {
+                conditions.push(`name ILIKE $${paramIndex}`);
+                values.push(`%${filters.name.trim()}%`);
+            }
+            const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+            const result = await this.executeQuery<ICurrency>(
+                `SELECT * FROM "${this.tableName}" ${whereClause} ORDER BY type, code`,
+                values
+            );
+            return result.rows as any[];
+        } catch (error: any) {
+            console.error('CurrencyRepository::findWithFilters(): ', {
+                message: error.message,
+                stack: error.stack,
+                tableName: this.tableName
+            });
+            throw error;
+        }
+    }
+
     async findById(id: string): Promise<ICurrency | null> {
         try {
             const result = await this.executeQuery<ICurrency>(
