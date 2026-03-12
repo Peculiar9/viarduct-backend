@@ -22,6 +22,7 @@ export interface IGiftCardSubmission {
     validated_at?: string | null;
     rejection_reason?: string | null;
     transaction_id?: string | null;
+    amount_to_credit?: number | null;  // Amount credited to user when approved (set by admin)
     created_at: string;
     updated_at: string;
 }

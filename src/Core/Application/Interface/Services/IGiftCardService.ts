@@ -20,6 +20,6 @@ export interface IGiftCardService {
     getMySubmissions(userId: string, filters: GiftCardSubmissionFiltersForUser, limit?: number, offset?: number): Promise<{ items: IGiftCardSubmission[]; total: number }>;
     getSubmissionById(userId: string, submissionId: string): Promise<IGiftCardSubmission | null>;
     listWithFilters(filters: GiftCardSubmissionFiltersForAdmin, limit?: number, offset?: number): Promise<{ items: IGiftCardSubmission[]; total: number }>;
-    approve(submissionId: string, adminUserId: string, notes?: string): Promise<IGiftCardSubmission>;
+    approve(submissionId: string, adminUserId: string, reason: string, amountToCredit: number): Promise<IGiftCardSubmission>;
     reject(submissionId: string, adminUserId: string, reason: string): Promise<IGiftCardSubmission>;
 }

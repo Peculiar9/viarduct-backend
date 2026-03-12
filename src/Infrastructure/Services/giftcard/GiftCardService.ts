@@ -137,7 +137,8 @@ export class GiftCardService implements IGiftCardService {
     async approve(
         submissionId: string,
         adminUserId: string,
-        notes?: string
+        reason: string,
+        amountToCredit: number
     ): Promise<IGiftCardSubmission> {
         const submission = await this.submissionRepo.findById(submissionId);
         if (!submission) {
@@ -147,15 +148,14 @@ export class GiftCardService implements IGiftCardService {
             throw new ValidationError(`Cannot approve submission with status: ${submission.status}`);
         }
 
-        const amountNgn = Number(submission.amount_ngn);
-        if (amountNgn <= 0) {
-            throw new ValidationError('Invalid submission amount');
+        if (amountToCredit <= 0) {
+            throw new ValidationError('Amount to credit must be greater than 0');
         }
 
         const transactionId = `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const now = new Date().toISOString();
 
-        await this.walletService.creditUserWallet(submission.user_id, amountNgn);
+        await this.walletService.creditUserWallet(submission.user_id, amountToCredit);
 
         const txRecord: Partial<ITransaction> = {
             transaction_id: transactionId,
@@ -163,15 +163,16 @@ export class GiftCardService implements IGiftCardService {
             related_entity_type: RelatedEntityType.GIFTCARD_SALE,
             related_entity_id: submissionId,
             type: TransactionType.PAYMENT,
-            amount: amountNgn,
+            amount: amountToCredit,
             currency: 'NGN',
             status: TransactionStatus.COMPLETED,
-            description: `Gift card sale (${submission.card_type}) - ₦${amountNgn.toFixed(2)}`,
+            description: `Gift card sale (${submission.card_name || submission.card_type}) - ₦${amountToCredit.toFixed(2)}`,
             metadata: {
                 gift_card_submission_id: submissionId,
                 card_type: submission.card_type,
                 approved_by: adminUserId,
-                admin_notes: notes
+                admin_notes: reason,
+                submitted_amount: submission.amount_ngn
             },
             completed_at: now,
             created_at: now,
@@ -184,14 +185,15 @@ export class GiftCardService implements IGiftCardService {
             validated_by: adminUserId,
             validated_at: now,
             transaction_id: transactionId,
-            admin_notes: notes ?? undefined,
+            admin_notes: reason,
+            amount_to_credit: amountToCredit,
             updated_at: now
         });
 
         Console.info('Gift card submission approved', {
             submissionId,
             userId: submission.user_id,
-            amountNgn,
+            amountCredited: amountToCredit,
             adminUserId
         });
         return updated!;

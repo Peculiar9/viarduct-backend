@@ -75,6 +75,9 @@ export class GiftCardSubmission implements IGiftCardSubmission {
     @Column('VARCHAR(255) DEFAULT NULL')
     public transaction_id?: string | null;
 
+    @Column('DECIMAL(20, 2) DEFAULT NULL')
+    public amount_to_credit?: number | null;
+
     @Index({ unique: false })
     @Column('TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP')
     public created_at: string;

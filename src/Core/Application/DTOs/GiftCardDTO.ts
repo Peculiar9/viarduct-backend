@@ -62,6 +62,10 @@ export class AdminApproveGiftCardDTO {
     @IsNotEmpty({ message: 'Reason is required' })
     @MinLength(1, { message: 'Reason must not be empty' })
     reason: string;
+
+    @IsNumber()
+    @Min(1, { message: 'Amount to credit must be at least 1 NGN' })
+    amount_to_credit: number;
 }
 
 export class AdminRejectGiftCardDTO {

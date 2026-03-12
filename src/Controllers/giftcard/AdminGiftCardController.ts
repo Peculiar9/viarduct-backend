@@ -48,8 +48,8 @@ export class AdminGiftCardController extends BaseController {
     ) {
         try {
             const user = req.user as IUser;
-            const { reason } = req.body;
-            const submission = await this.giftCardService.approve(id, user._id!, reason);
+            const { reason, amount_to_credit } = req.body;
+            const submission = await this.giftCardService.approve(id, user._id!, reason, amount_to_credit);
             return this.success(res, submission, 'Gift card approved and user wallet credited.');
         } catch (error: any) {
             return this.error(res, error.message, error.statusCode || 400, error);
