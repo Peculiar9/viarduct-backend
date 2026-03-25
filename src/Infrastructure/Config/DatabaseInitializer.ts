@@ -23,6 +23,12 @@ import { WithdrawalRequest } from '../../Core/Application/Entities/WithdrawalReq
 import { UserTransactionPin } from '../../Core/Application/Entities/UserTransactionPin';
 import { GiftCardSubmission } from '../../Core/Application/Entities/GiftCardSubmission';
 import { Card } from '../../Core/Application/Entities/Card';
+import { Notification } from '../../Core/Application/Entities/Notification';
+import { Dispute } from '../../Core/Application/Entities/Dispute';
+import { Chat } from '../../Core/Application/Entities/Chat';
+import { ChatMessage } from '../../Core/Application/Entities/ChatMessage';
+import { SystemAnnouncement } from '../../Core/Application/Entities/SystemAnnouncement';
+import { SystemAnnouncementDelivery } from '../../Core/Application/Entities/SystemAnnouncementDelivery';
 
 @injectable()
 export class DatabaseInitializer {
@@ -51,6 +57,12 @@ export class DatabaseInitializer {
             { entity: UserTransactionPin, tableName: TableNames.USER_TRANSACTION_PINS },
             { entity: Card, tableName: TableNames.CARDS },
             { entity: GiftCardSubmission, tableName: TableNames.GIFT_CARD_SUBMISSIONS },
+            { entity: Notification, tableName: TableNames.NOTIFICATIONS },
+            { entity: Dispute, tableName: TableNames.DISPUTES },
+            { entity: Chat, tableName: TableNames.CHATS },
+            { entity: ChatMessage, tableName: TableNames.CHAT_MESSAGES },
+            { entity: SystemAnnouncement, tableName: TableNames.SYSTEM_ANNOUNCEMENTS },
+            { entity: SystemAnnouncementDelivery, tableName: TableNames.SYSTEM_ANNOUNCEMENT_DELIVERIES },
         ];
 
         // STEP 2: PROCESS EACH TABLE INDIVIDUALLY TO ISOLATE FAILURES
@@ -288,7 +300,52 @@ export class DatabaseInitializer {
                     await this.transactionManager.getClient().query(addColumnQuery);
                     Console.info(`Column added successfully`, { tableName, columnName });
                 } else {
-                    Console.info(`Column already exists, skipping`, { tableName, columnName: existingColumn.column_name });
+                    // If the expected type is JSONB but the existing type isn't, attempt a safe type migration.
+                    // This is needed for evolving array columns (e.g. TEXT[] -> JSONB).
+                    const expectedIsJsonb = columnType.toLowerCase().includes('jsonb');
+                    const existingType = String(existingColumn.data_type || '').toLowerCase();
+                    if (expectedIsJsonb && existingType !== 'jsonb') {
+                        try {
+                            // Important: Postgres may fail the TYPE change if the existing DEFAULT can't be cast
+                            // (e.g. DEFAULT ARRAY[]::TEXT[]). We drop default first, then set JSONB default after.
+                            const spName = `sp_${tableName}_${columnName}_to_jsonb`.replace(/[^a-zA-Z0-9_]/g, '_');
+                            await this.transactionManager.getClient().query(`SAVEPOINT ${spName};`);
+
+                            Console.info(`Altering column type to JSONB`, { tableName, columnName, from: existingType });
+
+                            // Drop default if any (safe even if none)
+                            await this.transactionManager.getClient().query(
+                                `ALTER TABLE "${tableName}" ALTER COLUMN "${columnName}" DROP DEFAULT;`
+                            );
+
+                            // Convert column values to JSONB
+                            await this.transactionManager.getClient().query(
+                                `ALTER TABLE "${tableName}" ALTER COLUMN "${columnName}" TYPE JSONB USING to_jsonb("${columnName}");`
+                            );
+
+                            // Re-apply JSONB default if the entity definition includes DEFAULT
+                            if (columnType.toLowerCase().includes('default')) {
+                                await this.transactionManager.getClient().query(
+                                    `ALTER TABLE "${tableName}" ALTER COLUMN "${columnName}" SET DEFAULT '[]'::jsonb;`
+                                );
+                            }
+
+                            await this.transactionManager.getClient().query(`RELEASE SAVEPOINT ${spName};`);
+                            Console.info(`Column type altered successfully`, { tableName, columnName });
+                        } catch (alterError: any) {
+                            try {
+                                const spName = `sp_${tableName}_${columnName}_to_jsonb`.replace(/[^a-zA-Z0-9_]/g, '_');
+                                await this.transactionManager.getClient().query(`ROLLBACK TO SAVEPOINT ${spName};`);
+                                await this.transactionManager.getClient().query(`RELEASE SAVEPOINT ${spName};`);
+                            } catch {
+                                // ignore rollback-to-savepoint failures
+                            }
+                            Console.error(alterError, { message: 'Failed to alter column type to JSONB', tableName, columnName });
+                            // Don't throw by default; continue schema updates for other columns.
+                        }
+                    } else {
+                        Console.info(`Column already exists, skipping`, { tableName, columnName: existingColumn.column_name });
+                    }
                 }
                 // Note: We're not modifying existing columns to avoid data loss
             }

@@ -38,4 +38,10 @@ export enum TableNames {
     USER_TRANSACTION_PINS = 'user_transaction_pins',
     GIFT_CARD_SUBMISSIONS = 'gift_card_submissions',
     CARDS = 'cards',
+    NOTIFICATIONS = 'notifications',
+    DISPUTES = 'disputes',
+    CHATS = 'chats',
+    CHAT_MESSAGES = 'chat_messages',
+    SYSTEM_ANNOUNCEMENTS = 'system_announcements',
+    SYSTEM_ANNOUNCEMENT_DELIVERIES = 'system_announcement_deliveries',
 }

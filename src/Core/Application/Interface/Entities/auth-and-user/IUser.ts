@@ -54,6 +54,9 @@ export interface IUser{
     has_completed_kyc?: boolean;
     kyc_stage?: string;
     has_set_transaction_pin?: boolean;
+    notification_preferences?: Record<string, boolean> | null;
+    deactivation_reason?: string | null;
+    deactivated_at?: string | null;
     updated_at: string;
     __v: number;
 }

@@ -14,7 +14,7 @@ export interface IGiftCardService {
         expiry_date?: string;
         notes?: string;
         reference?: string;
-        serial_number?: string;
+        serial_number?: string; 
         country?: string;
     }): Promise<IGiftCardSubmission>;
     getMySubmissions(userId: string, filters: GiftCardSubmissionFiltersForUser, limit?: number, offset?: number): Promise<{ items: IGiftCardSubmission[]; total: number }>;

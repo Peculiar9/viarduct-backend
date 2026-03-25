@@ -100,6 +100,32 @@ export class UserRepository extends BaseRepository<IUser> {
         return result.rows[0] || null;
     }
 
+    async updateNotificationPreferences(userId: string, preferences: Record<string, boolean>): Promise<IUser | null> {
+        const result = await this.executeQuery<IUser>(
+            `UPDATE ${this.tableName}
+             SET "notification_preferences" = $1::jsonb, updated_at = NOW()
+             WHERE _id = $2
+             RETURNING *`,
+            [JSON.stringify(preferences || {}), userId]
+        );
+        return (result.rows[0] as any) || null;
+    }
+
+    async listEligibleForSystemAnnouncements(options: { limit: number; offset: number }): Promise<Array<{ _id: string; email: string | null; first_name: string; last_name: string }>> {
+        const result = await this.executeQuery<any>(
+            `
+            SELECT _id, email, first_name, last_name
+            FROM "${this.tableName}"
+            WHERE is_active = true
+              AND COALESCE((notification_preferences->>'system_announcements')::boolean, true) = true
+            ORDER BY created_at ASC
+            LIMIT $1 OFFSET $2
+            `,
+            [options.limit, options.offset]
+        );
+        return (result.rows as any[]) || [];
+    }
+
     async updateByPhone(phone: string, entity: Partial<IUser>): Promise<any> {
         const { setClause, values } = this.buildUpdateSet(entity);
         const result = await this.executeQuery<IUser>(
@@ -236,5 +262,168 @@ export class UserRepository extends BaseRepository<IUser> {
         } catch (error: any) {
             throw new DatabaseError(`Bulk user deletion failed: ${error.message}`);
         }
+    }
+
+    async findForAdminList(options: {
+        q?: string;
+        status?: string;
+        is_active?: boolean;
+        limit: number;
+        offset: number;
+    }): Promise<any[]> {
+        const conditions: string[] = [];
+        const values: any[] = [];
+        let idx = 1;
+
+        if (options.q) {
+            conditions.push(`(
+                u.first_name ILIKE $${idx}
+                OR u.last_name ILIKE $${idx}
+                OR u.email ILIKE $${idx}
+                OR u.phone ILIKE $${idx}
+            )`);
+            values.push(`%${options.q}%`);
+            idx++;
+        }
+
+        if (options.status) {
+            conditions.push(`u.status = $${idx}`);
+            values.push(options.status);
+            idx++;
+        }
+
+        if (typeof options.is_active === 'boolean') {
+            conditions.push(`u.is_active = $${idx}`);
+            values.push(options.is_active);
+            idx++;
+        }
+
+        const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+        const query = `
+            SELECT
+              u._id,
+              u.first_name,
+              u.last_name,
+              u.email,
+              u.phone,
+              u.profile_image,
+              u.status,
+              u.is_active,
+              u.has_completed_kyc,
+              u.kyc_stage,
+              u.has_set_transaction_pin,
+              u.created_at,
+              u.updated_at,
+              COALESCE(jsonb_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), '[]'::jsonb) as roles
+            FROM "${TableNames.USERS}" u
+            LEFT JOIN "${TableNames.USER_ROLES}" ur ON ur.user_id = u._id
+            LEFT JOIN "${TableNames.ROLES}" r ON r._id = ur.role_id
+            ${where}
+            GROUP BY u._id
+            ORDER BY u.created_at DESC
+            LIMIT $${idx} OFFSET $${idx + 1}
+        `;
+        values.push(options.limit, options.offset);
+
+        const result = await this.executeQuery<any>(query, values);
+        return result.rows as any[];
+    }
+
+    async countForAdminList(options: { q?: string; status?: string; is_active?: boolean }): Promise<number> {
+        const conditions: string[] = [];
+        const values: any[] = [];
+        let idx = 1;
+
+        if (options.q) {
+            conditions.push(`(
+                first_name ILIKE $${idx}
+                OR last_name ILIKE $${idx}
+                OR email ILIKE $${idx}
+                OR phone ILIKE $${idx}
+            )`);
+            values.push(`%${options.q}%`);
+            idx++;
+        }
+
+        if (options.status) {
+            conditions.push(`status = $${idx}`);
+            values.push(options.status);
+            idx++;
+        }
+
+        if (typeof options.is_active === 'boolean') {
+            conditions.push(`is_active = $${idx}`);
+            values.push(options.is_active);
+            idx++;
+        }
+
+        const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+        const result = await this.executeQuery<{ count: string }>(
+            `SELECT COUNT(*) as count FROM "${TableNames.USERS}" ${where}`,
+            values
+        );
+        return parseInt((result.rows[0] as any)?.count || '0', 10);
+    }
+
+    async findByIdForAdmin(userId: string): Promise<any | null> {
+        const result = await this.executeQuery<any>(
+            `
+            SELECT
+              u._id,
+              u.first_name,
+              u.last_name,
+              u.email,
+              u.phone,
+              u.profile_image,
+              u.status,
+              u.is_active,
+              u.has_completed_kyc,
+              u.kyc_stage,
+              u.has_set_transaction_pin,
+              u.notification_preferences,
+              u.deactivation_reason,
+              u.deactivated_at,
+              u.created_at,
+              u.updated_at,
+              COALESCE((
+                SELECT jsonb_agg(DISTINCT r.name)
+                FROM "${TableNames.USER_ROLES}" ur
+                INNER JOIN "${TableNames.ROLES}" r ON r._id = ur.role_id
+                WHERE ur.user_id = u._id
+              ), '[]'::jsonb) as roles,
+              COALESCE((
+                SELECT jsonb_agg(DISTINCT p.value)
+                FROM "${TableNames.USER_ROLES}" ur
+                INNER JOIN "${TableNames.ROLE_PERMISSIONS}" rp ON rp.role_id = ur.role_id
+                INNER JOIN "${TableNames.PERMISSIONS}" p ON p._id = rp.permission_id
+                WHERE ur.user_id = u._id
+              ), '[]'::jsonb) as permissions
+            FROM "${TableNames.USERS}" u
+            WHERE u._id = $1
+            LIMIT 1
+            `,
+            [userId]
+        );
+        return (result.rows[0] as any) || null;
+    }
+
+    async deactivateUser(userId: string, reason: string): Promise<IUser | null> {
+        const result = await this.executeQuery<IUser>(
+            `
+            UPDATE "${TableNames.USERS}"
+            SET
+              is_active = false,
+              status = 'inactive',
+              deactivation_reason = $1,
+              deactivated_at = NOW(),
+              refresh_token = NULL,
+              updated_at = NOW()
+            WHERE _id = $2
+            RETURNING *
+            `,
+            [String(reason).trim(), userId]
+        );
+        return (result.rows[0] as any) || null;
     }
 }

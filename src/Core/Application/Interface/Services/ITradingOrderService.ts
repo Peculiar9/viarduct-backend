@@ -6,7 +6,9 @@ export interface ITradingOrderService {
      */
     createBuyOrder(userId: string, data: {
         crypto_type: string;
-        crypto_amount: number;
+        crypto_amount?: number;
+        crypto_purchase_amount?: number;
+        transaction_pin: string;
     }): Promise<ITradingOrder>;
 
     /**
@@ -14,7 +16,9 @@ export interface ITradingOrderService {
      */
     createSellOrder(userId: string, data: {
         crypto_type: string;
-        crypto_amount: number;
+        crypto_amount?: number;
+        crypto_purchase_amount?: number;
+        transaction_pin: string;
     }): Promise<ITradingOrder>;
 
     /**

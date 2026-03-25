@@ -16,8 +16,11 @@ import { UserRepository } from '../../Repository/SQL/users/UserRepository';
 import { TransactionManager } from '../../Repository/SQL/Abstractions/TransactionManager';
 import { Console } from '../../Utils/Console';
 import { ServiceError, ValidationError } from '../../../Core/Application/Error/AppError';
+import { INotificationService } from '../../../Core/Application/Interface/Services/INotificationService';
+import { NotificationType } from '../../../Core/Application/Enums/NotificationType';
+import { IWithdrawalService } from '../../../Core/Application/Interface/Services/IWithdrawalService';
 
-@injectable()
+@injectable() 
 export class TradingOrderService implements ITradingOrderService {
     constructor(
         @inject(TYPES.TradingOrderRepository) private readonly tradingOrderRepo: ITradingOrderRepository,
@@ -30,13 +33,16 @@ export class TradingOrderService implements ITradingOrderService {
         @inject(TYPES.WalletRepository) private readonly walletRepo: WalletRepository,
         @inject(TYPES.CurrencyRepository) private readonly currencyRepo: CurrencyRepository,
         @inject(TYPES.UserRepository) private readonly userRepo: UserRepository,
-        @inject(TYPES.TransactionManager) private readonly transactionManager: TransactionManager
+        @inject(TYPES.TransactionManager) private readonly transactionManager: TransactionManager,
+        @inject(TYPES.NotificationService) private readonly notificationService: INotificationService,
+        @inject(TYPES.WithdrawalService) private readonly withdrawalService: IWithdrawalService
     ) {}
 
     async createBuyOrder(userId: string, data: {
         crypto_type: string;
         crypto_amount: number;
         crypto_purchase_amount?: number;
+        transaction_pin: string;
     }): Promise<ITradingOrder> {
         try {
             // 0. Check if user has completed KYC (required for trading orders)
@@ -46,6 +52,14 @@ export class TradingOrderService implements ITradingOrderService {
             }
             if (!user.has_completed_kyc) {
                 throw new ValidationError('KYC verification is required to create trading orders. Please complete your KYC verification first.');
+            }
+            if (!user.has_set_transaction_pin) {
+                throw new ValidationError('Transaction PIN not set. Please set your PIN first.');
+            }
+
+            const pinValid = await this.withdrawalService.verifyTransactionPin(userId, data.transaction_pin);
+            if (!pinValid) {
+                throw new ValidationError('Invalid transaction PIN');
             }
 
          // 1. Get active trading rate
@@ -237,6 +251,19 @@ export class TradingOrderService implements ITradingOrderService {
                     status: 'Waiting for confirmation via webhook'
                 });
 
+                // Notification (non-blocking)
+                try {
+                    await this.notificationService.create({
+                        user_id: userId,
+                        type: NotificationType.ORDER,
+                        title: 'Order created',
+                        content: `Your ${cryptoType} buy order has been created successfully.`,
+                        url: `/orders/${order._id}`
+                    });
+                } catch {
+                    // ignore notification errors
+                }
+
                 return updatedOrder!;
             } catch (error: any) {
                 Console.error(error, { message: 'Failed to broadcast transaction, unlocking UTXOs', orderId: order._id });
@@ -264,6 +291,7 @@ export class TradingOrderService implements ITradingOrderService {
         crypto_type: string;
         crypto_amount: number;
         crypto_purchase_amount?: number;
+        transaction_pin: string;
     }): Promise<ITradingOrder> {
         try {
             // 0. Check if user has completed KYC (required for trading orders)
@@ -273,6 +301,14 @@ export class TradingOrderService implements ITradingOrderService {
             }
             if (!user.has_completed_kyc) {
                 throw new ValidationError('KYC verification is required to create trading orders. Please complete your KYC verification first.');
+            }
+            if (!user.has_set_transaction_pin) {
+                throw new ValidationError('Transaction PIN not set. Please set your PIN first.');
+            }
+
+            const pinValid = await this.withdrawalService.verifyTransactionPin(userId, data.transaction_pin);
+            if (!pinValid) {
+                throw new ValidationError('Invalid transaction PIN');
             }
 
             const cryptoType = data.crypto_type.toUpperCase();
@@ -409,7 +445,7 @@ export class TradingOrderService implements ITradingOrderService {
                     userBtcAccount.address,
                     totalBtcNeeded, 
                     order._id!
-                );
+                );  
             } catch (error: any) {
                 // Unlock user BTC and platform NGN, mark order as failed if UTXO reservation fails
                 await this.unlockBalance(userBtcAccount._id!, totalBtcNeeded);
@@ -484,6 +520,19 @@ export class TradingOrderService implements ITradingOrderService {
                     toAddress: platformBtcAccount.address,
                     status: 'Waiting for confirmation via webhook'
                 });
+
+                // Notification (non-blocking)
+                try {
+                    await this.notificationService.create({
+                        user_id: userId,
+                        type: NotificationType.ORDER,
+                        title: 'Order created',
+                        content: `Your ${cryptoType} sell order has been created successfully.`,
+                        url: `/orders/${order._id}`
+                    });
+                } catch {
+                    // ignore notification errors
+                }
 
                 return updatedOrder!;
             } catch (error: any) {

@@ -1,4 +1,4 @@
-import { inject } from "inversify";
+import { inject, injectable } from "inversify";
 import { TYPES } from "../../../Core/Types/Constants";
 import { IKYCUseCase } from "../Interface/UseCases/IKYCUseCase";
 import { IUserKYC, KYCStage, KYCStatus } from "../Interface/Entities/auth-and-user/IVerification";
@@ -6,9 +6,16 @@ import { UserKYCRepository } from "../../../Infrastructure/Repository/SQL/auth/U
 import { UserRepository } from "../../../Infrastructure/Repository/SQL/users/UserRepository";
 import { RegistrationError, ValidationError, ConflictError } from "../Error/AppError";
 import { IdentityVerificationDTO, PersonalInfoDTO } from "../DTOs/UserDTO";
+import { INotificationService } from "../Interface/Services/INotificationService";
+import { NotificationType } from "../Enums/NotificationType";
 
+@injectable()
 export class KYCUseCase implements IKYCUseCase {
-    constructor(@inject(TYPES.UserKYCRepository) private readonly userKYCRepository: UserKYCRepository, @inject(TYPES.UserRepository) private readonly userRepository: UserRepository) {}
+    constructor(
+        @inject(TYPES.UserKYCRepository) private readonly userKYCRepository: UserKYCRepository,
+        @inject(TYPES.UserRepository) private readonly userRepository: UserRepository,
+        @inject(TYPES.NotificationService) private readonly notificationService: INotificationService
+    ) {}
     
     
     async checkOrInitializeKYC(userId: string): Promise<IUserKYC> {
@@ -99,6 +106,19 @@ export class KYCUseCase implements IKYCUseCase {
             userKyc = updatedKyc;
         }
         
+        // Fire-and-forget style: if notification fails, don't block KYC progression
+        try {
+            await this.notificationService.create({
+                user_id: userId,
+                type: NotificationType.VERIFICATION,
+                title: 'KYC started',
+                content: 'Your personal information has been submitted. Continue to complete your identity verification.',
+                url: '/kyc'
+            });
+        } catch {
+            // ignore notification errors
+        }
+
         return userKyc;
     }
 
@@ -165,6 +185,18 @@ export class KYCUseCase implements IKYCUseCase {
         // This allows them to create trading orders
         user.has_completed_kyc = true;
         await this.userRepository.update(userId, user);
+
+        try {
+            await this.notificationService.create({
+                user_id: userId,
+                type: NotificationType.VERIFICATION,
+                title: 'KYC submitted',
+                content: 'Your identity information has been submitted successfully.',
+                url: '/kyc'
+            });
+        } catch {
+            // ignore notification errors
+        }
 
         return updatedKyc;
     }

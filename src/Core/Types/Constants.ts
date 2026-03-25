@@ -141,6 +141,24 @@ export const TYPES = {
     CardRepository: Symbol.for('CardRepository'),
     CardService: Symbol.for('CardService'),
     CardSeeder: Symbol.for('CardSeeder'),
+
+    // Notifications
+    NotificationRepository: Symbol.for('NotificationRepository'),
+    NotificationService: Symbol.for('NotificationService'),
+
+    // Disputes
+    DisputeRepository: Symbol.for('DisputeRepository'),
+    DisputeService: Symbol.for('DisputeService'),
+
+    // Chat
+    ChatRepository: Symbol.for('ChatRepository'),
+    ChatMessageRepository: Symbol.for('ChatMessageRepository'),
+    ChatService: Symbol.for('ChatService'),
+
+    // System announcements
+    SystemAnnouncementRepository: Symbol.for('SystemAnnouncementRepository'),
+    SystemAnnouncementDeliveryRepository: Symbol.for('SystemAnnouncementDeliveryRepository'),
+    SystemAnnouncementService: Symbol.for('SystemAnnouncementService'),
 } as const;
 
 export const APP_VERSION = 'v1';

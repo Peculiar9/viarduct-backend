@@ -1,4 +1,4 @@
-import { IsNumber, IsNotEmpty, Min, IsString, IsIn, IsOptional } from 'class-validator';
+import { IsNumber, IsNotEmpty, Min, IsString, IsIn, IsOptional, Length, Matches } from 'class-validator';
 import { Expose } from 'class-transformer';
 
 export class CreateBuyOrderDTO {
@@ -17,6 +17,12 @@ export class CreateBuyOrderDTO {
     @IsNumber()
     @Min(1, { message: 'Crypto purchase amount must be at least 1' })
     crypto_purchase_amount?: number;
+
+    @IsString()
+    @IsNotEmpty({ message: 'Transaction PIN is required' })
+    @Length(4, 6, { message: 'PIN must be 4-6 digits' })
+    @Matches(/^\d+$/, { message: 'PIN must contain only digits' })
+    transaction_pin: string;
 }
 
 export class CreateSellOrderDTO {
@@ -35,6 +41,12 @@ export class CreateSellOrderDTO {
     @IsNumber()
     @Min(1, { message: 'Crypto purchase amount must be at least 1' })
     crypto_purchase_amount?: number;
+
+    @IsString()
+    @IsNotEmpty({ message: 'Transaction PIN is required' })
+    @Length(4, 6, { message: 'PIN must be 4-6 digits' })
+    @Matches(/^\d+$/, { message: 'PIN must contain only digits' })
+    transaction_pin: string;
 }
 
 export class ProcessBuyOrderDTO {

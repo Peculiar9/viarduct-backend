@@ -16,7 +16,7 @@ export class UserKYC implements IUserKYC {
   @Column('VARCHAR(32) NOT NULL DEFAULT \'not-started\'')
   current_stage: KYCStage;
 
-  @Column('VARCHAR(16) NOT NULL DEFAULT \'PENDING\'')
+  @Column('VARCHAR(16) NOT NULL DEFAULT \'pending\'')
   status: KYCStatus;
 
   @Column('TIMESTAMP NOT NULL DEFAULT NOW()')

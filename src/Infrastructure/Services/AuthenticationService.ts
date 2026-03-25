@@ -7,7 +7,7 @@ import { VerificationType, IVerification } from "../../Core/Application/Interfac
 import { UserRepository } from "../Repository/SQL/users/UserRepository";
 import { TransactionManager } from "../Repository/SQL/Abstractions/TransactionManager";
 import { Console, LogLevel } from "../Utils/Console";
-import { AppError, AuthenticationError, ValidationError } from "../../Core/Application/Error/AppError";
+import { AppError, AuthenticationError, ForbiddenError, ValidationError } from "../../Core/Application/Error/AppError";
 import { ResponseMessage } from "../../Core/Application/Response/ResponseFormat";
 import CryptoService from "../../Core/Services/CryptoService";
 import * as bcrypt from "bcryptjs";
@@ -58,6 +58,14 @@ export class AuthenticationService extends BaseService implements IAuthenticatio
 
             if (!user) {
                 throw new AuthenticationError(ResponseMessage.INVALID_CREDENTIALS_MESSAGE);
+            }
+
+            // Block deactivated users from logging in, include reason
+            if (user.is_active === false || String(user.status || '').toLowerCase() === 'inactive') {
+                const reason = (user as any).deactivation_reason
+                    ? String((user as any).deactivation_reason)
+                    : 'Your account has been deactivated';
+                throw new ForbiddenError(`${reason}. Please contact support.`);
             }
 
             const isPasswordValid = await CryptoService.verifyHash(password, user.password as string, user.salt as string);
@@ -117,6 +125,13 @@ export class AuthenticationService extends BaseService implements IAuthenticatio
                 const user = await this.userRepository.findById(userId);
                 if (!user) {
                     throw new AuthenticationError(ResponseMessage.USER_NOT_FOUND_MESSAGE);
+                }
+
+                if (user.is_active === false || String(user.status || '').toLowerCase() === 'inactive') {
+                    const reason = (user as any).deactivation_reason
+                        ? String((user as any).deactivation_reason)
+                        : 'Your account has been deactivated';
+                    throw new ForbiddenError(`${reason}. Please contact support.`);
                 }
 
                 if (!user.refresh_token) {
@@ -511,6 +526,13 @@ export class AuthenticationService extends BaseService implements IAuthenticatio
             const user = await this.userRepository.findById(userId);
             if (!user) {
                 throw new ValidationError(ResponseMessage.USER_NOT_FOUND_MESSAGE);
+            }
+
+            if (user.is_active === false || String(user.status || '').toLowerCase() === 'inactive') {
+                const reason = (user as any).deactivation_reason
+                    ? String((user as any).deactivation_reason)
+                    : 'Your account has been deactivated';
+                throw new ForbiddenError(`${reason}. Please contact support.`);
             }
             
             // Fetch user roles from database

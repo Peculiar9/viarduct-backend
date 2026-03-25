@@ -184,6 +184,15 @@ export class User implements IUser {
     @Column('BOOLEAN DEFAULT false')
     public has_set_transaction_pin: boolean;
 
+    @Column('JSONB NOT NULL DEFAULT \'{"transaction": true, "verification": true, "message": true, "order": true, "dispute": true, "system_announcements": true}\'::jsonb')
+    public notification_preferences?: Record<string, boolean> | null;
+
+    @Column('TEXT DEFAULT NULL')
+    public deactivation_reason?: string | null;
+
+    @Column('TIMESTAMP WITH TIME ZONE DEFAULT NULL')
+    public deactivated_at?: string | null;
+
     // state_code column
     @Column('VARCHAR(255) DEFAULT NULL')
     public state_code: string;

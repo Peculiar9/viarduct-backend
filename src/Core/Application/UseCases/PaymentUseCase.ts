@@ -17,6 +17,8 @@ import { ITransaction, TransactionType, TransactionStatus, RelatedEntityType } f
 import { ServiceError, ValidationError } from '../Error/AppError';
 import { Console } from '../../../Infrastructure/Utils/Console';
 import { IUser } from '../Interface/Entities/auth-and-user/IUser';
+import { INotificationService } from '../Interface/Services/INotificationService';
+import { NotificationType } from '../Enums/NotificationType';
 
 export interface IPaymentUseCase {
     initializePayment(user: IUser, dto: InitializePaymentDTO): Promise<PaymentInitializeResponseDTO>;
@@ -32,6 +34,7 @@ export class PaymentUseCase implements IPaymentUseCase {
         @inject(TYPES.TransactionRepository) private readonly transactionRepository: TransactionRepository,
         @inject(TYPES.UserRepository) private readonly userRepository: UserRepository,
         @inject(TYPES.TransactionManager) private readonly transactionManager: TransactionManager,
+        @inject(TYPES.NotificationService) private readonly notificationService: INotificationService,
     ) {}
 
     async initializePayment(user: IUser, dto: InitializePaymentDTO): Promise<PaymentInitializeResponseDTO> {
@@ -241,6 +244,19 @@ export class PaymentUseCase implements IPaymentUseCase {
                 reference: dto.reference,
                 amount: amountInNaira
             });
+
+            // Notification (non-blocking)
+            try {
+                await this.notificationService.create({
+                    user_id: user._id!,
+                    type: NotificationType.TRANSACTION,
+                    title: 'Wallet funded',
+                    content: `Your wallet has been credited with ₦${amountInNaira.toFixed(2)}.`,
+                    url: '/wallet'
+                });
+            } catch {
+                // ignore notification errors
+            }
 
             return {
                 transaction_id: transaction.transaction_id,

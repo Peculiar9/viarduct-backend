@@ -105,6 +105,20 @@ import { ICardRepository } from './Application/Interface/Repositories/ICardRepos
 import { CardService } from '../Infrastructure/Services/giftcard/CardService';
 import { ICardService } from './Application/Interface/Services/ICardService';
 import { CardSeeder } from '../Infrastructure/Config/CardSeeder';
+import { NotificationRepository } from '../Infrastructure/Repository/SQL/notifications/NotificationRepository';
+import { INotificationService } from './Application/Interface/Services/INotificationService';
+import { NotificationService } from '../Infrastructure/Services/NotificationService';
+import { DisputeRepository } from '../Infrastructure/Repository/SQL/disputes/DisputeRepository';
+import { IDisputeService } from './Application/Interface/Services/IDisputeService';
+import { DisputeService } from '../Infrastructure/Services/DisputeService';
+import { ChatRepository } from '../Infrastructure/Repository/SQL/chat/ChatRepository';
+import { ChatMessageRepository } from '../Infrastructure/Repository/SQL/chat/ChatMessageRepository';
+import { IChatService } from './Application/Interface/Services/IChatService';
+import { ChatService } from '../Infrastructure/Services/ChatService';
+import { SystemAnnouncementRepository } from '../Infrastructure/Repository/SQL/system-announcements/SystemAnnouncementRepository';
+import { SystemAnnouncementDeliveryRepository } from '../Infrastructure/Repository/SQL/system-announcements/SystemAnnouncementDeliveryRepository';
+import { ISystemAnnouncementService } from './Application/Interface/Services/ISystemAnnouncementService';
+import { SystemAnnouncementService } from '../Infrastructure/Services/SystemAnnouncementService';
 
 
 /**
@@ -206,6 +220,12 @@ export class DIContainer {
         container.bind<ICardRepository>(TYPES.CardRepository).to(CardRepository).inRequestScope();
         container.bind<ICardService>(TYPES.CardService).to(CardService).inRequestScope();
         container.bind<CardSeeder>(TYPES.CardSeeder).to(CardSeeder).inRequestScope();
+        container.bind<NotificationRepository>(TYPES.NotificationRepository).to(NotificationRepository).inRequestScope();
+        container.bind<DisputeRepository>(TYPES.DisputeRepository).to(DisputeRepository).inRequestScope();
+        container.bind<ChatRepository>(TYPES.ChatRepository).to(ChatRepository).inRequestScope();
+        container.bind<ChatMessageRepository>(TYPES.ChatMessageRepository).to(ChatMessageRepository).inRequestScope();
+        container.bind<SystemAnnouncementRepository>(TYPES.SystemAnnouncementRepository).to(SystemAnnouncementRepository).inRequestScope();
+        container.bind<SystemAnnouncementDeliveryRepository>(TYPES.SystemAnnouncementDeliveryRepository).to(SystemAnnouncementDeliveryRepository).inRequestScope();
         container.bind<AuthServiceHelper>(TYPES.AuthServiceHelper).to(AuthServiceHelper).inRequestScope();
 
         // Use Cases
@@ -230,6 +250,10 @@ export class DIContainer {
         container.bind<IPaystackService>(TYPES.PaystackService).to(PaystackService).inRequestScope();
         container.bind<ITradingRateService>(TYPES.TradingRateService).to(TradingRateService).inRequestScope();
         container.bind<ITradingOrderService>(TYPES.TradingOrderService).to(TradingOrderService).inRequestScope();
+        container.bind<INotificationService>(TYPES.NotificationService).to(NotificationService).inRequestScope();
+        container.bind<IDisputeService>(TYPES.DisputeService).to(DisputeService).inRequestScope();
+        container.bind<IChatService>(TYPES.ChatService).to(ChatService).inRequestScope();
+        container.bind<ISystemAnnouncementService>(TYPES.SystemAnnouncementService).to(SystemAnnouncementService).inRequestScope();
 
         // Repositories
         container.bind<BitcoinTransactionRepository>(TYPES.BitcoinTransactionRepository).to(BitcoinTransactionRepository).inRequestScope();
