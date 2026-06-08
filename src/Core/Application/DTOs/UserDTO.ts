@@ -213,9 +213,9 @@ export class PersonalInfoDTO {
   @IsString({ message: 'Last name must be a string' })
   last_name: string;
 
-  @IsOptional()
+  @IsNotEmpty({ message: 'Date of birth is required' })
   @IsString({ message: 'Date of birth must be a string' })
-  date_of_birth?: string;
+  date_of_birth: string;
 
   @IsOptional()
   @IsString({ message: 'Country code must be a string' })
@@ -250,6 +250,21 @@ export interface KYCResponseDTO {
   message: string;
   currentStage: string;
   nextStage: string;
+  /** Present when KYC_DEBUG_RESPONSE=true — confirms Prembly was called */
+  prembly_debug?: {
+    called: boolean;
+    provider?: string;
+    verified?: boolean;
+    response_code?: string;
+    reference?: string | null;
+    /** Normalized fields (name, DOB, phone, etc.) */
+    identity?: Record<string, unknown> | null;
+    /** Full Prembly JSON body (images redacted). Only when KYC_DEBUG_RESPONSE=true */
+    full_response?: Record<string, unknown> | null;
+    dob_match?: boolean;
+    declared_date_of_birth_iso?: string | null;
+    provider_date_of_birth_iso?: string | null;
+  };
 }
 
 export interface BusinessInfoDTO {

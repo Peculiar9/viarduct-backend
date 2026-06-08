@@ -11,8 +11,9 @@ export interface ITradingRateService {
      */
     createRate(data: {
         crypto_type: string;
-        buy_rate: number;
-        sell_rate: number;
+        buy_margin_percentage: number;
+        sell_margin_percentage: number;
+        emergency_spot_price?: number;
         spread_percentage?: number;
         type?: string;
         updated_by: string;

@@ -184,17 +184,29 @@ export class BitcoinWebhookService implements IBitcoinWebhookService {
                     if (existing.wallet_account_id && newStatus === 'confirmed' && existing.status !== 'confirmed') {
                         const account = await this.walletAccountRepo.findById(existing.wallet_account_id);
                         if (account) {
-                            const currentBalance = parseFloat(account.balance?.toString() || '0');
-                            const newBalance = currentBalance + existing.amount;
+                            // Custodial ledger: confirmed external deposit increases user_balance and total_onchain_balance.
+                            // We keep legacy balance/available_balance in sync with user_balance.
+                            const currentUserBalance = parseFloat((account.user_balance ?? account.balance ?? 0).toString());
+                            const currentPlatformOwned = parseFloat((account.platform_owned_balance ?? 0).toString());
+                            const currentTotalOnchain = parseFloat((account.total_onchain_balance ?? 0).toString());
+                            const locked = parseFloat((account.locked_balance ?? 0).toString());
+
+                            const newUserBalance = currentUserBalance + Number(existing.amount || 0);
+                            const newTotalOnchain = currentTotalOnchain + Number(existing.amount || 0);
+                            const newAvailable = Math.max(0, newUserBalance - locked);
+
                             await this.walletAccountRepo.update(existing.wallet_account_id, {
-                                balance: newBalance,
-                                available_balance: newBalance
+                                user_balance: newUserBalance,
+                                platform_owned_balance: currentPlatformOwned,
+                                total_onchain_balance: newTotalOnchain,
+                                balance: newUserBalance,
+                                available_balance: newAvailable
                             });
 
                             Console.info('Wallet balance updated after confirmation', {
                                 wallet_account_id: existing.wallet_account_id,
-                                previous_balance: currentBalance,
-                                new_balance: newBalance,
+                                previous_balance: currentUserBalance,
+                                new_balance: newUserBalance,
                                 amount_added: existing.amount
                             });
                         }
@@ -245,17 +257,29 @@ export class BitcoinWebhookService implements IBitcoinWebhookService {
             });
 
             if (walletAccount && bitcoinTx.status === 'confirmed') {
-                const currentBalance = parseFloat(walletAccount.balance?.toString() || '0');
-                const newBalance = currentBalance + amount;
+                // Custodial ledger: confirmed external deposit increases user_balance and total_onchain_balance.
+                // We keep legacy balance/available_balance in sync with user_balance.
+                const currentUserBalance = parseFloat((walletAccount.user_balance ?? walletAccount.balance ?? 0).toString());
+                const currentPlatformOwned = parseFloat((walletAccount.platform_owned_balance ?? 0).toString());
+                const currentTotalOnchain = parseFloat((walletAccount.total_onchain_balance ?? 0).toString());
+                const locked = parseFloat((walletAccount.locked_balance ?? 0).toString());
+
+                const newUserBalance = currentUserBalance + amount;
+                const newTotalOnchain = currentTotalOnchain + amount;
+                const newAvailable = Math.max(0, newUserBalance - locked);
+
                 await this.walletAccountRepo.update(walletAccount._id!, {
-                    balance: newBalance,
-                    available_balance: newBalance
+                    user_balance: newUserBalance,
+                    platform_owned_balance: currentPlatformOwned,
+                    total_onchain_balance: newTotalOnchain,
+                    balance: newUserBalance,
+                    available_balance: newAvailable
                 });
 
                 Console.info('Wallet balance updated', {
                     wallet_account_id: walletAccount._id,
-                    previous_balance: currentBalance,
-                    new_balance: newBalance,
+                    previous_balance: currentUserBalance,
+                    new_balance: newUserBalance,
                     amount_added: amount
                 });
 

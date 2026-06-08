@@ -1,10 +1,17 @@
 export type TradingOrderType = 'buy' | 'sell';
 export type TradingOrderStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+export type TradingOrderSettlementMode = 'internal' | 'onchain';
 
 export interface ITradingOrder {
     _id?: string;
     user_id: string;
     type: TradingOrderType; // 'buy' or 'sell'
+    /**
+     * Tracks how the order was settled.
+     * - internal: custodial ledger move only (no on-chain tx)
+     * - onchain: settlement depended on blockchain confirmation
+     */
+    settlement_mode?: TradingOrderSettlementMode;
     crypto_type: string; // 'BTC', 'ETH', etc.
     crypto_amount: number; // Amount of crypto (e.g., 0.001 BTC)
     fiat_amount: number; // Amount in NGN

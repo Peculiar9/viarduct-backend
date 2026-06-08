@@ -22,6 +22,20 @@ export class TradingRate implements ITradingRate {
     @Column('DECIMAL(20, 2) NOT NULL')
     public sell_rate: number;  // NGN per crypto (platform sells at this rate)
 
+    // New: margin-based config (0-100)
+    @Column('DECIMAL(5, 2) DEFAULT 0')
+    public buy_margin_percentage?: number;
+
+    @Column('DECIMAL(5, 2) DEFAULT 0')
+    public sell_margin_percentage?: number;
+
+    // New: spot price cache + manual emergency fallback
+    @Column('DECIMAL(20, 2) DEFAULT NULL')
+    public last_spot_price?: number | null;
+
+    @Column('DECIMAL(20, 2) DEFAULT NULL')
+    public emergency_spot_price?: number | null;
+
     @Column('DECIMAL(5, 2) DEFAULT 0')
     public spread_percentage: number;  // Margin between buy/sell
 

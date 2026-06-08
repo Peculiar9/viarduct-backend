@@ -32,8 +32,10 @@ export enum TableNames {
     // Trading system tables
     TRADING_RATES = 'trading_rates',
     BITCOIN_TRANSACTIONS = 'bitcoin_transactions',
+    ETHEREUM_TRANSACTIONS = 'ethereum_transactions',
     TRADING_ORDERS = 'trading_orders',
     UTXOS = 'utxos',
+    SWEEP_AUDITS = 'sweep_audits',
     WITHDRAWAL_REQUESTS = 'withdrawal_requests',
     USER_TRANSACTION_PINS = 'user_transaction_pins',
     GIFT_CARD_SUBMISSIONS = 'gift_card_submissions',

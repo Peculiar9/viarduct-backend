@@ -654,5 +654,177 @@ export class BitcoinTransactionService implements IBitcoinTransactionService {
 
         return bip32.fromSeed(Buffer.from(seedHex, 'hex'), this.network);
     }
+
+    async buildBatchSweepTransaction(
+        vaultAddress: string,
+        inputs: Array<{
+            walletAccountId: string;
+            address: string;
+            txid: string;
+            vout: number;
+            amount: number;
+            script?: string;
+        }>,
+        feeRateSatsVbyte: number
+    ): Promise<{
+        psbt: bitcoin.Psbt;
+        utxos: any[];
+        inputSigners: Array<{ walletAccountId: string; address: string }>;
+        vaultAddress: string;
+        feeSats: number;
+        netToVaultSats: number;
+        totalInputSats: number;
+    }> {
+        if (inputs.length === 0) {
+            throw new ServiceError('No inputs provided for batch sweep');
+        }
+
+        const selectedUTXOs: any[] = [];
+        const inputSigners: Array<{ walletAccountId: string; address: string }> = [];
+        let totalInputSats = 0;
+
+        for (const input of inputs) {
+            const rawAmount = Number(parseFloat(String(input.amount ?? 0)));
+            const utxoValue = this.safeSatoshis(rawAmount * 100000000);
+            selectedUTXOs.push({
+                tx_hash: input.txid,
+                tx_output_n: input.vout,
+                value: utxoValue,
+                script: input.script || '',
+                walletAccountId: input.walletAccountId,
+                address: input.address
+            });
+            inputSigners.push({
+                walletAccountId: input.walletAccountId,
+                address: input.address
+            });
+            totalInputSats += utxoValue;
+        }
+
+        const feeSats = Math.max(
+            1,
+            Math.ceil(feeRateSatsVbyte * (10 + 68 * selectedUTXOs.length + 31 * 1))
+        );
+        const netToVaultSats = totalInputSats - feeSats;
+        const DUST_THRESHOLD = 546;
+
+        if (netToVaultSats < DUST_THRESHOLD) {
+            throw new ServiceError(
+                `Batch net to vault below dust after fee. inputs=${selectedUTXOs.length} feeSats=${feeSats} totalInputSats=${totalInputSats}`
+            );
+        }
+
+        for (const utxo of selectedUTXOs) {
+            if (!utxo.script) {
+                const vout = utxo.tx_output_n;
+                try {
+                    const txResponse = await this.httpClient.get<any>(`/txs/${utxo.tx_hash}`);
+                    if (txResponse?.outputs && txResponse.outputs[vout]) {
+                        const out = txResponse.outputs[vout];
+                        utxo.script = out.script || out.script_hex || '';
+                    }
+                } catch (error: any) {
+                    Console.warn('Could not fetch script from BlockCypher for batch UTXO', {
+                        txid: utxo.tx_hash,
+                        vout,
+                        error: error?.message
+                    });
+                }
+
+                if (!utxo.script) {
+                    try {
+                        const networkStr = EnvironmentConfig.get('BITCOIN_NETWORK', 'testnet');
+                        const blockstreamBaseUrl =
+                            networkStr === 'mainnet'
+                                ? 'https://blockstream.info/api'
+                                : 'https://blockstream.info/testnet/api';
+                        const blockstreamTx = await axios.get(`${blockstreamBaseUrl}/tx/${utxo.tx_hash}`, {
+                            timeout: 30000
+                        });
+                        const out = blockstreamTx.data?.vout?.[vout];
+                        utxo.script = out?.scriptpubkey || '';
+                    } catch (error: any) {
+                        Console.warn('Could not fetch script from Blockstream for batch UTXO', {
+                            txid: utxo.tx_hash,
+                            vout,
+                            error: error?.message
+                        });
+                    }
+                }
+            }
+
+            if (!utxo.script) {
+                throw new ServiceError(
+                    `Missing script for UTXO ${utxo.tx_hash}:${utxo.tx_output_n}. Sync UTXOs before sweeping.`
+                );
+            }
+        }
+
+        const psbt = new bitcoin.Psbt({ network: this.network });
+        for (const utxo of selectedUTXOs) {
+            psbt.addInput({
+                hash: utxo.tx_hash,
+                index: utxo.tx_output_n,
+                witnessUtxo: {
+                    script: Buffer.from(utxo.script, 'hex'),
+                    value: BigInt(this.safeSatoshis(utxo.value))
+                }
+            });
+        }
+
+        psbt.addOutput({
+            address: vaultAddress,
+            value: BigInt(this.safeSatoshis(netToVaultSats))
+        });
+
+        Console.info('Batch sweep transaction built', {
+            vaultAddress,
+            inputs: selectedUTXOs.length,
+            feeSats,
+            netToVaultSats,
+            totalInputSats
+        });
+
+        return {
+            psbt,
+            utxos: selectedUTXOs,
+            inputSigners,
+            vaultAddress,
+            feeSats,
+            netToVaultSats,
+            totalInputSats
+        };
+    }
+
+    async signBatchSweepTransaction(transaction: {
+        psbt: bitcoin.Psbt;
+        inputSigners: Array<{ walletAccountId: string; address: string }>;
+    }): Promise<string> {
+        try {
+            const masterNode = await this.getMasterNode();
+            const psbt = transaction.psbt;
+
+            for (let i = 0; i < transaction.inputSigners.length; i++) {
+                const signer = transaction.inputSigners[i];
+                const path = this.derivePathForAccount(signer.walletAccountId);
+                const derivedKey = masterNode.derivePath(path);
+                psbt.signInput(i, derivedKey);
+            }
+
+            psbt.finalizeAllInputs();
+            const signedTx = psbt.extractTransaction();
+            const signedTxHex = signedTx.toHex();
+
+            Console.info('Batch sweep transaction signed', {
+                txId: signedTx.getId(),
+                inputs: transaction.inputSigners.length
+            });
+
+            return signedTxHex;
+        } catch (error: any) {
+            Console.error(error, { message: 'Failed to sign batch sweep transaction' });
+            throw error;
+        }
+    }
 }
 

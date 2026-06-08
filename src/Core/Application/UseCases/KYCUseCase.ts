@@ -8,13 +8,20 @@ import { RegistrationError, ValidationError, ConflictError } from "../Error/AppE
 import { IdentityVerificationDTO, PersonalInfoDTO } from "../DTOs/UserDTO";
 import { INotificationService } from "../Interface/Services/INotificationService";
 import { NotificationType } from "../Enums/NotificationType";
+import { IPremblyKycService } from "../Interface/Services/IPremblyKycService";
+import { Console } from "../../../Infrastructure/Utils/Console";
+import { extractPremblyIdentityFields } from "../../../Infrastructure/Services/kyc/PremblyResponseMapper";
+// Re-enable with DOB block in verifyIdentity:
+// import { extractDateOfBirthFromPremblyRaw } from "../../../Infrastructure/Services/kyc/PremblyResponseMapper";
+// import { datesOfBirthMatch, normalizeDateOfBirthToIso } from "../../../Infrastructure/Services/kyc/DateOfBirthMatcher";
 
 @injectable()
 export class KYCUseCase implements IKYCUseCase {
     constructor(
         @inject(TYPES.UserKYCRepository) private readonly userKYCRepository: UserKYCRepository,
         @inject(TYPES.UserRepository) private readonly userRepository: UserRepository,
-        @inject(TYPES.NotificationService) private readonly notificationService: INotificationService
+        @inject(TYPES.NotificationService) private readonly notificationService: INotificationService,
+        @inject(TYPES.PremblyKycService) private readonly premblyKycService: IPremblyKycService
     ) {}
     
     
@@ -142,13 +149,45 @@ export class KYCUseCase implements IKYCUseCase {
             throw new ValidationError("Identity type must be either BVN or NIN");
         }
 
-        // Check if this identity value is already used by another user
         const existingKYC = await this.userKYCRepository.findByIdentityValue(dto.type, dto.value, userId);
         if (existingKYC) {
             throw new ConflictError(`This ${dto.type} is already registered to another user`);
         }
 
-        // Get or create user KYC record
+        console.warn(`[KYC] verifyIdentity → calling Prembly`, { userId, type: dto.type });
+        Console.info('KYC verifyIdentity: calling Prembly', { userId, type: dto.type });
+        const verification =
+            dto.type === 'BVN'
+                ? await this.premblyKycService.verifyBVN(dto.value)
+                : await this.premblyKycService.verifyNIN(dto.value);
+
+        console.warn(`[KYC] verifyIdentity ← Prembly result`, {
+            userId,
+            type: dto.type,
+            provider: verification.provider,
+            verified: verification.verified,
+            responseCode: verification.responseCode,
+            reference: verification.reference
+        });
+        Console.info('KYC verifyIdentity: Prembly result', {
+            userId,
+            type: dto.type,
+            provider: verification.provider,
+            verified: verification.verified,
+            responseCode: verification.responseCode,
+            reference: verification.reference
+        });
+
+        if (!verification.verified) {
+            // Keep KYC record but mark as failed for admin visibility
+            await this.userKYCRepository.setFailure(
+                userId,
+                verification.detail || `${dto.type} verification failed`
+            );
+            throw new ValidationError(verification.detail || `${dto.type} verification failed`);
+        }
+
+        // Get or create user KYC record (needed for profile DOB + metadata merge)
         let userKyc = await this.userKYCRepository.findByUserId(userId);
         if (!userKyc) {
             // Initialize KYC if it doesn't exist
@@ -161,6 +200,61 @@ export class KYCUseCase implements IKYCUseCase {
             userKyc = await this.userKYCRepository.create(newUserKyc);
         }
 
+        const identityKind = dto.type === 'NIN' ? 'NIN' : 'BVN';
+        const providerIdentity = extractPremblyIdentityFields(verification.raw, identityKind);
+
+        // --- DOB vs Prembly (disabled for test / staging — re-enable before production) ---
+        // const personalInfo = (userKyc.stage_metadata?.personal_info || {}) as Record<string, unknown>;
+        // const declaredDob =
+        //     (personalInfo.date_of_birth as string) || user.dob || '';
+        // if (!declaredDob?.trim()) {
+        //     throw new ValidationError(
+        //         'Submit your profile (including date of birth) via POST /api/v1/kyc/profile before verifying BVN or NIN'
+        //     );
+        // }
+        // const providerDob =
+        //     (typeof providerIdentity?.date_of_birth === 'string'
+        //         ? providerIdentity.date_of_birth
+        //         : undefined) ||
+        //     extractDateOfBirthFromPremblyRaw(verification.raw, identityKind);
+        // if (!providerDob?.trim()) {
+        //     const reason =
+        //         dto.type === 'NIN'
+        //             ? 'Identity provider did not return a date of birth for this NIN. ' +
+        //               'Check prembly_debug.full_response.data.birthdate — your profile date_of_birth must match (e.g. 23-05-1999 or 1999-05-23).'
+        //             : 'Identity provider did not return a date of birth';
+        //     await this.userKYCRepository.setFailure(userId, reason);
+        //     throw new ValidationError(reason);
+        // }
+        // const dobMatch = datesOfBirthMatch(declaredDob, providerDob);
+        // const declaredIso = normalizeDateOfBirthToIso(declaredDob);
+        // const providerIso = normalizeDateOfBirthToIso(providerDob);
+        // if (!dobMatch) {
+        //     const reason =
+        //         'Date of birth does not match the records linked to this BVN/NIN. ' +
+        //         'Please check your profile date of birth and try again.';
+        //     await this.userKYCRepository.updateStage(userId, KYCStage.IDENTITY_VERIFICATION, KYCStatus.FAILED, {
+        //         identity_verification: {
+        //             identity_type: dto.type,
+        //             identity_value: dto.value,
+        //             verified_at: new Date().toISOString(),
+        //             provider: verification.provider,
+        //             provider_verified: false,
+        //             provider_reference: verification.reference,
+        //             provider_response_code: verification.responseCode,
+        //             provider_identity: providerIdentity,
+        //             dob_match: false,
+        //             declared_date_of_birth: declaredDob,
+        //             provider_date_of_birth: providerDob,
+        //             declared_date_of_birth_iso: declaredIso,
+        //             provider_date_of_birth_iso: providerIso
+        //         }
+        //     });
+        //     await this.userKYCRepository.setFailure(userId, reason);
+        //     throw new ValidationError(reason);
+        // }
+        // --- end DOB vs Prembly ---
+
         // Update KYC stage with identity verification data
         const updatedKyc = await this.userKYCRepository.updateStage(
             userId,
@@ -170,7 +264,14 @@ export class KYCUseCase implements IKYCUseCase {
                 identity_verification: {
                     identity_type: dto.type,
                     identity_value: dto.value,
-                    verified_at: new Date().toISOString()
+                    verified_at: new Date().toISOString(),
+                    provider: verification.provider,
+                    provider_verified: verification.verified,
+                    provider_reference: verification.reference,
+                    provider_response_code: verification.responseCode,
+                    provider_identity: providerIdentity,
+                    dob_match_skipped: true,
+                    provider_raw: verification.raw
                 }
             }
         );
@@ -181,8 +282,7 @@ export class KYCUseCase implements IKYCUseCase {
 
         // Sync to User entity
         user.kyc_stage = KYCStage.IDENTITY_VERIFICATION;
-        // Mark KYC as done when user reaches stage 2 (IDENTITY_VERIFICATION)
-        // This allows them to create trading orders
+        // Mark KYC complete when Prembly verifies BVN/NIN (DOB match disabled in test — see block above)
         user.has_completed_kyc = true;
         await this.userRepository.update(userId, user);
 

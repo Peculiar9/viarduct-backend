@@ -17,6 +17,7 @@ import './Controllers/kyc/KYCController';
 import './Controllers/kyc/AdminKYCController';
 import './Controllers/payment/PaystackPaymentController';
 import './Controllers/wallet/BitcoinWalletController';
+import './Controllers/wallet/EthereumWalletController';
 import './Controllers/wallet/PlatformWalletController';
 import './Controllers/trading/PublicTradingRateController';
 import './Controllers/trading/TradingRateController';
@@ -44,6 +45,8 @@ import './Controllers/user/AdminUserController';
 import { DIContainer } from './Core/DIContainer';
 import { TYPES } from './Core/Types/Constants';
 import { IOrderCompletionJob } from './Core/Application/Interface/Services/IOrderCompletionJob';
+import { PlatformBtcSweepJob } from './Infrastructure/Services/bitcoin/PlatformBtcSweepJob';
+import { PlatformEthSweepJob } from './Infrastructure/Services/ethereum/PlatformEthSweepJob';
 
 import express, { Response, Request, NextFunction } from 'express';
 import path from 'path';
@@ -130,6 +133,14 @@ class App {
             // Start order completion job
             const orderCompletionJob = this.container.get<IOrderCompletionJob>(TYPES.OrderCompletionJob);
             orderCompletionJob.start();
+
+            // Start platform BTC sweep job (custodial consolidation)
+            const btcSweepJob = this.container.get<PlatformBtcSweepJob>(TYPES.PlatformBtcSweepJob);
+            btcSweepJob.start();
+
+            const ethSweepJob = this.container.get<PlatformEthSweepJob>(TYPES.PlatformEthSweepJob);
+            ethSweepJob.start();
+
             Console.info('✅ Background jobs started successfully');
         } catch (error: any) {
             Console.error(error, { message: 'Failed to start background jobs' });
@@ -145,6 +156,10 @@ class App {
             try {
                 const orderCompletionJob = this.container.get<IOrderCompletionJob>(TYPES.OrderCompletionJob);
                 orderCompletionJob.stop();
+                const btcSweepJob = this.container.get<PlatformBtcSweepJob>(TYPES.PlatformBtcSweepJob);
+                btcSweepJob.stop();
+                const ethSweepJob = this.container.get<PlatformEthSweepJob>(TYPES.PlatformEthSweepJob);
+                ethSweepJob.stop();
                 // Console.info('Background jobs stopped');
             } catch (error: any) {
                 Console.error(error, { message: 'Error stopping background jobs' });

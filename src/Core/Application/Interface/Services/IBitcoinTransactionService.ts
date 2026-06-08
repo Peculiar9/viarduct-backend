@@ -67,5 +67,39 @@ export interface IBitcoinTransactionService {
         amount: number,
         priority?: 'low' | 'medium' | 'high'
     ): Promise<string>;
+
+    /**
+     * Build a consolidation tx: many inputs (possibly many addresses) → single vault output.
+     */
+    buildBatchSweepTransaction(
+        vaultAddress: string,
+        inputs: Array<{
+            walletAccountId: string;
+            address: string;
+            txid: string;
+            vout: number;
+            amount: number;
+            script?: string;
+        }>,
+        feeRateSatsVbyte: number
+    ): Promise<{
+        psbt: any;
+        utxos: any[];
+        inputSigners: Array<{ walletAccountId: string; address: string }>;
+        vaultAddress: string;
+        feeSats: number;
+        netToVaultSats: number;
+        totalInputSats: number;
+    }>;
+
+    /**
+     * Sign each PSBT input with the HD key for its source address.
+     */
+    signBatchSweepTransaction(
+        transaction: {
+            psbt: any;
+            inputSigners: Array<{ walletAccountId: string; address: string }>;
+        }
+    ): Promise<string>;
 }
 

@@ -4,6 +4,7 @@ import { controller, httpPost, httpGet, request, response, requestBody, requestP
 import { API_PATH, TYPES } from '../../Core/Types/Constants';
 import { ITradingOrderService } from '../../Core/Application/Interface/Services/ITradingOrderService';
 import { IBlockchainService } from '../../Core/Application/Interface/Services/IBlockchainService';
+import { IEthereumBlockchainService } from '../../Core/Application/Interface/Services/IEthereumBlockchainService';
 import { IOrderCompletionJob } from '../../Core/Application/Interface/Services/IOrderCompletionJob';
 import { ITradingOrderRepository } from '../../Core/Application/Interface/Repositories/ITradingOrderRepository';
 import { ITradingOrder, TradingOrderStatus, TradingOrderType } from '../../Core/Application/Interface/Entities/trading/ITradingOrder';
@@ -21,6 +22,8 @@ export class AdminTradingOrderController extends BaseController {
     constructor(
         @inject(TYPES.TradingOrderService) private readonly tradingOrderService: ITradingOrderService,
         @inject(TYPES.BlockchainService) private readonly blockchainService: IBlockchainService,
+        @inject(TYPES.EthereumBlockchainService)
+        private readonly ethereumBlockchainService: IEthereumBlockchainService,
         @inject(TYPES.OrderCompletionJob) private readonly orderCompletionJob: IOrderCompletionJob,
         @inject(TYPES.TradingOrderRepository) private readonly tradingOrderRepo: ITradingOrderRepository
     ) {
@@ -70,9 +73,20 @@ export class AdminTradingOrderController extends BaseController {
                 );
             }
 
-            // Verify transaction on blockchain
-            const txVerification = await this.blockchainService.verifyTransaction(order.bitcoin_tx_hash_outgoing);
-            
+            const cryptoType = (order.crypto_type || 'BTC').toUpperCase();
+            let txVerification: {
+                confirmed: boolean;
+                confirmations: number;
+                amount: number;
+                to: string;
+            } | null = null;
+
+            if (cryptoType === 'ETH') {
+                txVerification = await this.ethereumBlockchainService.verifyTransaction(order.bitcoin_tx_hash_outgoing);
+            } else {
+                txVerification = await this.blockchainService.verifyTransaction(order.bitcoin_tx_hash_outgoing);
+            }
+
             if (!txVerification) {
                 return this.error(res, 
                     `Transaction ${order.bitcoin_tx_hash_outgoing} not found on blockchain`, 

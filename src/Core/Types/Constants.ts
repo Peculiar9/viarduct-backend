@@ -90,6 +90,7 @@ export const TYPES = {
     // KYC
     QuickVerifyService: Symbol.for('QuickVerifyService'),
     VerifyMeService: Symbol.for('VerifyMeService'),
+    PremblyKycService: Symbol.for('PremblyKycService'),
     KYCUseCase: Symbol.for('KYCUseCase'),
 
     // Role and Permission Management
@@ -107,6 +108,9 @@ export const TYPES = {
     WalletAccountRepository: Symbol.for('WalletAccountRepository'),
     WalletService: Symbol.for('WalletService'),
     BitcoinWalletService: Symbol.for('BitcoinWalletService'),
+    EthereumWalletService: Symbol.for('EthereumWalletService'),
+    EthereumBlockchainService: Symbol.for('EthereumBlockchainService'),
+    EthereumDepositService: Symbol.for('EthereumDepositService'),
     BlockchainService: Symbol.for('BlockchainService'),
 
     // Payment System
@@ -117,6 +121,7 @@ export const TYPES = {
     // Trading System
     TradingRateRepository: Symbol.for('TradingRateRepository'),
     TradingRateService: Symbol.for('TradingRateService'),
+    SpotPriceService: Symbol.for('SpotPriceService'),
     TradingOrderRepository: Symbol.for('TradingOrderRepository'),
     TradingOrderService: Symbol.for('TradingOrderService'),
     OrderCompletionJob: Symbol.for('OrderCompletionJob'),
@@ -124,8 +129,13 @@ export const TYPES = {
     // Bitcoin System
     BitcoinWebhookService: Symbol.for('BitcoinWebhookService'),
     BitcoinTransactionRepository: Symbol.for('BitcoinTransactionRepository'),
+    EthereumTransactionRepository: Symbol.for('EthereumTransactionRepository'),
     BitcoinTransactionService: Symbol.for('BitcoinTransactionService'),
-    
+    SweepAuditRepository: Symbol.for('SweepAuditRepository'),
+    PlatformBtcSweepJob: Symbol.for('PlatformBtcSweepJob'),
+    PlatformEthSweepJob: Symbol.for('PlatformEthSweepJob'),
+    EthereumTransactionService: Symbol.for('EthereumTransactionService'),
+
     // UTXO System
     UTXORepository: Symbol.for('UTXORepository'),
     UTXOManagerService: Symbol.for('UTXOManagerService'),

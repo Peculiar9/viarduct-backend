@@ -12,11 +12,17 @@ import AuthMiddleware from '../../Middleware/AuthMiddleware';
 import { BaseController } from '../BaseController';
 import { Console } from '../../Infrastructure/Utils/Console';
 import { validationMiddleware } from '../../Middleware/ValidationMiddleware';
+import { GeneratePlatformAddressDTO } from '../../Core/Application/DTOs/PlatformWalletDTO';
 import { CreateUTXOFromTxDTO, StoreChangeUTXODTO } from '../../Core/Application/DTOs/TradingOrderDTO';
 import { ITradingOrderRepository } from '../../Core/Application/Interface/Repositories/ITradingOrderRepository';
 import { HttpClientFactory } from '../../Infrastructure/Http/HttpClientFactory';
 import { EnvironmentConfig } from '../../Infrastructure/Config/EnvironmentConfig';
 import { IHttpClient } from '../../Core/Application/Interface/Infrastructure/IHttpClient';
+import { PlatformBtcSweepJob } from '../../Infrastructure/Services/bitcoin/PlatformBtcSweepJob';
+import { PlatformEthSweepJob } from '../../Infrastructure/Services/ethereum/PlatformEthSweepJob';
+import { IEthereumWalletService } from '../../Core/Application/Interface/Services/IEthereumWalletService';
+import { IEthereumBlockchainService } from '../../Core/Application/Interface/Services/IEthereumBlockchainService';
+import { IEthereumDepositService } from '../../Core/Application/Interface/Services/IEthereumDepositService';
 
 @controller(`/${API_PATH}/admin/platform`)
 export class PlatformWalletController extends BaseController {
@@ -31,7 +37,13 @@ export class PlatformWalletController extends BaseController {
         @inject(TYPES.UTXORepository) private readonly utxoRepo: IUTXORepository,
         @inject(TYPES.WalletAccountRepository) private readonly walletAccountRepo: WalletAccountRepository,
         @inject(TYPES.TradingOrderRepository) private readonly tradingOrderRepo: ITradingOrderRepository,
-        @inject(TYPES.HttpClientFactory) private readonly httpClientFactory: HttpClientFactory
+        @inject(TYPES.HttpClientFactory) private readonly httpClientFactory: HttpClientFactory,
+        @inject(TYPES.PlatformBtcSweepJob) private readonly platformBtcSweepJob: PlatformBtcSweepJob,
+        @inject(TYPES.PlatformEthSweepJob) private readonly platformEthSweepJob: PlatformEthSweepJob,
+        @inject(TYPES.EthereumWalletService) private readonly ethereumWalletService: IEthereumWalletService,
+        @inject(TYPES.EthereumBlockchainService)
+        private readonly ethereumBlockchainService: IEthereumBlockchainService,
+        @inject(TYPES.EthereumDepositService) private readonly ethereumDepositService: IEthereumDepositService
     ) {
         super();
         
@@ -57,6 +69,70 @@ export class PlatformWalletController extends BaseController {
             timeout: 30000,
             headers: {}
         });
+    }
+
+    /**
+     * Admin: Preview platform BTC sweep plan (dry run)
+     * @route GET /api/v1/admin/platform/sweep-btc/preview
+     */
+    @httpGet('/sweep-btc/preview', AuthMiddleware.authenticateAdmin())
+    async previewPlatformBtcSweep(
+        @response() res: Response
+    ) {
+        try {
+            const result = await this.platformBtcSweepJob.runNow({ dryRun: true });
+            return this.success(res, result, 'Sweep preview generated successfully');
+        } catch (error: any) {
+            Console.error(error, { message: 'Failed to preview platform BTC sweep' });
+            return this.error(res, error.message, error.statusCode || 400);
+        }
+    }
+
+    /**
+     * Admin: Trigger platform BTC sweep immediately (broadcasts transactions)
+     * @route POST /api/v1/admin/platform/sweep-btc/run
+     */
+    @httpPost('/sweep-btc/run', AuthMiddleware.authenticateAdmin())
+    async runPlatformBtcSweep(
+        @response() res: Response
+    ) {
+        try {
+            const result = await this.platformBtcSweepJob.runNow({ dryRun: false });
+            return this.success(res, result, 'BTC sweep triggered successfully');
+        } catch (error: any) {
+            Console.error(error, { message: 'Failed to run platform BTC sweep' });
+            return this.error(res, error.message, error.statusCode || 400);
+        }
+    }
+
+    /**
+     * Admin: Preview platform ETH sweep plan (dry run)
+     * @route GET /api/v1/admin/platform/sweep-eth/preview
+     */
+    @httpGet('/sweep-eth/preview', AuthMiddleware.authenticateAdmin())
+    async previewPlatformEthSweep(@response() res: Response) {
+        try {
+            const result = await this.platformEthSweepJob.runNow({ dryRun: true });
+            return this.success(res, result, 'ETH sweep preview generated successfully');
+        } catch (error: any) {
+            Console.error(error, { message: 'Failed to preview platform ETH sweep' });
+            return this.error(res, error.message, error.statusCode || 400);
+        }
+    }
+
+    /**
+     * Admin: Trigger platform ETH sweep immediately
+     * @route POST /api/v1/admin/platform/sweep-eth/run
+     */
+    @httpPost('/sweep-eth/run', AuthMiddleware.authenticateAdmin())
+    async runPlatformEthSweep(@response() res: Response) {
+        try {
+            const result = await this.platformEthSweepJob.runNow({ dryRun: false });
+            return this.success(res, result, 'ETH sweep triggered successfully');
+        } catch (error: any) {
+            Console.error(error, { message: 'Failed to run platform ETH sweep' });
+            return this.error(res, error.message, error.statusCode || 400);
+        }
     }
 
     /**
@@ -120,6 +196,58 @@ export class PlatformWalletController extends BaseController {
     }
 
     /**
+     * Generate or return existing platform deposit address for BTC or ETH (admin only).
+     * @route POST /api/v1/admin/platform/address
+     * @body { "crypto_type": "BTC" | "ETH" }
+     */
+    @httpPost('/address', AuthMiddleware.authenticateAdmin(), validationMiddleware(GeneratePlatformAddressDTO))
+    async generatePlatformAddress(@requestBody() body: GeneratePlatformAddressDTO, @response() res: Response) {
+        try {
+            const result = await this.walletService.ensurePlatformCryptoAddress(body.crypto_type);
+            const label = body.crypto_type === 'BTC' ? 'Bitcoin' : 'Ethereum';
+            const message = result.already_existed
+                ? `Platform ${label} address already exists`
+                : `Platform ${label} address generated successfully`;
+
+            return this.success(
+                res,
+                {
+                    crypto_type: result.crypto_type,
+                    address: result.address,
+                    already_existed: result.already_existed
+                },
+                message
+            );
+        } catch (error: any) {
+            console.error('Error generating platform address:', error);
+            return this.error(res, error.message, error.statusCode || 400);
+        }
+    }
+
+    /**
+     * @deprecated Use POST /api/v1/admin/platform/address with { "crypto_type": "ETH" }
+     * @route POST /api/v1/admin/platform/ethereum/address
+     */
+    @httpPost('/ethereum/address', AuthMiddleware.authenticateAdmin())
+    async ensurePlatformEthereumAddress(@response() res: Response) {
+        try {
+            const result = await this.walletService.ensurePlatformCryptoAddress('ETH');
+            const message = result.already_existed
+                ? 'Platform Ethereum address already exists'
+                : 'Platform Ethereum address generated successfully';
+
+            return this.success(
+                res,
+                { crypto_type: 'ETH', address: result.address, already_existed: result.already_existed },
+                message
+            );
+        } catch (error: any) {
+            console.error('Error ensuring platform ETH address:', error);
+            return this.error(res, error.message, error.statusCode || 400);
+        }
+    }
+
+    /**
      * Manually sync platform wallet BTC balance from blockchain
      * Checks blockchain for transactions and updates balance
      * @route POST /api/v1/admin/platform/sync-btc-balance
@@ -178,13 +306,12 @@ export class PlatformWalletController extends BaseController {
                     blockchain_balance: blockchainBalance,
                     difference: blockchainBalance - currentBalance
                 });
-                
-                await this.walletAccountRepo.updateBalance(
-                    btcAccount._id!,
-                    blockchainBalance,
-                    blockchainBalance,
-                    parseFloat(currentAccount?.locked_balance?.toString() || '0')
-                );
+
+                // Custodial ledger: set physical on-chain balance for the platform address.
+                // NOTE: Do not overwrite user_balance buckets from this sync.
+                await this.walletAccountRepo.update(btcAccount._id!, {
+                    total_onchain_balance: blockchainBalance
+                });
             }
 
             // 5. Get updated account balance
@@ -202,6 +329,83 @@ export class PlatformWalletController extends BaseController {
         } catch (error: any) {
             console.error('Error syncing platform BTC balance:', error);
             return this.error(res, error.message, error.statusCode || 400);
+        }
+    }
+
+    /**
+     * Manually sync platform ETH: pull incoming native transfers from the indexer/RPC path,
+     * apply deposits to ledger, and reconcile total_onchain_balance (admin only).
+     * Use when webhooks are not wired yet or you want an immediate refresh.
+     * @route POST /api/v1/admin/platform/sync-ethereum-balance
+     */
+    @httpPost('/sync-ethereum-balance', AuthMiddleware.authenticateAdmin())
+    async syncPlatformEthereumBalance(@request() req: Request, @response() res: Response) {
+        try {
+            const platformWallet = await this.walletService.getPlatformWalletWithAccounts();
+
+            if (!platformWallet) {
+                return this.error(res, 'Platform wallet not found', 404);
+            }
+
+            const ethAccount = platformWallet.accounts.find((acc) => acc.currency?.code === 'ETH');
+
+            if (!ethAccount || !ethAccount.address) {
+                return this.error(
+                    res,
+                    'Platform ETH address not found. Call POST /admin/platform/address with { "crypto_type": "ETH" } first.',
+                    404
+                );
+            }
+
+            const address = ethAccount.address;
+            const blockchainBalance = await this.ethereumBlockchainService.getAddressBalance(address);
+            const incoming = await this.ethereumBlockchainService.checkAddressForIncomingTransactions(address);
+
+            let processedCount = 0;
+            for (const tx of incoming) {
+                try {
+                    await this.ethereumDepositService.processTransaction(tx, address);
+                    processedCount++;
+                } catch (error: any) {
+                    Console.warn('Failed to process platform ETH transaction', {
+                        txHash: tx.hash,
+                        error: error.message
+                    });
+                }
+            }
+
+            const currentAccount = await this.walletAccountRepo.findById(ethAccount._id!);
+            const currentBalance = parseFloat(currentAccount?.balance?.toString() || '0');
+
+            if (Math.abs(currentBalance - blockchainBalance) > 1e-12) {
+                Console.info('Platform ETH ledger vs chain mismatch; updating total_onchain_balance', {
+                    address,
+                    ledger: currentBalance,
+                    chain: blockchainBalance
+                });
+                await this.walletAccountRepo.update(ethAccount._id!, {
+                    total_onchain_balance: blockchainBalance
+                });
+            }
+
+            const updatedAccount = await this.walletAccountRepo.findById(ethAccount._id!);
+
+            return this.success(
+                res,
+                {
+                    address,
+                    blockchain_balance: blockchainBalance,
+                    wallet_balance: updatedAccount?.balance || 0,
+                    available_balance: updatedAccount?.available_balance || 0,
+                    transactions_found: incoming.length,
+                    transactions_processed: processedCount,
+                    message: 'Platform ETH sync completed'
+                },
+                'Platform Ethereum balance synced successfully'
+            );
+        } catch (error: any) {
+            Console.error(error, { message: 'Error syncing platform ETH balance' });
+            return this.error(res, error.message, error.statusCode ?? 503, error);
         }
     }
 
@@ -767,6 +971,27 @@ export class PlatformWalletController extends BaseController {
             }, 'Platform NGN balance recalculated and negative locked balances fixed successfully');
         } catch (error: any) {
             console.error('Error recalculating platform NGN balance:', error);
+            return this.error(res, error.message, error.statusCode || 400);
+        }
+    }
+
+    /**
+     * Admin: total platform-owned BTC sitting across user addresses (sellable assets).
+     * Safety rule: Admin operations MUST NOT spend user_balance; only platform_owned_balance is sellable.
+     * @route GET /api/v1/admin/platform/btc-sellable-assets
+     */
+    @httpGet('/btc-sellable-assets', AuthMiddleware.authenticateAdmin())
+    async getTotalSellableBtcAssets(
+        @response() res: Response
+    ) {
+        try {
+            const total = await this.walletAccountRepo.sumPlatformOwnedByCurrencyCode('BTC');
+            return this.success(res, {
+                currency: 'BTC',
+                total_sellable_assets: total
+            }, 'Total sellable BTC assets retrieved successfully');
+        } catch (error: any) {
+            Console.error(error, { message: 'Failed to get total sellable BTC assets' });
             return this.error(res, error.message, error.statusCode || 400);
         }
     }

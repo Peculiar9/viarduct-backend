@@ -58,6 +58,14 @@ export class CurrencySeeder {
                 type: 'crypto' as const,
                 decimals: 8,
                 is_active: true
+            },
+            {
+                code: 'ETH',
+                name: 'Ethereum',
+                symbol: 'Ξ',
+                type: 'crypto' as const,
+                decimals: 8,
+                is_active: true
             }
         ];
 

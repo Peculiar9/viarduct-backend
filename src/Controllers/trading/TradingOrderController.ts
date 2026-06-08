@@ -55,7 +55,7 @@ export class TradingOrderController extends BaseController {
         try {
             const user = req.user as IUser;
             const order = await this.tradingOrderService.createSellOrder(user._id!, dto);
-            return this.success(res, order, 'Sell order created successfully. BTC transaction has been broadcasted.');
+            return this.success(res, order, 'Sell order completed successfully.');
         } catch (error: any) {
             return this.error(res, error.message, error.statusCode || 400);
         }

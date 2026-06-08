@@ -1,6 +1,12 @@
 import { IWallet } from '../../Interface/Entities/wallet/IWallet';
 import { IWalletAccount } from '../../Interface/Entities/wallet/IWalletAccount';
 import { ICurrency } from '../Entities/wallet/ICurrency';
+import { IWalletAccountTradingMetadata } from '../Entities/wallet/IWalletAccountMetadata';
+
+export type WalletAccountWithCurrency = IWalletAccount & {
+    currency: ICurrency;
+    metadata?: IWalletAccountTradingMetadata;
+};
 
 export interface IWalletService {
     /**
@@ -19,7 +25,7 @@ export interface IWalletService {
 
     /**
      * Initialize wallet system for a new user
-     * Creates wallet and wallet accounts (NGN and BTC) in one transaction
+     * Creates wallet and wallet accounts (NGN, BTC, ETH) in one transaction
      * @param userId User ID
      * @returns Object containing wallet and wallet accounts
      */
@@ -36,7 +42,7 @@ export interface IWalletService {
      */
     getUserWalletWithAccounts(userId: string): Promise<{
         wallet: IWallet;
-        accounts: Array<IWalletAccount & { currency: ICurrency }>;
+        accounts: WalletAccountWithCurrency[];
     } | null>;
 
     /**
@@ -66,6 +72,11 @@ export interface IWalletService {
     generateBitcoinAddress(userId: string): Promise<string>;
 
     /**
+     * Generate or get Ethereum address for user's ETH wallet account
+     */
+    generateEthereumAddress(userId: string): Promise<string>;
+
+    /**
      * Create platform wallet (exchange's main wallet)
      * @returns Created platform wallet
      */
@@ -82,12 +93,21 @@ export interface IWalletService {
 
     /**
      * Initialize platform wallet system
-     * Creates platform wallet and wallet accounts (NGN and BTC) with BTC address
+     * Creates platform wallet and wallet accounts (NGN, BTC, ETH) with deposit addresses
      * @returns Object containing wallet and wallet accounts
      */
     initializePlatformWallet(): Promise<{
         wallet: IWallet;
         walletAccounts: IWalletAccount[];
+    }>;
+
+    /**
+     * Ensure platform wallet + account exist and return or generate a deposit address for BTC or ETH.
+     */
+    ensurePlatformCryptoAddress(cryptoType: 'BTC' | 'ETH'): Promise<{
+        crypto_type: 'BTC' | 'ETH';
+        address: string;
+        already_existed: boolean;
     }>;
 }
 

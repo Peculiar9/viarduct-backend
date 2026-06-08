@@ -50,6 +50,8 @@ import { PermissionRepository } from '../Infrastructure/Repository/SQL/permissio
 import { IRoleUseCase } from './Application/Interface/UseCases/IRoleUseCase';
 import { IKYCUseCase } from './Application/Interface/UseCases/IKYCUseCase';
 import { KYCUseCase } from './Application/UseCases/KYCUseCase';
+import { IPremblyKycService } from './Application/Interface/Services/IPremblyKycService';
+import { PremblyKycService } from '../Infrastructure/Services/kyc/PremblyKycService';
 import { RoleUseCase } from './Application/UseCases/RoleUseCase';
 import { IPermissionUseCase } from './Application/Interface/UseCases/IPermissionUseCase';
 import { PermissionUseCase } from './Application/UseCases/PermissionUseCase';
@@ -69,13 +71,24 @@ import { TransactionRepository } from '../Infrastructure/Repository/SQL/payment/
 import { HttpClientFactory } from '../Infrastructure/Http/HttpClientFactory';
 import { BitcoinWalletService } from '../Infrastructure/Services/bitcoin/BitcoinWalletService';
 import { IBitcoinWalletService } from './Application/Interface/Services/IBitcoinWalletService';
+import { EthereumWalletService } from '../Infrastructure/Services/ethereum/EthereumWalletService';
+import { IEthereumWalletService } from './Application/Interface/Services/IEthereumWalletService';
+import { DisabledEthereumWalletService } from '../Infrastructure/Services/ethereum/DisabledEthereumWalletService';
+import { EthereumBlockchainService } from '../Infrastructure/Services/ethereum/EthereumBlockchainService';
+import { IEthereumBlockchainService } from './Application/Interface/Services/IEthereumBlockchainService';
+import { EthereumDepositService } from '../Infrastructure/Services/ethereum/EthereumDepositService';
+import { IEthereumDepositService } from './Application/Interface/Services/IEthereumDepositService';
+import { EthereumTransactionRepository } from '../Infrastructure/Repository/SQL/ethereum/EthereumTransactionRepository';
 import { BlockchainService } from '../Infrastructure/Services/bitcoin/BlockchainService';
 import { IBlockchainService } from './Application/Interface/Services/IBlockchainService';
 import { TradingRateRepository } from '../Infrastructure/Repository/SQL/trading/TradingRateRepository';
 import { ITradingRateRepository } from './Application/Interface/Repositories/ITradingRateRepository';
 import { TradingRateService } from '../Infrastructure/Services/trading/TradingRateService';
 import { ITradingRateService } from './Application/Interface/Services/ITradingRateService';
+import { SpotPriceService } from '../Infrastructure/Services/trading/SpotPriceService';
+import { ISpotPriceService } from './Application/Interface/Services/ISpotPriceService';
 import { BitcoinTransactionRepository } from '../Infrastructure/Repository/SQL/bitcoin/BitcoinTransactionRepository';
+import { SweepAuditRepository } from '../Infrastructure/Repository/SQL/bitcoin/SweepAuditRepository';
 import { BitcoinWebhookService } from '../Infrastructure/Services/bitcoin/BitcoinWebhookService';
 import { IBitcoinWebhookService } from './Application/Interface/Services/IBitcoinWebhookService';
 import { TradingOrderRepository } from '../Infrastructure/Repository/SQL/trading/TradingOrderRepository';
@@ -86,6 +99,10 @@ import { OrderCompletionJob } from '../Infrastructure/Services/trading/OrderComp
 import { IOrderCompletionJob } from './Application/Interface/Services/IOrderCompletionJob';
 import { BitcoinTransactionService } from '../Infrastructure/Services/bitcoin/BitcoinTransactionService';
 import { IBitcoinTransactionService } from './Application/Interface/Services/IBitcoinTransactionService';
+import { PlatformBtcSweepJob } from '../Infrastructure/Services/bitcoin/PlatformBtcSweepJob';
+import { PlatformEthSweepJob } from '../Infrastructure/Services/ethereum/PlatformEthSweepJob';
+import { EthereumTransactionService } from '../Infrastructure/Services/ethereum/EthereumTransactionService';
+import { IEthereumTransactionService } from './Application/Interface/Services/IEthereumTransactionService';
 import { UTXORepository } from '../Infrastructure/Repository/SQL/UTXORepository';
 import { IUTXORepository } from './Application/Interface/Repositories/IUTXORepository';
 import { UTXOManagerService } from '../Infrastructure/Services/bitcoin/UTXOManagerService';
@@ -118,7 +135,8 @@ import { ChatService } from '../Infrastructure/Services/ChatService';
 import { SystemAnnouncementRepository } from '../Infrastructure/Repository/SQL/system-announcements/SystemAnnouncementRepository';
 import { SystemAnnouncementDeliveryRepository } from '../Infrastructure/Repository/SQL/system-announcements/SystemAnnouncementDeliveryRepository';
 import { ISystemAnnouncementService } from './Application/Interface/Services/ISystemAnnouncementService';
-import { SystemAnnouncementService } from '../Infrastructure/Services/SystemAnnouncementService';
+import { SystemAnnouncementService } from '../Infrastructure/Services/SystemAnnouncementService'; 
+
 
 
 /**
@@ -246,21 +264,35 @@ export class DIContainer {
         container.bind<IOTPService>(TYPES.OTPService).to(OTPService).inRequestScope();
         container.bind<IWalletService>(TYPES.WalletService).to(WalletService).inRequestScope();
         container.bind<IBitcoinWalletService>(TYPES.BitcoinWalletService).to(BitcoinWalletService).inRequestScope();
+        const enableEthereum = (process.env.ENABLE_ETHEREUM || 'true').toLowerCase() !== 'false';
+        container
+            .bind<IEthereumWalletService>(TYPES.EthereumWalletService)
+            .to(enableEthereum ? EthereumWalletService : DisabledEthereumWalletService)
+            .inSingletonScope();
+        container.bind<IEthereumBlockchainService>(TYPES.EthereumBlockchainService).to(EthereumBlockchainService).inSingletonScope();
+        container.bind<IEthereumDepositService>(TYPES.EthereumDepositService).to(EthereumDepositService).inRequestScope();
+        container.bind<EthereumTransactionRepository>(TYPES.EthereumTransactionRepository).to(EthereumTransactionRepository).inRequestScope();
         container.bind<IBlockchainService>(TYPES.BlockchainService).to(BlockchainService).inRequestScope();
         container.bind<IPaystackService>(TYPES.PaystackService).to(PaystackService).inRequestScope();
+        container.bind<ISpotPriceService>(TYPES.SpotPriceService).to(SpotPriceService).inSingletonScope();
         container.bind<ITradingRateService>(TYPES.TradingRateService).to(TradingRateService).inRequestScope();
         container.bind<ITradingOrderService>(TYPES.TradingOrderService).to(TradingOrderService).inRequestScope();
         container.bind<INotificationService>(TYPES.NotificationService).to(NotificationService).inRequestScope();
         container.bind<IDisputeService>(TYPES.DisputeService).to(DisputeService).inRequestScope();
         container.bind<IChatService>(TYPES.ChatService).to(ChatService).inRequestScope();
         container.bind<ISystemAnnouncementService>(TYPES.SystemAnnouncementService).to(SystemAnnouncementService).inRequestScope();
+        container.bind<IPremblyKycService>(TYPES.PremblyKycService).to(PremblyKycService).inSingletonScope();
 
         // Repositories
         container.bind<BitcoinTransactionRepository>(TYPES.BitcoinTransactionRepository).to(BitcoinTransactionRepository).inRequestScope();
+        container.bind<SweepAuditRepository>(TYPES.SweepAuditRepository).to(SweepAuditRepository).inRequestScope();
         // Services
         container.bind<IBitcoinWebhookService>(TYPES.BitcoinWebhookService).to(BitcoinWebhookService).inRequestScope();
         container.bind<IBitcoinTransactionService>(TYPES.BitcoinTransactionService).to(BitcoinTransactionService).inRequestScope();
         container.bind<IOrderCompletionJob>(TYPES.OrderCompletionJob).to(OrderCompletionJob).inSingletonScope();
+        container.bind<PlatformBtcSweepJob>(TYPES.PlatformBtcSweepJob).to(PlatformBtcSweepJob).inSingletonScope();
+        container.bind<IEthereumTransactionService>(TYPES.EthereumTransactionService).to(EthereumTransactionService).inRequestScope();
+        container.bind<PlatformEthSweepJob>(TYPES.PlatformEthSweepJob).to(PlatformEthSweepJob).inSingletonScope();
         container.bind<IEmailService>(TYPES.EmailService).to(EmailService).inRequestScope();
 
         container.bind<ITokenService>(TYPES.TokenService).to(TokenService).inRequestScope();
@@ -307,15 +339,16 @@ export class DIContainer {
             } catch (error: any) {
                 console.warn('⚠️ Failed to initialize SendGrid email service:', error.message);
             }
-        } else if (emailProvider === 'smtp') {
+        } else if (emailProvider === 'smtp' || emailProvider === 'brevo') {
             container.bind<ITwilioEmailService>(TYPES.TwilioEmailService).to(SMTPEmailService).inSingletonScope();
-            console.log('📧 Email Provider: SMTP');
+            console.log(
+                emailProvider === 'brevo' ? '📧 Email Provider: Brevo (SMTP)' : '📧 Email Provider: SMTP'
+            );
 
-            // Initialize email service to trigger verification
             try {
                 container.get<ITwilioEmailService>(TYPES.TwilioEmailService);
             } catch (error: any) {
-                console.warn('⚠️ Failed to initialize SMTP email service:', error.message);
+                console.warn('⚠️ Failed to initialize email service:', error.message);
             }
         } else {
             // Default to SMTP if invalid provider

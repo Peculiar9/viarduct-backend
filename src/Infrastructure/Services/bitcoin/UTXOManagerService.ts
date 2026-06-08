@@ -205,6 +205,7 @@ export class UTXOManagerService implements IUTXOManagerService {
                         address,
                         script: txref.script || undefined, // Store script if available
                         status: 'available',
+                        ownership: 'user',
                         wallet_account_id: walletAccountId || null,
                         created_at: new Date().toISOString(),
                         updated_at: new Date().toISOString()
@@ -317,7 +318,7 @@ export class UTXOManagerService implements IUTXOManagerService {
      * Store change output from a transaction
      * Extracts change output from transaction and stores as new UTXO
      */
-    async storeChangeUTXO(txid: string, address: string, walletAccountId?: string): Promise<IUTXO | null> {
+    async storeChangeUTXO(txid: string, address: string, walletAccountId?: string, ownership: 'user' | 'platform' = 'user'): Promise<IUTXO | null> {
         try {
             Console.info('Storing change UTXO', { txid, address });
 
@@ -416,6 +417,7 @@ export class UTXOManagerService implements IUTXOManagerService {
                         address,
                         script: script || undefined,
                         status: 'available',
+                        ownership,
                         wallet_account_id: walletAccountId || null,
                         created_at: new Date().toISOString(),
                         updated_at: new Date().toISOString()
@@ -509,6 +511,7 @@ export class UTXOManagerService implements IUTXOManagerService {
                         address,
                         script: blockchainUTXO.script || undefined,
                         status: 'available',
+                        ownership: 'user',
                         created_at: new Date().toISOString(),
                         updated_at: new Date().toISOString()
                     });

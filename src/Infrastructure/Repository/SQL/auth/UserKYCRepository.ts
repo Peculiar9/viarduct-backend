@@ -130,7 +130,8 @@ export class UserKYCRepository extends BaseRepository<UserKYC> implements IRepos
   async updateStage(userId: string, stage: KYCStage, status: KYCStatus, metadata?: Record<string, any>): Promise<UserKYC | null> {
     const result = await this.executeQuery<UserKYC>(
       `UPDATE ${this.tableName}
-       SET current_stage = $1, status = $2, last_updated = NOW(), stage_metadata = COALESCE($3, stage_metadata)
+       SET current_stage = $1, status = $2, last_updated = NOW(),
+           stage_metadata = COALESCE(stage_metadata, '{}'::jsonb) || COALESCE($3::jsonb, '{}'::jsonb)
        WHERE user_id = $4
        RETURNING *`,
       [stage, status, metadata ? JSON.stringify(metadata) : null, userId]

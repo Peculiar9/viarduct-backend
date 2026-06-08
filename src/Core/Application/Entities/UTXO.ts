@@ -23,6 +23,9 @@ export class UTXO implements IUTXO {
     @Column('VARCHAR(20) NOT NULL DEFAULT \'available\'')
     status!: 'available' | 'reserved' | 'spent';
 
+    @Column('VARCHAR(20) NOT NULL DEFAULT \'user\'')
+    ownership?: 'user' | 'platform';
+
     @Column('UUID DEFAULT NULL')
     reserved_for_order_id?: string | null;
 

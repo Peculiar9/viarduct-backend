@@ -310,5 +310,61 @@ export class WalletAccountRepository extends BaseRepository<IWalletAccount> {
             throw new DatabaseError(`Failed to find wallet account by address: ${error.message}`);
         }
     }
+
+    /**
+     * Admin liquidity view: sum of platform-owned (sellable) assets for a currency code.
+     * Safety: this is the ONLY bucket that platform operations should spend.
+     */
+    async sumPlatformOwnedByCurrencyCode(currencyCode: string): Promise<number> {
+        try {
+            const result = await this.executeQuery<{ total: string }>(
+                `
+                SELECT COALESCE(SUM(wa.platform_owned_balance), 0) AS total
+                FROM "${TableNames.WALLET_ACCOUNTS}" wa
+                JOIN "${TableNames.CURRENCIES}" c ON c._id = wa.currency_id
+                WHERE c.code = $1
+                `,
+                [currencyCode]
+            );
+            return Number(parseFloat((result.rows[0] as any)?.total ?? '0'));
+        } catch (error: any) {
+            throw new DatabaseError(`Failed to sum platform owned balance: ${error.message}`);
+        }
+    }
+
+    async findBtcAccountsWithPlatformOwnedAbove(thresholdBtc: number, limit: number = 500): Promise<IWalletAccount[]> {
+        return this.findCryptoAccountsWithPlatformOwnedAbove('BTC', thresholdBtc, limit);
+    }
+
+    async findEthAccountsWithPlatformOwnedAbove(thresholdEth: number, limit: number = 500): Promise<IWalletAccount[]> {
+        return this.findCryptoAccountsWithPlatformOwnedAbove('ETH', thresholdEth, limit);
+    }
+
+    private async findCryptoAccountsWithPlatformOwnedAbove(
+        currencyCode: string,
+        threshold: number,
+        limit: number
+    ): Promise<IWalletAccount[]> {
+        try {
+            const result = await this.executeQuery<IWalletAccount>(
+                `
+                SELECT wa.*
+                FROM "${TableNames.WALLET_ACCOUNTS}" wa
+                JOIN "${TableNames.CURRENCIES}" c ON c._id = wa.currency_id
+                WHERE c.code = $1
+                  AND wa.platform_owned_balance > $2
+                  AND wa.address IS NOT NULL
+                ORDER BY wa.platform_owned_balance DESC
+                LIMIT $3
+                `,
+                [currencyCode, threshold, limit]
+            );
+            return result.rows as any[];
+        } catch (error: any) {
+            throw new DatabaseError(
+                `Failed to find ${currencyCode} accounts with platform-owned balance: ${error.message}`
+            );
+        }
+    }
 }
 

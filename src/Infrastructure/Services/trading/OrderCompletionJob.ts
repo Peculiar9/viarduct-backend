@@ -4,6 +4,7 @@ import { IOrderCompletionJob } from '../../../Core/Application/Interface/Service
 import { ITradingOrderRepository } from '../../../Core/Application/Interface/Repositories/ITradingOrderRepository';
 import { ITradingOrderService } from '../../../Core/Application/Interface/Services/ITradingOrderService';
 import { IBlockchainService } from '../../../Core/Application/Interface/Services/IBlockchainService';
+import { IEthereumBlockchainService } from '../../../Core/Application/Interface/Services/IEthereumBlockchainService';
 import { Console } from '../../Utils/Console';
 import { EnvironmentConfig } from '../../Config/EnvironmentConfig';
 
@@ -17,7 +18,9 @@ export class OrderCompletionJob implements IOrderCompletionJob {
     constructor(
         @inject(TYPES.TradingOrderRepository) private readonly tradingOrderRepo: ITradingOrderRepository,
         @inject(TYPES.TradingOrderService) private readonly tradingOrderService: ITradingOrderService,
-        @inject(TYPES.BlockchainService) private readonly blockchainService: IBlockchainService
+        @inject(TYPES.BlockchainService) private readonly blockchainService: IBlockchainService,
+        @inject(TYPES.EthereumBlockchainService)
+        private readonly ethereumBlockchainService: IEthereumBlockchainService
     ) {
         // Fallback only - webhook is primary. Default 10 min (Bitcoin confirms ~10-15 min)
         this.intervalMinutes = EnvironmentConfig.getNumber('ORDER_COMPLETION_JOB_INTERVAL_MINUTES', 10);
@@ -141,7 +144,11 @@ export class OrderCompletionJob implements IOrderCompletionJob {
                         type: order.type
                     });
 
-                    const txVerification = await this.blockchainService.verifyTransaction(txHash);
+                    const cryptoType = (order.crypto_type || 'BTC').toUpperCase();
+                    const txVerification =
+                        cryptoType === 'ETH'
+                            ? await this.ethereumBlockchainService.verifyTransaction(txHash)
+                            : await this.blockchainService.verifyTransaction(txHash);
                     
                     if (!txVerification) {
                         Console.warn('Transaction not found on blockchain (will retry on next cycle)', {

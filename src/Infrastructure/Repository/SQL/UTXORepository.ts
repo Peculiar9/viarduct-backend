@@ -336,5 +336,63 @@ export class UTXORepository extends BaseRepository<IUTXO> implements IUTXOReposi
             throw new DatabaseError(`Failed to bulk delete UTXOs: ${error.message}`);
         }
     }
+
+    async findAvailablePlatformOwnedByAddress(address: string): Promise<IUTXO[]> {
+        try {
+            const result = await this.executeQuery<IUTXO>(
+                `SELECT * FROM "${this.tableName}" WHERE address = $1 AND status = 'available' AND ownership = 'platform' ORDER BY amount ASC`,
+                [address]
+            );
+            return result.rows as any[];
+        } catch (error: any) {
+            throw new DatabaseError(`Failed to find platform-owned UTXOs: ${error.message}`);
+        }
+    }
+
+    async promoteUserUtxosToPlatformInTxn(address: string, amountToPromote: number): Promise<{ utxos: IUTXO[]; totalPromoted: number }> {
+        try {
+            // Lock candidate UTXOs to prevent concurrent promotions/sweeps (uses current transaction client)
+            const select = await this.executeQuery<IUTXO>(
+                `
+                SELECT * FROM "${this.tableName}"
+                WHERE address = $1
+                  AND status = 'available'
+                  AND (ownership IS NULL OR ownership = 'user')
+                ORDER BY amount ASC
+                FOR UPDATE
+                `,
+                [address]
+            );
+
+            let total = 0;
+            const picked: IUTXO[] = [];
+            for (const u of select.rows as any[]) {
+                picked.push(u);
+                total += Number(parseFloat(String(u.amount ?? 0)));
+                if (total >= amountToPromote) break;
+            }
+
+            if (total < amountToPromote) {
+                throw new DatabaseError(`Not enough user-owned UTXOs to promote. Need ${amountToPromote}, have ${total}`);
+            }
+
+            const ids = picked.map(u => u._id).filter(Boolean);
+            const placeholders = ids.map((_, i) => `$${i + 1}`).join(', ');
+            const update = await this.executeQuery<IUTXO>(
+                `
+                UPDATE "${this.tableName}"
+                SET ownership = 'platform',
+                    updated_at = NOW()
+                WHERE _id IN (${placeholders})
+                RETURNING *
+                `,
+                ids as any[]
+            );
+
+            return { utxos: update.rows as any[], totalPromoted: total };
+        } catch (error: any) {
+            throw new DatabaseError(`Failed to promote user UTXOs to platform: ${error.message}`);
+        }
+    }
 }
 

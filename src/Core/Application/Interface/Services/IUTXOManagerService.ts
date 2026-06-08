@@ -22,7 +22,12 @@ export interface IUTXOManagerService {
      * Store change output from a transaction
      * Extracts change output from transaction and stores as new UTXO
      */
-    storeChangeUTXO(txid: string, address: string, walletAccountId?: string): Promise<IUTXO | null>;
+    storeChangeUTXO(
+        txid: string,
+        address: string,
+        walletAccountId?: string,
+        ownership?: 'user' | 'platform'
+    ): Promise<IUTXO | null>;
 
     /**
      * Get available UTXOs for an address

@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, Min, IsString, IsNotEmpty, Matches, IsIn, IsBoolean } from 'class-validator';
+import { IsNumber, IsOptional, Min, IsString, IsNotEmpty, Matches, IsIn, IsBoolean, Max } from 'class-validator';
 
 export class CreateTradingRateDTO {
     @IsString()
@@ -7,12 +7,19 @@ export class CreateTradingRateDTO {
     crypto_type: string;
 
     @IsNumber()
-    @Min(0.01, { message: 'Buy rate must be greater than 0' })
-    buy_rate: number;
+    @Min(0, { message: 'Buy margin must be at least 0%' })
+    @Max(100, { message: 'Buy margin must be at most 100%' })
+    buy_margin_percentage: number;
 
     @IsNumber()
-    @Min(0.01, { message: 'Sell rate must be greater than 0' })
-    sell_rate: number;
+    @Min(0, { message: 'Sell margin must be at least 0%' })
+    @Max(100, { message: 'Sell margin must be at most 100%' })
+    sell_margin_percentage: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0.01, { message: 'Emergency spot price must be greater than 0' })
+    emergency_spot_price?: number;
 
     @IsOptional()
     @IsNumber()
@@ -33,13 +40,20 @@ export class UpdateTradingRateDTO {
 
     @IsOptional()
     @IsNumber()
-    @Min(0.01)
-    buy_rate?: number;
+    @Min(0)
+    @Max(100)
+    buy_margin_percentage?: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    @Max(100)
+    sell_margin_percentage?: number;
 
     @IsOptional()
     @IsNumber()
     @Min(0.01)
-    sell_rate?: number;
+    emergency_spot_price?: number;
 
     @IsOptional()
     @IsNumber()

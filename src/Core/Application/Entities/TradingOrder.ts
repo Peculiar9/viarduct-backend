@@ -1,6 +1,6 @@
 import { Column, CompositeIndex, ForeignKey, Index } from '../../../extensions/decorators';
 import { TableNames } from '../Enums/TableNames';
-import { ITradingOrder, TradingOrderType, TradingOrderStatus } from '../Interface/Entities/trading/ITradingOrder';
+import { ITradingOrder, TradingOrderType, TradingOrderStatus, TradingOrderSettlementMode } from '../Interface/Entities/trading/ITradingOrder';
 
 @CompositeIndex(['user_id', 'status'])
 @CompositeIndex(['status', 'type'])
@@ -20,6 +20,10 @@ export class TradingOrder implements ITradingOrder {
     @Index({ unique: false })
     @Column('VARCHAR(10) NOT NULL')
     public type: TradingOrderType;
+
+    @Index({ unique: false })
+    @Column('VARCHAR(20) DEFAULT \'internal\'')
+    public settlement_mode?: TradingOrderSettlementMode;
 
     @Index({ unique: false })
     @Column('VARCHAR(10) NOT NULL')

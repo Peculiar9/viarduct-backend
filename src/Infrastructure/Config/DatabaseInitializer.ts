@@ -18,7 +18,9 @@ import { TradingRate } from '../../Core/Application/Entities/TradingRate';
 import { TradingOrder } from '../../Core/Application/Entities/TradingOrder';
 import { Transaction } from '../../Core/Application/Entities/Transaction';
 import { BitcoinTransaction } from '../../Core/Application/Entities/BitcoinTransaction';
+import { EthereumTransaction } from '../../Core/Application/Entities/EthereumTransaction';
 import { UTXO } from '../../Core/Application/Entities/UTXO';
+import { SweepAudit } from '../../Core/Application/Entities/SweepAudit';
 import { WithdrawalRequest } from '../../Core/Application/Entities/WithdrawalRequest';
 import { UserTransactionPin } from '../../Core/Application/Entities/UserTransactionPin';
 import { GiftCardSubmission } from '../../Core/Application/Entities/GiftCardSubmission';
@@ -52,7 +54,9 @@ export class DatabaseInitializer {
             { entity: UserKYC, tableName: TableNames.USER_KYC },
             { entity: Verification, tableName: TableNames.VERIFICATIONS },
             { entity: BitcoinTransaction, tableName: TableNames.BITCOIN_TRANSACTIONS },
+            { entity: EthereumTransaction, tableName: TableNames.ETHEREUM_TRANSACTIONS },
             { entity: UTXO, tableName: TableNames.UTXOS },
+            { entity: SweepAudit, tableName: TableNames.SWEEP_AUDITS },
             { entity: WithdrawalRequest, tableName: TableNames.WITHDRAWAL_REQUESTS },
             { entity: UserTransactionPin, tableName: TableNames.USER_TRANSACTION_PINS },
             { entity: Card, tableName: TableNames.CARDS },

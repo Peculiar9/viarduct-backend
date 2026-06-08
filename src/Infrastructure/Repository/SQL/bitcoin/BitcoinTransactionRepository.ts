@@ -38,11 +38,11 @@ export class BitcoinTransactionRepository extends BaseRepository<IBitcoinTransac
         }
     }
 
-    async findByWalletAccountId(walletAccountId: string): Promise<IBitcoinTransaction[]> {
+    async findByWalletAccountId(walletAccountId: string, limit: number = 50, offset: number = 0): Promise<IBitcoinTransaction[]> {
         try {
             const result = await this.executeQuery<IBitcoinTransaction>(
-                `SELECT * FROM "${this.tableName}" WHERE wallet_account_id = $1 ORDER BY created_at DESC`,
-                [walletAccountId]
+                `SELECT * FROM "${this.tableName}" WHERE wallet_account_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+                [walletAccountId, limit, offset]
             );
             return result.rows as any[];
         } catch (error: any) {

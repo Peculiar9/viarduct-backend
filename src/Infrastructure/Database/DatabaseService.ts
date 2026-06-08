@@ -7,8 +7,6 @@ import { RolePermissionSeeder } from '../Config/RolePermissionSeeder';
 import { UserSeeder } from '../Config/UserSeeder';
 import { CurrencySeeder } from '../Config/CurrencySeeder';
 import { CardSeeder } from '../Config/CardSeeder';
-import { IWalletService } from '../../Core/Application/Interface/Services/IWalletService';
-import { WalletRepository } from '../Repository/SQL/wallet/WalletRepository';
 import { Console } from '../Utils/Console';
 
 @injectable()
@@ -44,22 +42,7 @@ export class DatabaseService {
             const userSeeder = container.get<UserSeeder>(TYPES.UserSeeder);
             await userSeeder.seed();
             
-            // Initialize platform wallet (after currencies and users are seeded)
-            const walletService = container.get<IWalletService>(TYPES.WalletService);
-            const walletRepository = container.get<WalletRepository>(TYPES.WalletRepository);
-            try {
-                const existingPlatformWallet = await walletRepository.findPlatformWallet();
-                if (!existingPlatformWallet) {
-                    await walletService.initializePlatformWallet();
-                    Console.info('Platform wallet initialized successfully');
-                } else {
-                    Console.info('Platform wallet already exists, skipping initialization');
-                }
-            } catch (error: any) {
-                Console.error(error, { message: 'Failed to initialize platform wallet' });
-                // Don't throw - platform wallet can be initialized later
-            }
-            
+            // Platform wallet + crypto addresses are created via POST /admin/platform/address (admin API).
         } catch (error: any) {
             Console.error(error, { 
                 message: 'Database initialization error:', 

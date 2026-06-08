@@ -6,77 +6,90 @@ import {
 } from '../../../Core/Application/Interface/Services/ITwilioEmailService';
 import { ValidationError, ServiceError } from '../../../Core/Application/Error/AppError';
 import CryptoService from '../../../Core/Services/CryptoService';
-import { EnvironmentConfig } from '../../Config/EnvironmentConfig';
 import { APP_NAME } from '../../../Core/Types/Constants';
 import { UtilityService } from '../../../Core/Services/UtilityService';
 import * as nodemailer from 'nodemailer';
+import { resolveEmailSmtpConfig } from '../../Config/EmailSmtpConfig';
+
+function formatSmtpConnectError(error: any, host: string, port: number): string {
+    const base = error?.message || String(error);
+    const timedOut =
+        error?.code === 'ETIMEDOUT' ||
+        error?.code === 'ESOCKET' ||
+        /timed out/i.test(base);
+    if (!timedOut) {
+        return base;
+    }
+    return (
+        `${base} — cannot reach ${host}:${port}. Many networks block port 587; ` +
+        'for Brevo set BREVO_SMTP_PORT=2525 or 465 and restart the server.'
+    );
+}
 
 /**
- * SMTP Email Service implementation using nodemailer
- * Supports Gmail, Google Workspace, and other SMTP providers
+ * SMTP email via nodemailer.
+ * Provider is selected with EMAIL_PROVIDER: smtp (SMTP_*) or brevo (BREVO_SMTP_*).
  */
 @injectable()
 export class SMTPEmailService implements ITwilioEmailService {
     private readonly verificationTokens: Map<string, { token: string; expiresAt: Date }> = new Map();
     private transporter: nodemailer.Transporter;
     private fromEmail: string;
+    private readonly providerLabel: string;
+    private readonly smtpHost: string;
+    private readonly smtpPort: number;
 
     constructor() {
-        const smtpHost = EnvironmentConfig.get('SMTP_HOST');
-        const smtpPort = EnvironmentConfig.getNumber('SMTP_PORT', 587);
-        const smtpUser = EnvironmentConfig.get('SMTP_USERNAME');
-        const smtpPassword = EnvironmentConfig.get('SMTP_PASSWORD');
-        this.fromEmail = EnvironmentConfig.get('EMAIL_FROM', `noreply@${APP_NAME}.com`);
+        const cfg = resolveEmailSmtpConfig();
+        this.providerLabel = cfg.providerLabel;
+        this.smtpHost = cfg.host;
+        this.smtpPort = cfg.port;
+        this.fromEmail = cfg.fromEmail || `noreply@${APP_NAME}.com`;
 
-        if (!smtpHost || !smtpUser || !smtpPassword) {
-            throw new Error('SMTP configuration is incomplete. Please set SMTP_HOST, SMTP_USERNAME, and SMTP_PASSWORD');
+        if (!cfg.host || !cfg.username || !cfg.password) {
+            const hint =
+                (process.env.EMAIL_PROVIDER || 'smtp').toLowerCase() === 'brevo'
+                    ? 'Set BREVO_SMTP_HOST, BREVO_SMTP_USERNAME, and BREVO_SMTP_PASSWORD (or xsmtpsib value in BREVO_API_KEY).'
+                    : 'Set SMTP_HOST, SMTP_USERNAME, and SMTP_PASSWORD.';
+            throw new Error(`Email SMTP configuration is incomplete. ${hint}`);
         }
 
-        // Create transporter
         this.transporter = nodemailer.createTransport({
-            host: smtpHost,
-            port: smtpPort,
-            secure: smtpPort === 465,
+            host: cfg.host,
+            port: cfg.port,
+            secure: cfg.port === 465,
             auth: {
-                user: smtpUser,
-                pass: smtpPassword,
-            },
+                user: cfg.username,
+                pass: cfg.password
+            }
         });
 
-        // Log initialization
-        console.info('📧 SMTP Email Service initializing...', {
-            host: smtpHost,
-            port: smtpPort,
+        console.info('📧 Email service initializing...', {
+            provider: this.providerLabel,
+            host: cfg.host,
+            port: cfg.port,
             fromEmail: this.fromEmail,
-            username: smtpUser
+            username: cfg.username
         });
 
-        // Verify connection (only in non-test environments)
         if (process.env.NODE_ENV !== 'test') {
-            this.transporter.verify()
+            this.transporter
+                .verify()
                 .then(() => {
                     console.log('\n✅ ========================================');
                     console.log('✅ Email Service: RUNNING');
-                    console.log('✅ Provider: SMTP');
-                    console.log(`✅ Host: ${smtpHost}:${smtpPort}`);
+                    console.log(`✅ Provider: ${this.providerLabel}`);
+                    console.log(`✅ Host: ${cfg.host}:${cfg.port}`);
                     console.log(`✅ From: ${this.fromEmail}`);
                     console.log('✅ ========================================\n');
                 })
                 .catch((error) => {
                     console.warn('\n⚠️ ========================================');
                     console.warn('⚠️ Email Service: CONNECTION FAILED');
-                    console.warn('⚠️ Provider: SMTP');
+                    console.warn(`⚠️ Provider: ${this.providerLabel}`);
                     console.warn(`⚠️ Error: ${error.message}`);
-                    console.warn('⚠️ Make sure you have configured SMTP options in .env');
                     console.warn('⚠️ ========================================\n');
                 });
-        } else {
-            // For test environment, just log initialization
-            console.info('✅ SMTP Email Service initialized (test mode)', {
-                host: smtpHost,
-                port: smtpPort,
-                fromEmail: this.fromEmail
-            });
         }
     }
 
@@ -182,7 +195,9 @@ export class SMTPEmailService implements ITwilioEmailService {
 
         } catch (error: any) {
             console.error(`SMTPEmailService::sendEmailVerification -> Failed to send email:`, error);
-            throw new ServiceError(`Failed to send verification email: ${error.message}`);
+            throw new ServiceError(
+                `Failed to send verification email: ${formatSmtpConnectError(error, this.smtpHost, this.smtpPort)}`
+            );
         }
     }
 
@@ -336,7 +351,9 @@ export class SMTPEmailService implements ITwilioEmailService {
 
         } catch (error: any) {
             console.error(`SMTPEmailService::sendPasswordResetEmail -> Failed to send email:`, error);
-            throw new ServiceError(`Failed to send password reset email: ${error.message}`);
+            throw new ServiceError(
+                `Failed to send password reset email: ${formatSmtpConnectError(error, this.smtpHost, this.smtpPort)}`
+            );
         }
     }
 
@@ -379,7 +396,7 @@ export class SMTPEmailService implements ITwilioEmailService {
             
             return {
                 success: false,
-                error: `Failed to send email: ${error.message}`
+                error: `Failed to send email: ${formatSmtpConnectError(error, this.smtpHost, this.smtpPort)}`
             };
         }
     }

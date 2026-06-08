@@ -6,6 +6,7 @@ import { IWalletService } from '../../Core/Application/Interface/Services/IWalle
 import { IBlockchainService } from '../../Core/Application/Interface/Services/IBlockchainService';
 import { IBitcoinWebhookService } from '../../Core/Application/Interface/Services/IBitcoinWebhookService';
 import { WalletAccountRepository } from '../../Infrastructure/Repository/SQL/wallet/WalletAccountRepository';
+import { BitcoinTransactionRepository } from '../../Infrastructure/Repository/SQL/bitcoin/BitcoinTransactionRepository';
 import AuthMiddleware from '../../Middleware/AuthMiddleware';
 import { BaseController } from '../BaseController';
 import { IUser } from '../../Core/Application/Interface/Entities/auth-and-user/IUser';
@@ -17,7 +18,8 @@ export class BitcoinWalletController extends BaseController {
         @inject(TYPES.WalletService) private readonly walletService: IWalletService,
         @inject(TYPES.BlockchainService) private readonly blockchainService: IBlockchainService,
         @inject(TYPES.BitcoinWebhookService) private readonly bitcoinWebhookService: IBitcoinWebhookService,
-        @inject(TYPES.WalletAccountRepository) private readonly walletAccountRepo: WalletAccountRepository
+        @inject(TYPES.WalletAccountRepository) private readonly walletAccountRepo: WalletAccountRepository,
+        @inject(TYPES.BitcoinTransactionRepository) private readonly bitcoinTransactionRepo: BitcoinTransactionRepository
     ) {
         super();
     }
@@ -113,13 +115,12 @@ export class BitcoinWalletController extends BaseController {
                     blockchain_balance: blockchainBalance,
                     difference: blockchainBalance - currentBalance
                 });
-                
-                await this.walletAccountRepo.updateBalance(
-                    btcAccount._id!,
-                    blockchainBalance,
-                    blockchainBalance,
-                    parseFloat(currentAccount?.locked_balance?.toString() || '0')
-                );
+
+                // Custodial ledger: this is the physical on-chain balance for the address.
+                // Do NOT override user_balance here (it represents user spendable ledger).
+                await this.walletAccountRepo.update(btcAccount._id!, {
+                    total_onchain_balance: blockchainBalance
+                });
             }
 
             // 5. Get updated account balance
@@ -136,6 +137,56 @@ export class BitcoinWalletController extends BaseController {
             }, 'BTC balance synced successfully');
         } catch (error: any) {
             Console.error(error, { message: 'Error syncing user BTC balance', userId: (req.user as IUser)?._id });
+            return this.error(res, error.message, error.statusCode || 400);
+        }
+    }
+
+    /**
+     * Get user's BTC deposit/withdraw history (pending + confirmed)
+     * This is the in-app "window" to the blockchain so users don't need explorers.
+     * @route GET /api/v1/wallet/bitcoin/transactions?limit=50&offset=0
+     */
+    @httpGet('/bitcoin/transactions', AuthMiddleware.authenticate())
+    async getBitcoinTransactions(
+        @request() req: Request,
+        @response() res: Response
+    ) {
+        try {
+            const user = req.user as IUser;
+            if (!user._id) {
+                return this.error(res, 'User not authenticated', 401);
+            }
+
+            const limit = req.query.limit ? Math.min(200, Math.max(1, parseInt(String(req.query.limit), 10))) : 50;
+            const offset = req.query.offset ? Math.max(0, parseInt(String(req.query.offset), 10)) : 0;
+
+            const userWallet = await this.walletService.getUserWalletWithAccounts(user._id);
+            if (!userWallet) {
+                return this.error(res, 'User wallet not found', 404);
+            }
+
+            const btcAccount = userWallet.accounts.find(acc => acc.currency?.code === 'BTC');
+            if (!btcAccount || !btcAccount._id) {
+                return this.error(res, 'BTC wallet account not found', 404);
+            }
+
+            const txs = await this.bitcoinTransactionRepo.findByWalletAccountId(btcAccount._id, limit, offset);
+
+            // Convenience mapping for UI: "deposit" vs "withdrawal"
+            const mapped = txs.map(tx => ({
+                ...tx,
+                type: tx.direction === 'incoming' ? 'deposit' : 'withdrawal'
+            }));
+
+            return this.success(res, {
+                wallet_account_id: btcAccount._id,
+                address: btcAccount.address,
+                limit,
+                offset,
+                transactions: mapped
+            }, 'Bitcoin transactions retrieved successfully');
+        } catch (error: any) {
+            Console.error(error, { message: 'Error getting user bitcoin transactions', userId: (req.user as IUser)?._id });
             return this.error(res, error.message, error.statusCode || 400);
         }
     }

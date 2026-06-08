@@ -10,6 +10,10 @@ import { ValidationError, ServiceError } from '../../Core/Application/Error/AppE
 import { Console } from '../Utils/Console';
 import { ICurrency } from '@/Core/Application/Interface/Entities/wallet/ICurrency';
 import { IBitcoinWalletService } from '../../Core/Application/Interface/Services/IBitcoinWalletService';
+import { IEthereumWalletService } from '../../Core/Application/Interface/Services/IEthereumWalletService';
+import { ITradingRateService } from '../../Core/Application/Interface/Services/ITradingRateService';
+import { IWalletAccountTradingMetadata } from '../../Core/Application/Interface/Entities/wallet/IWalletAccountMetadata';
+import { WalletAccountWithCurrency } from '../../Core/Application/Interface/Services/IWalletService';
 
 @injectable()
 export class WalletService implements IWalletService {
@@ -18,6 +22,8 @@ export class WalletService implements IWalletService {
         @inject(TYPES.WalletAccountRepository) private readonly walletAccountRepository: WalletAccountRepository,
         @inject(TYPES.CurrencyRepository) private readonly currencyRepository: CurrencyRepository,
         @inject(TYPES.BitcoinWalletService) private readonly bitcoinWalletService: IBitcoinWalletService,
+        @inject(TYPES.EthereumWalletService) private readonly ethereumWalletService: IEthereumWalletService,
+        @inject(TYPES.TradingRateService) private readonly tradingRateService: ITradingRateService
     ) {}
 
     /**
@@ -47,13 +53,14 @@ export class WalletService implements IWalletService {
     }
 
     /**
-     * Create wallet accounts for a wallet (NGN and BTC)
+     * Create wallet accounts for a wallet (NGN, BTC, ETH)
      */
     async createWalletAccountsForWallet(walletId: string): Promise<IWalletAccount[]> {
         try {
-            // Get NGN and BTC currencies
+            // Get NGN, BTC, ETH currencies
             const ngnCurrency = await this.currencyRepository.findByCode('NGN');
             const btcCurrency = await this.currencyRepository.findByCode('BTC');
+            const ethCurrency = await this.currencyRepository.findByCode('ETH');
 
             if (!ngnCurrency || !ngnCurrency._id) {
                 throw new ServiceError('NGN currency not found. Please seed currencies first.');
@@ -61,6 +68,10 @@ export class WalletService implements IWalletService {
 
             if (!btcCurrency || !btcCurrency._id) {
                 throw new ServiceError('BTC currency not found. Please seed currencies first.');
+            }
+
+            if (!ethCurrency || !ethCurrency._id) {
+                throw new ServiceError('ETH currency not found. Please seed currencies first.');
             }
 
             const walletAccounts: IWalletAccount[] = [];
@@ -102,6 +113,10 @@ export class WalletService implements IWalletService {
                     balance: 0,
                     available_balance: 0,
                     locked_balance: 0,
+                    user_balance: 0,
+                    platform_owned_balance: 0,
+                    total_onchain_balance: 0,
+                    sweep_threshold: null,
                     address: null, // Bitcoin address will be generated later when needed
                     address_type: null,
                     status: 'active'
@@ -115,6 +130,35 @@ export class WalletService implements IWalletService {
                 Console.info('BTC wallet account already exists', { walletId, accountId: existingBTCAccount._id });
             }
 
+            const existingETHAccount = await this.walletAccountRepository.findByWalletIdAndCurrencyId(
+                walletId,
+                ethCurrency._id
+            );
+
+            if (!existingETHAccount) {
+                const ethAccountData: Partial<IWalletAccount> = {
+                    wallet_id: walletId,
+                    currency_id: ethCurrency._id,
+                    balance: 0,
+                    available_balance: 0,
+                    locked_balance: 0,
+                    user_balance: 0,
+                    platform_owned_balance: 0,
+                    total_onchain_balance: 0,
+                    sweep_threshold: null,
+                    address: null,
+                    address_type: null,
+                    status: 'active'
+                };
+
+                const ethAccount = await this.walletAccountRepository.create(ethAccountData as IWalletAccount);
+                walletAccounts.push(ethAccount);
+                Console.info('ETH wallet account created', { walletId, accountId: ethAccount._id });
+            } else {
+                walletAccounts.push(existingETHAccount);
+                Console.info('ETH wallet account already exists', { walletId, accountId: existingETHAccount._id });
+            }
+
             return walletAccounts;
         } catch (error: any) {
             Console.error(error, { message: 'Failed to create wallet accounts', walletId });
@@ -124,7 +168,7 @@ export class WalletService implements IWalletService {
 
     /**
      * Initialize wallet system for a new user
-     * Creates wallet and wallet accounts (NGN and BTC) in one go
+     * Creates wallet and wallet accounts (NGN, BTC, ETH) in one go
      */
     async initializeUserWallet(userId: string): Promise<{
         wallet: IWallet;
@@ -154,31 +198,73 @@ export class WalletService implements IWalletService {
     }
 
 
+    private async buildCryptoTradingMetadata(
+        account: IWalletAccount,
+        currencyCode: string
+    ): Promise<IWalletAccountTradingMetadata | undefined> {
+        const code = currencyCode.toUpperCase();
+        if (code !== 'BTC' && code !== 'ETH') {
+            return undefined;
+        }
+
+        try {
+            const rate = await this.tradingRateService.getActiveRate(code);
+            const spot = Number(rate.last_spot_price ?? 0);
+            if (!spot || spot <= 0) {
+                return undefined;
+            }
+
+            const userBalance = Number(
+                parseFloat(String(account.user_balance ?? account.balance ?? 0))
+            );
+            const locked = Number(parseFloat(String(account.locked_balance ?? 0)));
+            const tradable = Math.max(0, userBalance - locked);
+
+            return {
+                tradable_crypto_amount: tradable,
+                crypto_equivalent_tradable_amount: tradable * spot,
+                spot_price_ngn: spot,
+                buy_rate_ngn: Number(rate.buy_rate),
+                sell_rate_ngn: Number(rate.sell_rate)
+            };
+        } catch (error: any) {
+            Console.warn('Could not build wallet account trading metadata', {
+                currencyCode: code,
+                error: error?.message
+            });
+            return undefined;
+        }
+    }
+
+    private async enrichAccount(
+        account: IWalletAccount & { currency: ICurrency }
+    ): Promise<WalletAccountWithCurrency> {
+        const metadata = await this.buildCryptoTradingMetadata(account, account.currency.code);
+        return metadata ? { ...account, metadata } : account;
+    }
+
     /**
      * Get user wallet with accounts and currency information
      */
     async getUserWalletWithAccounts(userId: string): Promise<{
         wallet: IWallet;
-        accounts: Array<IWalletAccount & { currency: ICurrency }>;
+        accounts: WalletAccountWithCurrency[];
     } | null> {
         try {
-            // Find user's wallet
             const wallet = await this.walletRepository.findByUserId(userId);
             if (!wallet || !wallet._id) {
                 return null;
             }
 
-            // Get all wallet accounts for this wallet
             const walletAccounts = await this.walletAccountRepository.findByWalletId(wallet._id);
 
-            // Fetch currency information for each account
             const accountsWithCurrency = await Promise.all(
                 walletAccounts.map(async (account) => {
                     const currency = await this.currencyRepository.findById(account.currency_id);
-                    return {
+                    return this.enrichAccount({
                         ...account,
                         currency: currency!
-                    };
+                    });
                 })
             );
 
@@ -362,11 +448,79 @@ export class WalletService implements IWalletService {
     }
 
     /**
+     * Generate or get Ethereum address for user's ETH wallet account
+     */
+    async generateEthereumAddress(userId: string): Promise<string> {
+        try {
+            const wallet = await this.walletRepository.findByUserId(userId);
+            if (!wallet || !wallet._id) {
+                throw new ValidationError('Wallet not found for user');
+            }
+
+            const ethCurrency = await this.currencyRepository.findByCode('ETH');
+            if (!ethCurrency || !ethCurrency._id) {
+                throw new ServiceError('ETH currency not found');
+            }
+
+            let walletAccount = await this.walletAccountRepository.findByWalletIdAndCurrencyId(
+                wallet._id,
+                ethCurrency._id
+            );
+
+            if (!walletAccount) {
+                const accountData: Partial<IWalletAccount> = {
+                    wallet_id: wallet._id,
+                    currency_id: ethCurrency._id,
+                    balance: 0,
+                    available_balance: 0,
+                    locked_balance: 0,
+                    user_balance: 0,
+                    platform_owned_balance: 0,
+                    total_onchain_balance: 0,
+                    sweep_threshold: null,
+                    address: null,
+                    address_type: null,
+                    status: 'active'
+                };
+                walletAccount = await this.walletAccountRepository.create(accountData as IWalletAccount);
+            }
+
+            if (!walletAccount._id) {
+                throw new ServiceError('Failed to get or create ETH wallet account');
+            }
+
+            return await this.ethereumWalletService.getOrGenerateAddress(userId, walletAccount._id);
+        } catch (error: any) {
+            Console.error(error, { message: 'Failed to generate Ethereum address', userId });
+            throw error;
+        }
+    }
+
+    /**
+     * Create platform wallet (exchange's main wallet), or return existing.
+     */
+    async ensurePlatformWallet(): Promise<IWallet> {
+        const existing = await this.walletRepository.findPlatformWallet();
+        if (existing) {
+            return existing;
+        }
+
+        const walletData: Partial<IWallet> = {
+            user_id: null,
+            is_platform_wallet: true,
+            status: 'active'
+        };
+
+        const wallet = await this.walletRepository.create(walletData as IWallet);
+        Console.info('Platform wallet created', { walletId: wallet._id });
+        return wallet;
+    }
+
+    /**
      * Create platform wallet (exchange's main wallet)
      */
     async createPlatformWallet(): Promise<IWallet> {
         try {
-            // Check if platform wallet already exists
             const existingWallet = await this.walletRepository.findPlatformWallet();
             if (existingWallet) {
                 throw new ValidationError('Platform wallet already exists');
@@ -422,9 +576,82 @@ export class WalletService implements IWalletService {
         }
     }
 
+    private async ensurePlatformCurrencyAccount(
+        walletId: string,
+        currencyCode: 'BTC' | 'ETH'
+    ): Promise<IWalletAccount> {
+        const currency = await this.currencyRepository.findByCode(currencyCode);
+        if (!currency?._id) {
+            throw new ServiceError(`${currencyCode} currency not found. Please seed currencies first.`);
+        }
+
+        let account = await this.walletAccountRepository.findByWalletIdAndCurrencyId(walletId, currency._id);
+        if (account) {
+            return account;
+        }
+
+        account = await this.walletAccountRepository.create({
+            wallet_id: walletId,
+            currency_id: currency._id,
+            balance: 0,
+            available_balance: 0,
+            locked_balance: 0,
+            user_balance: 0,
+            platform_owned_balance: 0,
+            total_onchain_balance: 0,
+            sweep_threshold: null,
+            address: null,
+            address_type: null,
+            status: 'active'
+        } as IWalletAccount);
+
+        Console.info(`Platform ${currencyCode} wallet account created`, {
+            walletId,
+            accountId: account._id
+        });
+
+        return account;
+    }
+
+    async ensurePlatformCryptoAddress(cryptoType: 'BTC' | 'ETH'): Promise<{
+        crypto_type: 'BTC' | 'ETH';
+        address: string;
+        already_existed: boolean;
+    }> {
+        const platformWallet = await this.ensurePlatformWallet();
+        if (!platformWallet._id) {
+            throw new ServiceError('Platform wallet could not be created');
+        }
+
+        const account = await this.ensurePlatformCurrencyAccount(platformWallet._id, cryptoType);
+
+        if (account.address) {
+            return {
+                crypto_type: cryptoType,
+                address: account.address,
+                already_existed: true
+            };
+        }
+
+        if (!account._id) {
+            throw new ServiceError(`Platform ${cryptoType} account is missing an id`);
+        }
+
+        const address =
+            cryptoType === 'BTC'
+                ? await this.bitcoinWalletService.getOrGenerateAddress('platform', account._id)
+                : await this.ethereumWalletService.getOrGenerateAddress('platform', account._id);
+
+        return {
+            crypto_type: cryptoType,
+            address,
+            already_existed: false
+        };
+    }
+
     /**
      * Initialize platform wallet system
-     * Creates platform wallet and wallet accounts (NGN and BTC) with BTC address
+     * Creates platform wallet and wallet accounts (NGN, BTC, ETH) with BTC and ETH addresses
      */
     async initializePlatformWallet(): Promise<{
         wallet: IWallet;
@@ -434,7 +661,7 @@ export class WalletService implements IWalletService {
             // Create platform wallet
             const wallet = await this.createPlatformWallet();
 
-            // Create wallet accounts (NGN and BTC)
+            // Create wallet accounts (NGN, BTC, ETH)
             const walletAccounts = await this.createWalletAccountsForWallet(wallet._id!);
 
             // Generate BTC address for platform wallet
@@ -453,6 +680,15 @@ export class WalletService implements IWalletService {
                     btcAccount._id
                 );
                 Console.info('Platform wallet BTC address generated', { address });
+            }
+
+            const ethCurrency = await this.currencyRepository.findByCode('ETH');
+            if (ethCurrency?._id) {
+                const ethAccount = walletAccounts.find((a) => a.currency_id === ethCurrency._id);
+                if (ethAccount && ethAccount._id) {
+                    const ethAddress = await this.ethereumWalletService.getOrGenerateAddress('platform', ethAccount._id);
+                    Console.info('Platform wallet ETH address generated', { address: ethAddress });
+                }
             }
 
             Console.info('Platform wallet initialized successfully', {
