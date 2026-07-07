@@ -120,7 +120,7 @@ async function configureEnvironment(app: any) {
         next();
       });
   }
-}
+}   // goo
 
 const startServer = async () => {
   try {

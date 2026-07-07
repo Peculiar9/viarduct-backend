@@ -9,6 +9,11 @@ import { BaseController } from '../BaseController';
 import { validationMiddleware } from '../../Middleware/ValidationMiddleware';
 import { CreateBuyOrderDTO, CreateSellOrderDTO, ProcessBuyOrderDTO } from '../../Core/Application/DTOs/TradingOrderDTO';
 import { IUser } from '../../Core/Application/Interface/Entities/auth-and-user/IUser';
+import { EnvironmentConfig } from '../../Infrastructure/Config/EnvironmentConfig';
+
+function legacyCustodialTradingEnabled(): boolean {
+    return EnvironmentConfig.get('ENABLE_LEGACY_CUSTODIAL_TRADING', 'true').toLowerCase() === 'true';
+}
 
 /**
  * Trading Order Controller
@@ -33,6 +38,13 @@ export class TradingOrderController extends BaseController {
         @response() res: Response
     ) {
         try {
+            if (!legacyCustodialTradingEnabled()) {
+                return this.error(
+                    res,
+                    'Instant custodial trading is disabled. Use POST /api/v1/trade-intents instead.',
+                    403
+                );
+            }
             const user = req.user as IUser;
             const order = await this.tradingOrderService.createBuyOrder(user._id!, dto);
             return this.success(res, order, 'Buy order created successfully');
@@ -53,6 +65,13 @@ export class TradingOrderController extends BaseController {
         @response() res: Response
     ) {
         try {
+            if (!legacyCustodialTradingEnabled()) {
+                return this.error(
+                    res,
+                    'Instant custodial trading is disabled. Use POST /api/v1/trade-intents instead.',
+                    403
+                );
+            }
             const user = req.user as IUser;
             const order = await this.tradingOrderService.createSellOrder(user._id!, dto);
             return this.success(res, order, 'Sell order completed successfully.');

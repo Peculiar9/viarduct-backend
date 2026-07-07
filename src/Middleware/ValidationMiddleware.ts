@@ -2,6 +2,25 @@ import { plainToInstance } from 'class-transformer';
 import { validate, ValidationError } from 'class-validator';
 import { Request, Response, NextFunction } from 'express';
 
+function flattenValidationErrors(
+  errors: ValidationError[],
+  parent = ''
+): Array<{ property: string; message: string }> {
+  const result: Array<{ property: string; message: string }> = [];
+  for (const error of errors) {
+    const property = parent ? `${parent}.${error.property}` : error.property;
+    if (error.constraints) {
+      for (const message of Object.values(error.constraints)) {
+        result.push({ property, message });
+      }
+    }
+    if (error.children?.length) {
+      result.push(...flattenValidationErrors(error.children, property));
+    }
+  }
+  return result;
+}
+
 // export function validationMiddleware(dtoClass: any) {
 //   return async (req: Request, res: Response, next: NextFunction) => {
 //     try {
@@ -53,13 +72,12 @@ export function validationMiddleware(dtoClass: any) {
         });
         
         if (errors.length > 0) {
+          const flattened = flattenValidationErrors(errors);
           return res.status(400).json({
-            status: 'error',
-            message: 'Validation failed',
-            errors: errors.map(error => ({
-              property: error.property,
-              constraints: error.constraints,
-            }))
+            success: false,
+            message: flattened[0]?.message ?? 'Validation failed',
+            error_code: 100,
+            data: { errors: flattened },
           });
         }
         

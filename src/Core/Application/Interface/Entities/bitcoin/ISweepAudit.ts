@@ -1,6 +1,7 @@
 export interface ISweepAudit {
     _id?: string;
     wallet_account_id?: string | null;
+    trade_intent_id?: string | null;
     from_address: string;
     to_address: string;
     tx_hash: string;

@@ -23,6 +23,10 @@ import './Controllers/trading/PublicTradingRateController';
 import './Controllers/trading/TradingRateController';
 import './Controllers/trading/TradingOrderController';
 import './Controllers/trading/AdminTradingOrderController';
+import './Controllers/trading/TradeIntentController';
+import './Controllers/trading/AdminTradeIntentController';
+import './Controllers/bank/BankAccountController';
+import './Controllers/trading/AdminPayoutConsentController';
 import './Controllers/me/MeController';
 import './Controllers/me/NotificationPreferencesController';
 import './Controllers/withdrawal/WithdrawalController';
@@ -47,6 +51,7 @@ import { TYPES } from './Core/Types/Constants';
 import { IOrderCompletionJob } from './Core/Application/Interface/Services/IOrderCompletionJob';
 import { PlatformBtcSweepJob } from './Infrastructure/Services/bitcoin/PlatformBtcSweepJob';
 import { PlatformEthSweepJob } from './Infrastructure/Services/ethereum/PlatformEthSweepJob';
+import { TradeIntentSweepJob } from './Infrastructure/Services/trading/TradeIntentSweepJob';
 
 import express, { Response, Request, NextFunction } from 'express';
 import path from 'path';
@@ -141,6 +146,9 @@ class App {
             const ethSweepJob = this.container.get<PlatformEthSweepJob>(TYPES.PlatformEthSweepJob);
             ethSweepJob.start();
 
+            const tradeIntentSweepJob = this.container.get<TradeIntentSweepJob>(TYPES.TradeIntentSweepJob);
+            tradeIntentSweepJob.start();
+
             Console.info('✅ Background jobs started successfully');
         } catch (error: any) {
             Console.error(error, { message: 'Failed to start background jobs' });
@@ -160,6 +168,8 @@ class App {
                 btcSweepJob.stop();
                 const ethSweepJob = this.container.get<PlatformEthSweepJob>(TYPES.PlatformEthSweepJob);
                 ethSweepJob.stop();
+                const tradeIntentSweepJob = this.container.get<TradeIntentSweepJob>(TYPES.TradeIntentSweepJob);
+                tradeIntentSweepJob.stop();
                 // Console.info('Background jobs stopped');
             } catch (error: any) {
                 Console.error(error, { message: 'Error stopping background jobs' });

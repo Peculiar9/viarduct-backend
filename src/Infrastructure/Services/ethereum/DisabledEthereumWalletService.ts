@@ -27,5 +27,25 @@ export class DisabledEthereumWalletService implements IEthereumWalletService {
     getDerivedWalletForAccount(): Promise<import('ethers').HDNodeWallet> {
         this.disabled();
     }
+
+    generateTradeIntentDepositAddress(): Promise<{ address: string; derivationPath: string }> {
+        this.disabled();
+    }
+
+    getTradeIntentDerivationPath(): string {
+        this.disabled();
+    }
+
+    getVaultDerivationPath(): string {
+        this.disabled();
+    }
+
+    getDerivedWalletForPath(): Promise<import('ethers').HDNodeWallet> {
+        this.disabled();
+    }
+
+    getVaultAddress(): Promise<string> {
+        this.disabled();
+    }
 }
 

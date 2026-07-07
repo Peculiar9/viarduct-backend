@@ -101,5 +101,17 @@ export interface IBitcoinTransactionService {
             inputSigners: Array<{ walletAccountId: string; address: string }>;
         }
     ): Promise<string>;
+
+    estimateTransferFee(fromAddress: string, toAddress: string, amount: number): Promise<number>;
+
+    sendFromDerivationPath(
+        derivationPath: string,
+        fromAddress: string,
+        toAddress: string,
+        amount: number,
+        priority?: 'low' | 'medium' | 'high'
+    ): Promise<{ txHash: string; feeBtc: number }>;
+
+    signTransactionByDerivationPath(transaction: any, derivationPath: string): Promise<string>;
 }
 

@@ -1,18 +1,26 @@
 import { inject, injectable } from 'inversify';
 import { TYPES } from '../../../Core/Types/Constants';
 import { IEthereumDepositService } from '../../../Core/Application/Interface/Services/IEthereumDepositService';
+import { ITradeIntentRepository } from '../../../Core/Application/Interface/Repositories/ITradeIntentRepository';
+import { ITradeIntentService } from '../../../Core/Application/Interface/Services/ITradeIntentService';
 import { EthereumTransactionRepository } from '../../Repository/SQL/ethereum/EthereumTransactionRepository';
 import { WalletAccountRepository } from '../../Repository/SQL/wallet/WalletAccountRepository';
 import { EnvironmentConfig } from '../../Config/EnvironmentConfig';
 import { Console } from '../../Utils/Console';
+import { DIContainer } from '../../../Core/DIContainer';
 
 @injectable()
 export class EthereumDepositService implements IEthereumDepositService {
     constructor(
         @inject(TYPES.EthereumTransactionRepository)
         private readonly ethereumTransactionRepo: EthereumTransactionRepository,
-        @inject(TYPES.WalletAccountRepository) private readonly walletAccountRepo: WalletAccountRepository
+        @inject(TYPES.WalletAccountRepository) private readonly walletAccountRepo: WalletAccountRepository,
+        @inject(TYPES.TradeIntentRepository) private readonly tradeIntentRepo: ITradeIntentRepository
     ) {}
+
+    private getTradeIntentService(): ITradeIntentService {
+        return DIContainer.getInstance().get<ITradeIntentService>(TYPES.TradeIntentService);
+    }
 
     async processTransaction(
         tx: {
@@ -69,12 +77,44 @@ export class EthereumDepositService implements IEthereumDepositService {
             return;
         }
 
-        const walletAccount = await this.walletAccountRepo.findByAddress(address);
         const amount = tx.valueEth;
         if (!amount || amount <= 0) {
             Console.warn('ETH deposit amount missing', { address, hash: tx.hash });
             return;
         }
+
+        const tradeIntent = await this.tradeIntentRepo.findByDepositAddress(address);
+        if (tradeIntent) {
+            if (tx.confirmations >= 1) {
+                await this.getTradeIntentService().handleIncomingCryptoDeposit({
+                    address,
+                    txHash: tx.hash,
+                    amountCrypto: amount,
+                    asset: 'ETH'
+                });
+            }
+            await this.ethereumTransactionRepo.create({
+                tx_hash: tx.hash,
+                address,
+                wallet_account_id: undefined,
+                amount,
+                confirmations: tx.confirmations || 0,
+                status: (tx.confirmations || 0) >= 1 ? 'confirmed' : 'pending',
+                direction: 'incoming',
+                webhook_data: { ...tx.raw, trade_intent_id: tradeIntent._id },
+                block_time: tx.block_time,
+                metadata: {
+                    network: EnvironmentConfig.get('ETHEREUM_NETWORK', 'sepolia'),
+                    trade_intent_id: tradeIntent._id
+                },
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            });
+            Console.info('ETH deposit routed to trade intent', { intentId: tradeIntent._id, amount });
+            return;
+        }
+
+        const walletAccount = await this.walletAccountRepo.findByAddress(address);
 
         const row = await this.ethereumTransactionRepo.create({
             tx_hash: tx.hash,

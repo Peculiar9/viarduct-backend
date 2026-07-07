@@ -16,6 +16,15 @@ export class SweepAudit implements ISweepAudit {
     public wallet_account_id?: string | null;
 
     @Index({ unique: false })
+    @ForeignKey({
+        table: TableNames.TRADE_INTENTS,
+        field: '_id',
+        constraint: 'fk_sweep_audit_trade_intent_id'
+    })
+    @Column('UUID DEFAULT NULL')
+    public trade_intent_id?: string | null;
+
+    @Index({ unique: false })
     @Column('VARCHAR(255) NOT NULL')
     public from_address: string;
 

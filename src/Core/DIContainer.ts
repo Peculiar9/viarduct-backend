@@ -91,12 +91,29 @@ import { BitcoinTransactionRepository } from '../Infrastructure/Repository/SQL/b
 import { SweepAuditRepository } from '../Infrastructure/Repository/SQL/bitcoin/SweepAuditRepository';
 import { BitcoinWebhookService } from '../Infrastructure/Services/bitcoin/BitcoinWebhookService';
 import { IBitcoinWebhookService } from './Application/Interface/Services/IBitcoinWebhookService';
+import { TradeIntentRepository } from '../Infrastructure/Repository/SQL/trading/TradeIntentRepository';
+import { ITradeIntentRepository } from './Application/Interface/Repositories/ITradeIntentRepository';
 import { TradingOrderRepository } from '../Infrastructure/Repository/SQL/trading/TradingOrderRepository';
 import { ITradingOrderRepository } from './Application/Interface/Repositories/ITradingOrderRepository';
 import { TradingOrderService } from '../Infrastructure/Services/trading/TradingOrderService';
 import { ITradingOrderService } from './Application/Interface/Services/ITradingOrderService';
 import { OrderCompletionJob } from '../Infrastructure/Services/trading/OrderCompletionJob';
 import { IOrderCompletionJob } from './Application/Interface/Services/IOrderCompletionJob';
+import { TradeQuoteService } from '../Infrastructure/Services/trading/TradeQuoteService';
+import { TradeIntentService } from '../Infrastructure/Services/trading/TradeIntentService';
+import { ITradeIntentService } from './Application/Interface/Services/ITradeIntentService';
+import { TradeIntentSweepJob } from '../Infrastructure/Services/trading/TradeIntentSweepJob';
+import { InHouseCustodyProvider } from '../Infrastructure/Services/custody/InHouseCustodyProvider';
+import { LiminalCustodyProvider } from '../Infrastructure/Services/custody/LiminalCustodyProvider';
+import { ICustodyProvider } from './Application/Interface/Services/ICustodyProvider';
+import { UserBankAccountRepository } from '../Infrastructure/Repository/SQL/bank/UserBankAccountRepository';
+import { IUserBankAccountRepository } from './Application/Interface/Repositories/IUserBankAccountRepository';
+import { UserBankAccountService } from '../Infrastructure/Services/bank/UserBankAccountService';
+import { IUserBankAccountService } from './Application/Interface/Services/IUserBankAccountService';
+import { AdminPayoutConsentRepository } from '../Infrastructure/Repository/SQL/trading/AdminPayoutConsentRepository';
+import { IAdminPayoutConsentRepository } from './Application/Interface/Repositories/IAdminPayoutConsentRepository';
+import { AdminPayoutConsentService } from '../Infrastructure/Services/trading/AdminPayoutConsentService';
+import { IAdminPayoutConsentService } from './Application/Interface/Services/IAdminPayoutConsentService';
 import { BitcoinTransactionService } from '../Infrastructure/Services/bitcoin/BitcoinTransactionService';
 import { IBitcoinTransactionService } from './Application/Interface/Services/IBitcoinTransactionService';
 import { PlatformBtcSweepJob } from '../Infrastructure/Services/bitcoin/PlatformBtcSweepJob';
@@ -228,6 +245,11 @@ export class DIContainer {
         container.bind<TransactionRepository>(TYPES.TransactionRepository).to(TransactionRepository).inRequestScope();
         container.bind<ITradingRateRepository>(TYPES.TradingRateRepository).to(TradingRateRepository).inRequestScope();
         container.bind<ITradingOrderRepository>(TYPES.TradingOrderRepository).to(TradingOrderRepository).inRequestScope();
+        container.bind<ITradeIntentRepository>(TYPES.TradeIntentRepository).to(TradeIntentRepository).inRequestScope();
+        container.bind<IUserBankAccountRepository>(TYPES.UserBankAccountRepository).to(UserBankAccountRepository).inRequestScope();
+        container.bind<IUserBankAccountService>(TYPES.UserBankAccountService).to(UserBankAccountService).inRequestScope();
+        container.bind<IAdminPayoutConsentRepository>(TYPES.AdminPayoutConsentRepository).to(AdminPayoutConsentRepository).inRequestScope();
+        container.bind<IAdminPayoutConsentService>(TYPES.AdminPayoutConsentService).to(AdminPayoutConsentService).inRequestScope();
         container.bind<IUTXORepository>(TYPES.UTXORepository).to(UTXORepository).inRequestScope();
         container.bind<IUTXOManagerService>(TYPES.UTXOManagerService).to(UTXOManagerService).inRequestScope();
         container.bind<IWithdrawalRequestRepository>(TYPES.WithdrawalRequestRepository).to(WithdrawalRequestRepository).inRequestScope();
@@ -277,6 +299,14 @@ export class DIContainer {
         container.bind<ISpotPriceService>(TYPES.SpotPriceService).to(SpotPriceService).inSingletonScope();
         container.bind<ITradingRateService>(TYPES.TradingRateService).to(TradingRateService).inRequestScope();
         container.bind<ITradingOrderService>(TYPES.TradingOrderService).to(TradingOrderService).inRequestScope();
+        container.bind<TradeQuoteService>(TYPES.TradeQuoteService).to(TradeQuoteService).inRequestScope();
+        container.bind<ITradeIntentService>(TYPES.TradeIntentService).to(TradeIntentService).inRequestScope();
+        const custodyProvider = (process.env.CUSTODY_PROVIDER || 'inhouse').toLowerCase();
+        if (custodyProvider === 'liminal') {
+            container.bind<ICustodyProvider>(TYPES.CustodyProvider).to(LiminalCustodyProvider).inSingletonScope();
+        } else {
+            container.bind<ICustodyProvider>(TYPES.CustodyProvider).to(InHouseCustodyProvider).inSingletonScope();
+        }
         container.bind<INotificationService>(TYPES.NotificationService).to(NotificationService).inRequestScope();
         container.bind<IDisputeService>(TYPES.DisputeService).to(DisputeService).inRequestScope();
         container.bind<IChatService>(TYPES.ChatService).to(ChatService).inRequestScope();
@@ -290,6 +320,7 @@ export class DIContainer {
         container.bind<IBitcoinWebhookService>(TYPES.BitcoinWebhookService).to(BitcoinWebhookService).inRequestScope();
         container.bind<IBitcoinTransactionService>(TYPES.BitcoinTransactionService).to(BitcoinTransactionService).inRequestScope();
         container.bind<IOrderCompletionJob>(TYPES.OrderCompletionJob).to(OrderCompletionJob).inSingletonScope();
+        container.bind<TradeIntentSweepJob>(TYPES.TradeIntentSweepJob).to(TradeIntentSweepJob).inSingletonScope();
         container.bind<PlatformBtcSweepJob>(TYPES.PlatformBtcSweepJob).to(PlatformBtcSweepJob).inSingletonScope();
         container.bind<IEthereumTransactionService>(TYPES.EthereumTransactionService).to(EthereumTransactionService).inRequestScope();
         container.bind<PlatformEthSweepJob>(TYPES.PlatformEthSweepJob).to(PlatformEthSweepJob).inSingletonScope();

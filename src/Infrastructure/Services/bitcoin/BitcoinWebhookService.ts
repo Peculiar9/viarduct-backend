@@ -14,6 +14,8 @@ import { DIContainer } from '../../../Core/DIContainer';
 import { ITradingOrderService } from '../../../Core/Application/Interface/Services/ITradingOrderService';
 import { ITradingOrderRepository } from '../../../Core/Application/Interface/Repositories/ITradingOrderRepository';
 import { IUTXOManagerService } from '../../../Core/Application/Interface/Services/IUTXOManagerService';
+import { ITradeIntentService } from '../../../Core/Application/Interface/Services/ITradeIntentService';
+import { ITradeIntentRepository } from '../../../Core/Application/Interface/Repositories/ITradeIntentRepository';
 
 @injectable()
 export class BitcoinWebhookService implements IBitcoinWebhookService {
@@ -27,7 +29,8 @@ export class BitcoinWebhookService implements IBitcoinWebhookService {
         @inject(TYPES.HttpClientFactory) httpClientFactory: HttpClientFactory,
         @inject(TYPES.BitcoinTransactionRepository) private readonly bitcoinTransactionRepo: BitcoinTransactionRepository,
         @inject(TYPES.WalletAccountRepository) private readonly walletAccountRepo: WalletAccountRepository,
-        @inject(TYPES.BlockchainService) private readonly blockchainService: IBlockchainService
+        @inject(TYPES.BlockchainService) private readonly blockchainService: IBlockchainService,
+        @inject(TYPES.TradeIntentRepository) private readonly tradeIntentRepo: ITradeIntentRepository
     ) {
         const network = EnvironmentConfig.get('BITCOIN_NETWORK', 'testnet');
         this.baseUrl = network === 'mainnet' 
@@ -73,6 +76,10 @@ export class BitcoinWebhookService implements IBitcoinWebhookService {
             enable_webhooks: this.enableWebhooks,
             base_url: this.baseUrl
         });
+    }
+
+    private getTradeIntentService(): ITradeIntentService {
+        return DIContainer.getInstance().get<ITradeIntentService>(TYPES.TradeIntentService);
     }
 
     async processWebhookEvent(event: any): Promise<void> {
@@ -228,6 +235,42 @@ export class BitcoinWebhookService implements IBitcoinWebhookService {
 
             if (amount === 0) {
                 Console.warn('No amount found for address in transaction', { address, tx_hash: txData.hash });
+                return;
+            }
+
+            const tradeIntent = await this.tradeIntentRepo.findByDepositAddress(address);
+            if (tradeIntent) {
+                const confirmations = txData.confirmations || 0;
+                if (confirmations >= 1) {
+                    await this.getTradeIntentService().handleIncomingCryptoDeposit({
+                        address,
+                        txHash: txData.hash || txData.tx_hash,
+                        amountCrypto: amount,
+                        asset: 'BTC'
+                    });
+                }
+                await this.bitcoinTransactionRepo.create({
+                    tx_hash: txData.hash || txData.tx_hash,
+                    address,
+                    wallet_account_id: undefined,
+                    amount,
+                    confirmations,
+                    status: confirmations >= 1 ? 'confirmed' : 'pending',
+                    direction: 'incoming',
+                    webhook_data: { ...txData, trade_intent_id: tradeIntent._id },
+                    block_time: txData.block_time || txData.received,
+                    metadata: {
+                        network: EnvironmentConfig.get('BITCOIN_NETWORK', 'testnet'),
+                        trade_intent_id: tradeIntent._id
+                    },
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                });
+                Console.info('BTC deposit routed to trade intent', {
+                    intentId: tradeIntent._id,
+                    amount,
+                    address
+                });
                 return;
             }
 

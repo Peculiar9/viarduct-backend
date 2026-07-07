@@ -16,12 +16,15 @@ import { Wallet } from '../../Core/Application/Entities/Wallet';
 import { WalletAccount } from '../../Core/Application/Entities/WalletAccount';
 import { TradingRate } from '../../Core/Application/Entities/TradingRate';
 import { TradingOrder } from '../../Core/Application/Entities/TradingOrder';
+import { TradeIntent } from '../../Core/Application/Entities/TradeIntent';
 import { Transaction } from '../../Core/Application/Entities/Transaction';
 import { BitcoinTransaction } from '../../Core/Application/Entities/BitcoinTransaction';
 import { EthereumTransaction } from '../../Core/Application/Entities/EthereumTransaction';
 import { UTXO } from '../../Core/Application/Entities/UTXO';
 import { SweepAudit } from '../../Core/Application/Entities/SweepAudit';
 import { WithdrawalRequest } from '../../Core/Application/Entities/WithdrawalRequest';
+import { UserBankAccount } from '../../Core/Application/Entities/UserBankAccount';
+import { AdminPayoutConsent } from '../../Core/Application/Entities/AdminPayoutConsent';
 import { UserTransactionPin } from '../../Core/Application/Entities/UserTransactionPin';
 import { GiftCardSubmission } from '../../Core/Application/Entities/GiftCardSubmission';
 import { Card } from '../../Core/Application/Entities/Card';
@@ -50,6 +53,9 @@ export class DatabaseInitializer {
             { entity: Transaction, tableName: TableNames.TRANSACTIONS },
             { entity: TradingRate, tableName: TableNames.TRADING_RATES },
             { entity: TradingOrder, tableName: TableNames.TRADING_ORDERS },
+            { entity: UserBankAccount, tableName: TableNames.USER_BANK_ACCOUNTS },
+            { entity: TradeIntent, tableName: TableNames.TRADE_INTENTS },
+            { entity: AdminPayoutConsent, tableName: TableNames.ADMIN_PAYOUT_CONSENTS },
             { entity: FileManager, tableName: TableNames.FILE_MANAGER },
             { entity: UserKYC, tableName: TableNames.USER_KYC },
             { entity: Verification, tableName: TableNames.VERIFICATIONS },

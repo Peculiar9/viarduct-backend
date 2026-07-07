@@ -26,4 +26,18 @@ export interface IBitcoinWalletService {
      * Get platform wallet address (for receiving Bitcoin from users)
      */
     getPlatformWalletAddress(): Promise<string>;
+
+    /** Ephemeral per-trade deposit address (BIP44 account branch 1). */
+    generateTradeIntentDepositAddress(intentId: string): Promise<{
+        address: string;
+        derivationPath: string;
+    }>;
+
+    /** Derive BIP32 path for a trade intent deposit address. */
+    getTradeIntentDerivationPath(intentId: string): string;
+
+    /** Vault / hot-wallet outbound path (BIP44 account branch 2, index 0). */
+    getVaultDerivationPath(): string;
+
+    getVaultAddress(): Promise<string>;
 }

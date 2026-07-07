@@ -12,6 +12,7 @@ import { Console } from '../../Utils/Console';
 import { ServiceError, ValidationError } from '../../../Core/Application/Error/AppError';
 import * as CryptoJS from 'crypto-js';
 import { IBitcoinWebhookService } from '../../../Core/Application/Interface/Services/IBitcoinWebhookService';
+import { DIContainer } from '../../../Core/DIContainer';
 
 const bip32 = BIP32Factory(ecc);
 
@@ -29,11 +30,15 @@ export class BitcoinWalletService implements IBitcoinWalletService {
     constructor(
         @inject(TYPES.WalletAccountRepository) private readonly walletAccountRepository: WalletAccountRepository,
         @inject(TYPES.WalletRepository) private readonly walletRepository: WalletRepository,
-        @inject(TYPES.CurrencyRepository) private readonly currencyRepository: CurrencyRepository,
-        @inject(TYPES.BitcoinWebhookService) private readonly bitcoinWebhookService: IBitcoinWebhookService
+        @inject(TYPES.CurrencyRepository) private readonly currencyRepository: CurrencyRepository
     ) {
         this.network = getNetwork();
         this.initializeMasterNode();
+    }
+
+    /** Lazy resolve to avoid DI cycle with TradeIntentService → CustodyProvider → BitcoinWalletService. */
+    private getBitcoinWebhookService(): IBitcoinWebhookService {
+        return DIContainer.getInstance().get<IBitcoinWebhookService>(TYPES.BitcoinWebhookService);
     }
 
     /**
@@ -85,15 +90,51 @@ export class BitcoinWalletService implements IBitcoinWalletService {
      * Using BIP44 standard
      */
     private derivePathForAccount(walletAccountId: string): string {
-        // Create a deterministic index from walletAccountId
-        // Using first 8 characters of UUID hash as account index
-        const hash = this.simpleHash(walletAccountId);
-        const accountIndex = parseInt(hash.substring(0, 8), 16) % 2147483647; // Max BIP32 index
-        
-        // BIP44: m / purpose' / coin_type' / account' / change / address_index
-        // Bitcoin testnet: coin_type = 1, mainnet: coin_type = 0
+        const accountIndex = this.accountIndexFromId(walletAccountId);
         const coinType = this.network === bitcoin.networks.bitcoin ? 0 : 1;
         return `m/44'/${coinType}'/0'/0/${accountIndex}`;
+    }
+
+    getTradeIntentDerivationPath(intentId: string): string {
+        const accountIndex = this.accountIndexFromId(intentId);
+        const coinType = this.network === bitcoin.networks.bitcoin ? 0 : 1;
+        return `m/44'/${coinType}'/1'/0/${accountIndex}`;
+    }
+
+    getVaultDerivationPath(): string {
+        const coinType = this.network === bitcoin.networks.bitcoin ? 0 : 1;
+        return `m/44'/${coinType}'/2'/0/0`;
+    }
+
+    private accountIndexFromId(id: string): number {
+        const hash = this.simpleHash(id);
+        return parseInt(hash.substring(0, 8), 16) % 2147483647;
+    }
+
+    async generateTradeIntentDepositAddress(intentId: string): Promise<{
+        address: string;
+        derivationPath: string;
+    }> {
+        if (!this.masterNode) {
+            throw new ServiceError('Bitcoin master node not initialized');
+        }
+        const derivationPath = this.getTradeIntentDerivationPath(intentId);
+        const derivedKey = this.masterNode.derivePath(derivationPath);
+        const { address } = this.generateAddressFromKey(derivedKey, 'p2wpkh');
+        return { address, derivationPath };
+    }
+
+    async getVaultAddress(): Promise<string> {
+        const envVault = EnvironmentConfig.get('MASTER_VAULT_ADDRESS', '').trim();
+        if (envVault) {
+            return envVault;
+        }
+        if (!this.masterNode) {
+            throw new ServiceError('Bitcoin master node not initialized');
+        }
+        const derivedKey = this.masterNode.derivePath(this.getVaultDerivationPath());
+        const { address } = this.generateAddressFromKey(derivedKey, 'p2wpkh');
+        return address;
     }
 
     /**
@@ -196,7 +237,7 @@ export class BitcoinWalletService implements IBitcoinWalletService {
 
             // Register webhook for the address
             try {
-                await this.bitcoinWebhookService.registerAddressWebhook(address, walletAccountId);
+                await this.getBitcoinWebhookService().registerAddressWebhook(address, walletAccountId);
             } catch (error: any) {
                 Console.warn('Failed to register webhook, but address was created', { 
                     address, 
@@ -265,7 +306,7 @@ export class BitcoinWalletService implements IBitcoinWalletService {
 
                 // Register webhook for platform wallet address
                 try {
-                    await this.bitcoinWebhookService.registerAddressWebhook(address, platformAccount._id);
+                    await this.getBitcoinWebhookService().registerAddressWebhook(address, platformAccount._id);
                 } catch (error: any) {
                     Console.warn('Failed to register webhook for platform wallet, but address was created', { 
                         address, 

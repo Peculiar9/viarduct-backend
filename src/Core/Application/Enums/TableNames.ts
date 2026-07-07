@@ -34,9 +34,11 @@ export enum TableNames {
     BITCOIN_TRANSACTIONS = 'bitcoin_transactions',
     ETHEREUM_TRANSACTIONS = 'ethereum_transactions',
     TRADING_ORDERS = 'trading_orders',
+    TRADE_INTENTS = 'trade_intents',
     UTXOS = 'utxos',
     SWEEP_AUDITS = 'sweep_audits',
     WITHDRAWAL_REQUESTS = 'withdrawal_requests',
+    USER_BANK_ACCOUNTS = 'user_bank_accounts',
     USER_TRANSACTION_PINS = 'user_transaction_pins',
     GIFT_CARD_SUBMISSIONS = 'gift_card_submissions',
     CARDS = 'cards',
@@ -46,4 +48,5 @@ export enum TableNames {
     CHAT_MESSAGES = 'chat_messages',
     SYSTEM_ANNOUNCEMENTS = 'system_announcements',
     SYSTEM_ANNOUNCEMENT_DELIVERIES = 'system_announcement_deliveries',
+    ADMIN_PAYOUT_CONSENTS = 'admin_payout_consents',
 }

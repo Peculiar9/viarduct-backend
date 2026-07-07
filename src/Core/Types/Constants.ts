@@ -125,6 +125,17 @@ export const TYPES = {
     TradingOrderRepository: Symbol.for('TradingOrderRepository'),
     TradingOrderService: Symbol.for('TradingOrderService'),
     OrderCompletionJob: Symbol.for('OrderCompletionJob'),
+    TradeIntentRepository: Symbol.for('TradeIntentRepository'),
+    TradeIntentService: Symbol.for('TradeIntentService'),
+    TradeQuoteService: Symbol.for('TradeQuoteService'),
+    TradeIntentSweepJob: Symbol.for('TradeIntentSweepJob'),
+    CustodyProvider: Symbol.for('CustodyProvider'),
+
+    // Bank accounts (user saved + corporate)
+    UserBankAccountRepository: Symbol.for('UserBankAccountRepository'),
+    UserBankAccountService: Symbol.for('UserBankAccountService'),
+    AdminPayoutConsentRepository: Symbol.for('AdminPayoutConsentRepository'),
+    AdminPayoutConsentService: Symbol.for('AdminPayoutConsentService'),
 
     // Bitcoin System
     BitcoinWebhookService: Symbol.for('BitcoinWebhookService'),

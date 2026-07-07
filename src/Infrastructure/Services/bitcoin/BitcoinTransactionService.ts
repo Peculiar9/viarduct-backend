@@ -826,5 +826,41 @@ export class BitcoinTransactionService implements IBitcoinTransactionService {
             throw error;
         }
     }
+
+    async estimateTransferFee(fromAddress: string, toAddress: string, amount: number): Promise<number> {
+        const fee = await this.calculateNetworkFee('medium');
+        return fee;
+    }
+
+    async signTransactionByDerivationPath(transaction: any, derivationPath: string): Promise<string> {
+        try {
+            const masterNode = await this.getMasterNode();
+            const derivedKey = masterNode.derivePath(derivationPath);
+            const psbt = transaction.psbt;
+            for (let i = 0; i < transaction.utxos.length; i++) {
+                psbt.signInput(i, derivedKey);
+            }
+            psbt.finalizeAllInputs();
+            const signedTx = psbt.extractTransaction();
+            return signedTx.toHex();
+        } catch (error: any) {
+            Console.error(error, { message: 'Failed to sign transaction by derivation path', derivationPath });
+            throw error;
+        }
+    }
+
+    async sendFromDerivationPath(
+        derivationPath: string,
+        fromAddress: string,
+        toAddress: string,
+        amount: number,
+        priority: 'low' | 'medium' | 'high' = 'medium'
+    ): Promise<{ txHash: string; feeBtc: number }> {
+        const fee = await this.calculateNetworkFee(priority);
+        const transaction = await this.buildTransaction(fromAddress, toAddress, amount, fee);
+        const signedTxHex = await this.signTransactionByDerivationPath(transaction, derivationPath);
+        const txHash = await this.broadcastTransaction(signedTxHex);
+        return { txHash, feeBtc: fee };
+    }
 }
 

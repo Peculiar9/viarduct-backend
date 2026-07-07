@@ -11,13 +11,15 @@ import {
     PaystackTransferResponse,
     PaystackBanksResponse
 } from '../../../Core/Application/Interface/Services/IPaystackService';
-import { ServiceError, HttpClientError } from '../../../Core/Application/Error/AppError';
+import { ServiceError, HttpClientError, ValidationError } from '../../../Core/Application/Error/AppError';
 import { Console } from '../../Utils/Console';
 
 @injectable()
 export class PaystackService implements IPaystackService {
     private readonly httpClient: IHttpClient;
     private readonly secretKey: string;
+    private banksCache: { fetchedAt: number; banks: PaystackBanksResponse['data'] } | null = null;
+    private static readonly BANKS_CACHE_MS = 60 * 60 * 1000;
 
     constructor(
         @inject(TYPES.HttpClientFactory) httpClientFactory: HttpClientFactory
@@ -145,21 +147,91 @@ export class PaystackService implements IPaystackService {
     }
 
     async verifyAccountNumber(accountNumber: string, bankCode: string): Promise<PaystackResolveAccountResponse> {
+        const normalizedAccount = this.normalizeAccountNumber(accountNumber);
+        const normalizedBankCode = await this.resolveBankCode(bankCode);
+
         try {
+            Console.info('PaystackService::verifyAccountNumber', {
+                bank_code: normalizedBankCode,
+                account_suffix: normalizedAccount.slice(-4)
+            });
+
             const response = await this.httpClient.get<PaystackResolveAccountResponse>(
-                `/bank/resolve?account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`
+                `/bank/resolve?account_number=${encodeURIComponent(normalizedAccount)}&bank_code=${encodeURIComponent(normalizedBankCode)}`
             );
             if (!response.status) {
-                throw new ServiceError(`Account verification failed: ${response.message}`);
+                throw new ValidationError(this.accountResolveErrorMessage(response.message));
             }
             return response;
         } catch (error: any) {
-            Console.error(error, { message: 'Paystack verify account error', accountNumber });
+            Console.error(error, {
+                message: 'Paystack verify account error',
+                bank_code: normalizedBankCode,
+                account_suffix: normalizedAccount.slice(-4)
+            });
+            if (error instanceof ValidationError) {
+                throw error;
+            }
             if (error instanceof HttpClientError) {
-                throw new ServiceError(`Paystack API error: ${error.message}`);
+                throw new ValidationError(this.accountResolveErrorMessage(error.message));
             }
             throw error;
         }
+    }
+
+    private normalizeAccountNumber(accountNumber: string): string {
+        const digits = accountNumber.trim().replace(/\s+/g, '');
+        if (!/^\d{9,10}$/.test(digits)) {
+            throw new ValidationError('Account number must be 9 or 10 digits');
+        }
+        return digits.padStart(10, '0');
+    }
+
+    /**
+     * Paystack resolve expects the bank `code` (e.g. "058"), not `longcode` or numeric `id`.
+     */
+    private async resolveBankCode(bankCode: string): Promise<string> {
+        const trimmed = bankCode.trim();
+        if (!trimmed) {
+            throw new ValidationError('Bank code is required');
+        }
+
+        const banks = await this.getNigerianBanks();
+        const match = banks.find(
+            (bank) =>
+                bank.code === trimmed ||
+                bank.longcode === trimmed ||
+                String(bank.id) === trimmed
+        );
+        if (match) {
+            return match.code;
+        }
+
+        if (/^\d{3,6}$/.test(trimmed)) {
+            return trimmed;
+        }
+
+        throw new ValidationError(
+            'Invalid bank code. Use the `code` field from GET /trade-intents/banks (not bank id or longcode).'
+        );
+    }
+
+    private accountResolveErrorMessage(paystackMessage: string): string {
+        return (
+            'Could not verify this bank account. Confirm the bank and 10-digit account number are correct, ' +
+            'and use the bank `code` from GET /trade-intents/banks. ' +
+            `(Paystack: ${paystackMessage})`
+        );
+    }
+
+    private async getNigerianBanks(): Promise<PaystackBanksResponse['data']> {
+        const now = Date.now();
+        if (this.banksCache && now - this.banksCache.fetchedAt < PaystackService.BANKS_CACHE_MS) {
+            return this.banksCache.banks;
+        }
+        const response = await this.fetchBanks();
+        this.banksCache = { fetchedAt: now, banks: response.data };
+        return response.data;
     }
 
     async createTransferRecipient(accountNumber: string, bankCode: string, accountName: string): Promise<PaystackTransferRecipientResponse> {
@@ -208,7 +280,9 @@ export class PaystackService implements IPaystackService {
 
     async fetchBanks(): Promise<PaystackBanksResponse> {
         try {
-            const response = await this.httpClient.get<PaystackBanksResponse>('/bank');
+            const response = await this.httpClient.get<PaystackBanksResponse>(
+                '/bank?country=nigeria&perPage=100'
+            );
             if (!response.status) {
                 throw new ServiceError(`Fetch banks failed: ${response.message}`);
             }

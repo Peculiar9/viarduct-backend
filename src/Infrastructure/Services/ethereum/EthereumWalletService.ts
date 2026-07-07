@@ -91,9 +91,49 @@ export class EthereumWalletService implements IEthereumWalletService {
 
     /** BIP44 Ethereum account index from wallet account id (same pattern as Bitcoin service). */
     private derivePathForAccount(walletAccountId: string): string {
-        const hash = this.simpleHash(walletAccountId);
-        const accountIndex = parseInt(hash.substring(0, 8), 16) % 2147483647;
+        const accountIndex = this.accountIndexFromId(walletAccountId);
         return `m/44'/60'/0'/0/${accountIndex}`;
+    }
+
+    getTradeIntentDerivationPath(intentId: string): string {
+        const accountIndex = this.accountIndexFromId(intentId);
+        return `m/44'/60'/1'/0/${accountIndex}`;
+    }
+
+    getVaultDerivationPath(): string {
+        return `m/44'/60'/2'/0/0`;
+    }
+
+    private accountIndexFromId(id: string): number {
+        const hash = this.simpleHash(id);
+        return parseInt(hash.substring(0, 8), 16) % 2147483647;
+    }
+
+    async generateTradeIntentDepositAddress(intentId: string): Promise<{ address: string; derivationPath: string }> {
+        if (!this.root) {
+            throw new ServiceError('Ethereum wallet root not initialized');
+        }
+        const derivationPath = this.getTradeIntentDerivationPath(intentId);
+        const wallet = this.root.derivePath(derivationPath);
+        return { address: wallet.address, derivationPath };
+    }
+
+    async getDerivedWalletForPath(derivationPath: string): Promise<HDNodeWallet> {
+        if (!this.root) {
+            throw new ServiceError('Ethereum wallet root not initialized');
+        }
+        return this.root.derivePath(derivationPath);
+    }
+
+    async getVaultAddress(): Promise<string> {
+        const envVault = EnvironmentConfig.get('MASTER_ETH_VAULT_ADDRESS', '').trim();
+        if (envVault) {
+            return envVault;
+        }
+        if (!this.root) {
+            throw new ServiceError('Ethereum wallet root not initialized');
+        }
+        return this.root.derivePath(this.getVaultDerivationPath()).address;
     }
 
     async generateAddress(userId: string, walletAccountId: string): Promise<{ address: string }> {
