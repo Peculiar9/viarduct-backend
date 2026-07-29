@@ -8,7 +8,7 @@ import { ITradeIntentRepository } from '../../../Core/Application/Interface/Repo
 import { ITradeIntent, TradeIntentStatus, TradeIntentType } from '../../../Core/Application/Interface/Entities/trading/ITradeIntent';
 import { ITradeIntentProofOfPayment } from '../../../Core/Application/Interface/Entities/trading/ITradeIntentProofOfPayment';
 import { ICustodyProvider } from '../../../Core/Application/Interface/Services/ICustodyProvider';
-import { IPaystackService } from '../../../Core/Application/Interface/Services/IPaystackService';
+import { IAccountVerificationService } from '../../../Core/Application/Interface/Services/IAccountVerificationService';
 import { IWithdrawalService } from '../../../Core/Application/Interface/Services/IWithdrawalService';
 import { UserRepository } from '../../Repository/SQL/users/UserRepository';
 import { TradeQuoteLineItems } from '../../../Core/Application/DTOs/TradeIntentDTO';
@@ -17,6 +17,7 @@ import { Console } from '../../Utils/Console';
 import { TradeQuoteService } from './TradeQuoteService';
 import { IUserBankAccountService } from '../../../Core/Application/Interface/Services/IUserBankAccountService';
 import { IAdminPayoutConsentService } from '../../../Core/Application/Interface/Services/IAdminPayoutConsentService';
+import { TradeIntentNotificationHelper } from './TradeIntentNotificationHelper';
 
 @injectable()
 export class TradeIntentService implements ITradeIntentService {
@@ -24,11 +25,12 @@ export class TradeIntentService implements ITradeIntentService {
         @inject(TYPES.TradeIntentRepository) private readonly tradeIntentRepo: ITradeIntentRepository,
         @inject(TYPES.TradeQuoteService) private readonly tradeQuoteService: TradeQuoteService,
         @inject(TYPES.CustodyProvider) private readonly custodyProvider: ICustodyProvider,
-        @inject(TYPES.PaystackService) private readonly paystackService: IPaystackService,
+        @inject(TYPES.AccountVerificationService) private readonly accountVerificationService: IAccountVerificationService,
         @inject(TYPES.WithdrawalService) private readonly withdrawalService: IWithdrawalService,
         @inject(TYPES.UserRepository) private readonly userRepo: UserRepository,
         @inject(TYPES.UserBankAccountService) private readonly bankAccountService: IUserBankAccountService,
-        @inject(TYPES.AdminPayoutConsentService) private readonly consentService: IAdminPayoutConsentService
+        @inject(TYPES.AdminPayoutConsentService) private readonly consentService: IAdminPayoutConsentService,
+        @inject(TYPES.TradeIntentNotificationHelper) private readonly intentNotifications: TradeIntentNotificationHelper
     ) {}
 
     private async assertUserCanTrade(userId: string, transactionPin?: string): Promise<void> {
@@ -122,7 +124,7 @@ export class TradeIntentService implements ITradeIntentService {
             accountName = saved.account_name;
         } else {
             const preferred = dto.prefered_bank_detail!;
-            const verified = await this.paystackService.verifyAccountNumber(
+            const verified = await this.accountVerificationService.verifyAccountNumber(
                 preferred.recipient_account_number,
                 preferred.recipient_bank_code
             );
@@ -176,7 +178,9 @@ export class TradeIntentService implements ITradeIntentService {
             depositAddress: deposit.address
         });
 
-        return updated ?? intent;
+        const result = updated ?? intent;
+        void this.intentNotifications.onIntentCreated(result);
+        return result;
     }
 
     async createBuyIntent(
@@ -202,7 +206,7 @@ export class TradeIntentService implements ITradeIntentService {
             ? await this.bankAccountService.getCorporateAccountForBuy(dto.bank_account_id)
             : await this.bankAccountService.getDefaultCorporateAccount();
         const nowIso = new Date().toISOString();
-        return this.tradeIntentRepo.create({
+        const intent = await this.tradeIntentRepo.create({
             user_id: userId,
             type: 'buy',
             status: 'pending',
@@ -231,6 +235,8 @@ export class TradeIntentService implements ITradeIntentService {
             created_at: nowIso,
             updated_at: nowIso
         });
+        void this.intentNotifications.onIntentCreated(intent);
+        return intent;
     }
 
     async getUserIntents(
@@ -469,7 +475,9 @@ export class TradeIntentService implements ITradeIntentService {
             if (!updated) {
                 throw new ServiceError('Failed to confirm buy intent');
             }
-            return this.normalizeIntent(updated);
+            const normalized = this.normalizeIntent(updated);
+            void this.intentNotifications.onIntentConfirmed(normalized, adminId);
+            return normalized;
         }
 
         if (!dto.sell_metadata) {
@@ -494,7 +502,9 @@ export class TradeIntentService implements ITradeIntentService {
         if (!updated) {
             throw new ServiceError('Failed to confirm sell intent');
         }
-        return this.normalizeIntent(updated);
+        const normalized = this.normalizeIntent(updated);
+        void this.intentNotifications.onIntentConfirmed(normalized, adminId);
+        return normalized;
     }
 
     async adminPayoutIntent(
@@ -504,6 +514,9 @@ export class TradeIntentService implements ITradeIntentService {
             intent_type: 'buy' | 'sell';
             consent_code: string;
             date_of_payment: string;
+            buy_metadata?: {
+                outgoing_tx_hash: string;
+            };
             sell_metadata?: {
                 proof_of_payment: Array<{ title: string; description?: string; url: string }>;
             };
@@ -537,6 +550,9 @@ export class TradeIntentService implements ITradeIntentService {
         );
         const payoutDate = this.parsePayoutDate(dto.date_of_payment);
         const nowIso = new Date().toISOString();
+        const isManualMode =
+            this.custodyProvider.providerName === 'manual' ||
+            (process.env.TRANSACTION_MODE || 'automated').toLowerCase().trim() === 'manual';
 
         if (dto.intent_type === 'buy') {
             if (intent.status !== 'fiat_verified') {
@@ -557,16 +573,32 @@ export class TradeIntentService implements ITradeIntentService {
                 updated_at: nowIso
             });
 
-            const broadcast = await this.custodyProvider.broadcastOutbound(
-                asset,
-                intent.external_destination_address,
-                amount
-            );
+            let outgoingTxHash: string;
+            let feeCrypto: number | undefined;
+
+            if (isManualMode) {
+                const manualTxHash = dto.buy_metadata?.outgoing_tx_hash?.trim();
+                if (!manualTxHash) {
+                    throw new ValidationError(
+                        'buy_metadata.outgoing_tx_hash is required for buy payouts in manual mode'
+                    );
+                }
+                outgoingTxHash = manualTxHash;
+                feeCrypto = intent.quoted_gas_crypto ?? undefined;
+            } else {
+                const broadcast = await this.custodyProvider.broadcastOutbound(
+                    asset,
+                    intent.external_destination_address,
+                    amount
+                );
+                outgoingTxHash = broadcast.txHash;
+                feeCrypto = broadcast.feeCrypto ?? intent.quoted_gas_crypto ?? undefined;
+            }
 
             const updated = await this.tradeIntentRepo.update(dto.intent_id, {
                 status: 'settled',
-                outgoing_tx_hash: broadcast.txHash,
-                actual_gas_crypto: broadcast.feeCrypto ?? intent.quoted_gas_crypto,
+                outgoing_tx_hash: outgoingTxHash,
+                actual_gas_crypto: feeCrypto ?? intent.quoted_gas_crypto,
                 settled_at: nowIso,
                 settled_by: adminId,
                 payout_at: nowIso,
@@ -577,13 +609,14 @@ export class TradeIntentService implements ITradeIntentService {
             }
 
             const normalized = this.normalizeIntent(updated);
+            void this.intentNotifications.onIntentPaidOut(normalized, adminId);
             return {
                 intent: normalized,
                 payout: {
                     payout_status: 'completed',
                     receiver_address: intent.external_destination_address,
                     crypto_amount: amount,
-                    outgoing_tx_hash: broadcast.txHash,
+                    outgoing_tx_hash: outgoingTxHash,
                     date_of_payment: payoutDate
                 }
             };
@@ -621,6 +654,7 @@ export class TradeIntentService implements ITradeIntentService {
         }
 
         const normalized = this.normalizeIntent(updated);
+        void this.intentNotifications.onIntentPaidOut(normalized, adminId);
         return {
             intent: normalized,
             payout: {
@@ -825,7 +859,7 @@ export class TradeIntentService implements ITradeIntentService {
         bank_code: string;
         bank_name: string;
     }> {
-        const resolved = await this.paystackService.verifyAccountNumber(accountNumber, bankCode);
+        const resolved = await this.accountVerificationService.verifyAccountNumber(accountNumber, bankCode);
         if (!resolved.status || !resolved.data) {
             throw new ValidationError(resolved.message || 'Could not verify bank account');
         }
@@ -838,7 +872,7 @@ export class TradeIntentService implements ITradeIntentService {
     }
 
     async listBanks(name?: string): Promise<Array<{ id: number; name: string; code: string; longcode: string }>> {
-        const response = await this.paystackService.fetchBanks();
+        const response = await this.accountVerificationService.fetchBanks();
         if (!response.status || !Array.isArray(response.data)) {
             throw new ServiceError(response.message || 'Failed to fetch banks');
         }

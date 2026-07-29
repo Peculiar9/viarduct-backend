@@ -90,7 +90,7 @@ export function validationMiddleware(dtoClass: any) {
         return res.status(500).json({
           status: 'error',
           message: 'Internal server error during validation'
-        });
+        }); 
       }
     };
 }

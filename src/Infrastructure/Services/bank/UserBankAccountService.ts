@@ -2,15 +2,17 @@ import { inject, injectable } from 'inversify';
 import { TYPES } from '../../../Core/Types/Constants';
 import { IUserBankAccountService } from '../../../Core/Application/Interface/Services/IUserBankAccountService';
 import { IUserBankAccountRepository } from '../../../Core/Application/Interface/Repositories/IUserBankAccountRepository';
-import { IPaystackService } from '../../../Core/Application/Interface/Services/IPaystackService';
+import { IAccountVerificationService } from '../../../Core/Application/Interface/Services/IAccountVerificationService';
 import { IUserBankAccount } from '../../../Core/Application/Interface/Entities/bank/IUserBankAccount';
 import { NotFoundError, ValidationError } from '../../../Core/Application/Error/AppError';
+import { TradeIntentNotificationHelper } from '../trading/TradeIntentNotificationHelper';
 
 @injectable()
 export class UserBankAccountService implements IUserBankAccountService {
     constructor(
         @inject(TYPES.UserBankAccountRepository) private readonly bankAccountRepo: IUserBankAccountRepository,
-        @inject(TYPES.PaystackService) private readonly paystackService: IPaystackService
+        @inject(TYPES.AccountVerificationService) private readonly accountVerificationService: IAccountVerificationService,
+        @inject(TYPES.TradeIntentNotificationHelper) private readonly intentNotifications: TradeIntentNotificationHelper
     ) {}
 
     async listUserAccounts(userId: string): Promise<IUserBankAccount[]> {
@@ -21,7 +23,7 @@ export class UserBankAccountService implements IUserBankAccountService {
         userId: string,
         dto: { account_number: string; bank_code: string; bank_name?: string; label?: string }
     ): Promise<IUserBankAccount> {
-        const verified = await this.paystackService.verifyAccountNumber(dto.account_number, dto.bank_code);
+        const verified = await this.accountVerificationService.verifyAccountNumber(dto.account_number, dto.bank_code);
         if (!verified.status || !verified.data) {
             throw new ValidationError(verified.message || 'Bank account verification failed');
         }
@@ -37,7 +39,7 @@ export class UserBankAccountService implements IUserBankAccountService {
         }
 
         const nowIso = new Date().toISOString();
-        return this.bankAccountRepo.create({
+        const account = await this.bankAccountRepo.create({
             user_id: userId,
             type: 'user',
             account_number: accountNumber,
@@ -51,6 +53,8 @@ export class UserBankAccountService implements IUserBankAccountService {
             created_at: nowIso,
             updated_at: nowIso
         });
+        void this.intentNotifications.onBankAccountSaved(userId, account);
+        return account;
     }
 
     async deleteUserAccount(userId: string, accountId: string): Promise<void> {
@@ -112,7 +116,7 @@ export class UserBankAccountService implements IUserBankAccountService {
             is_default?: boolean;
         }
     ): Promise<IUserBankAccount> {
-        const verified = await this.paystackService.verifyAccountNumber(dto.account_number, dto.bank_code);
+        const verified = await this.accountVerificationService.verifyAccountNumber(dto.account_number, dto.bank_code);
         if (!verified.status || !verified.data) {
             throw new ValidationError(verified.message || 'Bank account verification failed');
         }
@@ -170,7 +174,7 @@ export class UserBankAccountService implements IUserBankAccountService {
         if (dto.account_number !== undefined || dto.bank_code !== undefined) {
             const accountNumber = dto.account_number ?? account.account_number;
             const bankCode = dto.bank_code ?? account.bank_code;
-            const verified = await this.paystackService.verifyAccountNumber(accountNumber, bankCode);
+            const verified = await this.accountVerificationService.verifyAccountNumber(accountNumber, bankCode);
             if (!verified.status || !verified.data) {
                 throw new ValidationError(verified.message || 'Bank account verification failed');
             }

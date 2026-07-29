@@ -13,7 +13,7 @@ export type TradeIntentStatus =
 
 export type TradeIntentSettlementMode = 'controlled_p2p';
 
-export type CustodyProviderName = 'inhouse' | 'liminal';
+export type CustodyProviderName = 'inhouse' | 'liminal' | 'manual';
 
 export interface ITradeIntent {
     _id?: string;

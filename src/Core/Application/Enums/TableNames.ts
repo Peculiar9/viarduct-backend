@@ -49,4 +49,6 @@ export enum TableNames {
     SYSTEM_ANNOUNCEMENTS = 'system_announcements',
     SYSTEM_ANNOUNCEMENT_DELIVERIES = 'system_announcement_deliveries',
     ADMIN_PAYOUT_CONSENTS = 'admin_payout_consents',
+    PLATFORM_CRYPTO_ADDRESSES = 'platform_crypto_addresses',
+    USER_DEVICE_TOKENS = 'user_device_tokens',
 }

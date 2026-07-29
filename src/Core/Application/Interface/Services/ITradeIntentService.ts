@@ -101,6 +101,9 @@ export interface ITradeIntentService {
             intent_type: 'buy' | 'sell';
             consent_code: string;
             date_of_payment: string;
+            buy_metadata?: {
+                outgoing_tx_hash: string;
+            };
             sell_metadata?: {
                 proof_of_payment: Array<{ title: string; description?: string; url: string }>;
             };

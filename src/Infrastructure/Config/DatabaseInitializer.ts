@@ -25,6 +25,8 @@ import { SweepAudit } from '../../Core/Application/Entities/SweepAudit';
 import { WithdrawalRequest } from '../../Core/Application/Entities/WithdrawalRequest';
 import { UserBankAccount } from '../../Core/Application/Entities/UserBankAccount';
 import { AdminPayoutConsent } from '../../Core/Application/Entities/AdminPayoutConsent';
+import { PlatformCryptoAddress } from '../../Core/Application/Entities/PlatformCryptoAddress';
+import { UserDeviceToken } from '../../Core/Application/Entities/UserDeviceToken';
 import { UserTransactionPin } from '../../Core/Application/Entities/UserTransactionPin';
 import { GiftCardSubmission } from '../../Core/Application/Entities/GiftCardSubmission';
 import { Card } from '../../Core/Application/Entities/Card';
@@ -56,6 +58,8 @@ export class DatabaseInitializer {
             { entity: UserBankAccount, tableName: TableNames.USER_BANK_ACCOUNTS },
             { entity: TradeIntent, tableName: TableNames.TRADE_INTENTS },
             { entity: AdminPayoutConsent, tableName: TableNames.ADMIN_PAYOUT_CONSENTS },
+            { entity: PlatformCryptoAddress, tableName: TableNames.PLATFORM_CRYPTO_ADDRESSES },
+            { entity: UserDeviceToken, tableName: TableNames.USER_DEVICE_TOKENS },
             { entity: FileManager, tableName: TableNames.FILE_MANAGER },
             { entity: UserKYC, tableName: TableNames.USER_KYC },
             { entity: Verification, tableName: TableNames.VERIFICATIONS },

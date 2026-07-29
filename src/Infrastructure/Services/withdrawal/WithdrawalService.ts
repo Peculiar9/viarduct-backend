@@ -3,6 +3,7 @@ import { TYPES } from '../../../Core/Types/Constants';
 import { IWithdrawalService } from '../../../Core/Application/Interface/Services/IWithdrawalService';
 import { IWithdrawalRequest } from '../../../Core/Application/Interface/Entities/withdrawal/IWithdrawalRequest';
 import { IPaystackService } from '../../../Core/Application/Interface/Services/IPaystackService';
+import { IAccountVerificationService } from '../../../Core/Application/Interface/Services/IAccountVerificationService';
 import { IWalletService } from '../../../Core/Application/Interface/Services/IWalletService';
 import { IWithdrawalRequestRepository } from '../../../Core/Application/Interface/Repositories/IWithdrawalRequestRepository';
 import { IUserTransactionPinRepository } from '../../../Core/Application/Interface/Repositories/IUserTransactionPinRepository';
@@ -17,6 +18,7 @@ const PIN_SALT_ROUNDS = 10;
 export class WithdrawalService implements IWithdrawalService {
     constructor(
         @inject(TYPES.PaystackService) private readonly paystackService: IPaystackService,
+        @inject(TYPES.AccountVerificationService) private readonly accountVerificationService: IAccountVerificationService,
         @inject(TYPES.WalletService) private readonly walletService: IWalletService,
         @inject(TYPES.WithdrawalRequestRepository) private readonly withdrawalRequestRepo: IWithdrawalRequestRepository,
         @inject(TYPES.UserTransactionPinRepository) private readonly transactionPinRepo: IUserTransactionPinRepository,
@@ -28,7 +30,7 @@ export class WithdrawalService implements IWithdrawalService {
         account_name: string;
         bank_name: string;
     }> {
-        const resolve = await this.paystackService.verifyAccountNumber(accountNumber, bankCode);
+        const resolve = await this.accountVerificationService.verifyAccountNumber(accountNumber, bankCode);
         if (!resolve.status || !resolve.data) {
             throw new ValidationError(resolve.message || 'Account verification failed');
         }
@@ -169,7 +171,7 @@ export class WithdrawalService implements IWithdrawalService {
     }
 
     async getBanks(): Promise<Array<{ id: number; name: string; code: string }>> {
-        const response = await this.paystackService.fetchBanks();
+        const response = await this.accountVerificationService.fetchBanks();
         if (!response.status || !response.data) {
             throw new ServiceError('Failed to fetch banks');
         }

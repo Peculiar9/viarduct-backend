@@ -115,6 +115,7 @@ export const TYPES = {
 
     // Payment System
     PaystackService: Symbol.for('PaystackService'),
+    AccountVerificationService: Symbol.for('AccountVerificationService'),
     PaymentUseCase: Symbol.for('PaymentUseCase'),
     TransactionRepository: Symbol.for('TransactionRepository'),
 
@@ -136,6 +137,8 @@ export const TYPES = {
     UserBankAccountService: Symbol.for('UserBankAccountService'),
     AdminPayoutConsentRepository: Symbol.for('AdminPayoutConsentRepository'),
     AdminPayoutConsentService: Symbol.for('AdminPayoutConsentService'),
+    PlatformCryptoAddressRepository: Symbol.for('PlatformCryptoAddressRepository'),
+    PlatformCryptoAddressService: Symbol.for('PlatformCryptoAddressService'),
 
     // Bitcoin System
     BitcoinWebhookService: Symbol.for('BitcoinWebhookService'),
@@ -166,6 +169,10 @@ export const TYPES = {
     // Notifications
     NotificationRepository: Symbol.for('NotificationRepository'),
     NotificationService: Symbol.for('NotificationService'),
+    UserDeviceTokenRepository: Symbol.for('UserDeviceTokenRepository'),
+    UserDeviceTokenService: Symbol.for('UserDeviceTokenService'),
+    PushNotificationService: Symbol.for('PushNotificationService'),
+    TradeIntentNotificationHelper: Symbol.for('TradeIntentNotificationHelper'),
 
     // Disputes
     DisputeRepository: Symbol.for('DisputeRepository'),

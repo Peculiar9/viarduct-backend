@@ -9,13 +9,15 @@ import {
 } from '../../../Core/Application/Interface/Entities/trading/IAdminPayoutConsent';
 import { UserRepository } from '../../Repository/SQL/users/UserRepository';
 import { ValidationError, NotFoundError } from '../../../Core/Application/Error/AppError';
+import { TradeIntentNotificationHelper } from './TradeIntentNotificationHelper';
 
 @injectable()
 export class AdminPayoutConsentService implements IAdminPayoutConsentService {
     constructor(
         @inject(TYPES.AdminPayoutConsentRepository)
         private readonly consentRepo: IAdminPayoutConsentRepository,
-        @inject(TYPES.UserRepository) private readonly userRepo: UserRepository
+        @inject(TYPES.UserRepository) private readonly userRepo: UserRepository,
+        @inject(TYPES.TradeIntentNotificationHelper) private readonly intentNotifications: TradeIntentNotificationHelper
     ) {}
 
     async createConsent(
@@ -33,7 +35,7 @@ export class AdminPayoutConsentService implements IAdminPayoutConsentService {
         const consentCode = await this.generateUniqueConsentCode(admin.first_name, admin.last_name, now);
         const nowIso = now.toISOString();
 
-        return this.consentRepo.create({
+        const consent = await this.consentRepo.create({
             consent_code: consentCode,
             admin_id: adminId,
             status: 'unused',
@@ -44,6 +46,8 @@ export class AdminPayoutConsentService implements IAdminPayoutConsentService {
             created_at: nowIso,
             updated_at: nowIso
         });
+        void this.intentNotifications.onConsentCreated(adminId, consent);
+        return consent;
     }
 
     async listMyConsents(

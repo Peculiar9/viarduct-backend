@@ -114,7 +114,7 @@ async function configureEnvironment(app: any) {
       app.use((err: Error, _req: any, res: any, next: any) => {
         console.error('[Development Error]:', err);
         res.status(500).json({
-          error: err.message,
+          error: err.message, 
           stack: err.stack,
         });
         next();

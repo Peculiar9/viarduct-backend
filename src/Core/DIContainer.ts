@@ -65,6 +65,9 @@ import { WalletService } from '../Infrastructure/Services/WalletService';
 import { IWalletService } from './Application/Interface/Services/IWalletService';
 import { PaystackService } from '../Infrastructure/Services/payment/PaystackService';
 import { IPaystackService } from './Application/Interface/Services/IPaystackService';
+import { IAccountVerificationService } from './Application/Interface/Services/IAccountVerificationService';
+import { PaystackAccountVerificationService } from '../Infrastructure/Services/bank/PaystackAccountVerificationService';
+import { PremblyAccountVerificationService } from '../Infrastructure/Services/bank/PremblyAccountVerificationService';
 import { PaymentUseCase } from './Application/UseCases/PaymentUseCase';
 import { IPaymentUseCase } from './Application/UseCases/PaymentUseCase';
 import { TransactionRepository } from '../Infrastructure/Repository/SQL/payment/TransactionRepository';
@@ -105,6 +108,7 @@ import { ITradeIntentService } from './Application/Interface/Services/ITradeInte
 import { TradeIntentSweepJob } from '../Infrastructure/Services/trading/TradeIntentSweepJob';
 import { InHouseCustodyProvider } from '../Infrastructure/Services/custody/InHouseCustodyProvider';
 import { LiminalCustodyProvider } from '../Infrastructure/Services/custody/LiminalCustodyProvider';
+import { ManualCustodyProvider } from '../Infrastructure/Services/custody/ManualCustodyProvider';
 import { ICustodyProvider } from './Application/Interface/Services/ICustodyProvider';
 import { UserBankAccountRepository } from '../Infrastructure/Repository/SQL/bank/UserBankAccountRepository';
 import { IUserBankAccountRepository } from './Application/Interface/Repositories/IUserBankAccountRepository';
@@ -114,6 +118,10 @@ import { AdminPayoutConsentRepository } from '../Infrastructure/Repository/SQL/t
 import { IAdminPayoutConsentRepository } from './Application/Interface/Repositories/IAdminPayoutConsentRepository';
 import { AdminPayoutConsentService } from '../Infrastructure/Services/trading/AdminPayoutConsentService';
 import { IAdminPayoutConsentService } from './Application/Interface/Services/IAdminPayoutConsentService';
+import { PlatformCryptoAddressRepository } from '../Infrastructure/Repository/SQL/trading/PlatformCryptoAddressRepository';
+import { IPlatformCryptoAddressRepository } from './Application/Interface/Repositories/IPlatformCryptoAddressRepository';
+import { PlatformCryptoAddressService } from '../Infrastructure/Services/trading/PlatformCryptoAddressService';
+import { IPlatformCryptoAddressService } from './Application/Interface/Services/IPlatformCryptoAddressService';
 import { BitcoinTransactionService } from '../Infrastructure/Services/bitcoin/BitcoinTransactionService';
 import { IBitcoinTransactionService } from './Application/Interface/Services/IBitcoinTransactionService';
 import { PlatformBtcSweepJob } from '../Infrastructure/Services/bitcoin/PlatformBtcSweepJob';
@@ -142,6 +150,13 @@ import { CardSeeder } from '../Infrastructure/Config/CardSeeder';
 import { NotificationRepository } from '../Infrastructure/Repository/SQL/notifications/NotificationRepository';
 import { INotificationService } from './Application/Interface/Services/INotificationService';
 import { NotificationService } from '../Infrastructure/Services/NotificationService';
+import { UserDeviceTokenRepository } from '../Infrastructure/Repository/SQL/notifications/UserDeviceTokenRepository';
+import { IUserDeviceTokenRepository } from './Application/Interface/Repositories/IUserDeviceTokenRepository';
+import { UserDeviceTokenService } from '../Infrastructure/Services/notification/UserDeviceTokenService';
+import { IUserDeviceTokenService } from './Application/Interface/Services/IUserDeviceTokenService';
+import { FcmPushService } from '../Infrastructure/Services/notification/FcmPushService';
+import { IPushNotificationService } from './Application/Interface/Services/IPushNotificationService';
+import { TradeIntentNotificationHelper } from '../Infrastructure/Services/trading/TradeIntentNotificationHelper';
 import { DisputeRepository } from '../Infrastructure/Repository/SQL/disputes/DisputeRepository';
 import { IDisputeService } from './Application/Interface/Services/IDisputeService';
 import { DisputeService } from '../Infrastructure/Services/DisputeService';
@@ -250,6 +265,8 @@ export class DIContainer {
         container.bind<IUserBankAccountService>(TYPES.UserBankAccountService).to(UserBankAccountService).inRequestScope();
         container.bind<IAdminPayoutConsentRepository>(TYPES.AdminPayoutConsentRepository).to(AdminPayoutConsentRepository).inRequestScope();
         container.bind<IAdminPayoutConsentService>(TYPES.AdminPayoutConsentService).to(AdminPayoutConsentService).inRequestScope();
+        container.bind<IPlatformCryptoAddressRepository>(TYPES.PlatformCryptoAddressRepository).to(PlatformCryptoAddressRepository).inRequestScope();
+        container.bind<IPlatformCryptoAddressService>(TYPES.PlatformCryptoAddressService).to(PlatformCryptoAddressService).inRequestScope();
         container.bind<IUTXORepository>(TYPES.UTXORepository).to(UTXORepository).inRequestScope();
         container.bind<IUTXOManagerService>(TYPES.UTXOManagerService).to(UTXOManagerService).inRequestScope();
         container.bind<IWithdrawalRequestRepository>(TYPES.WithdrawalRequestRepository).to(WithdrawalRequestRepository).inRequestScope();
@@ -261,6 +278,9 @@ export class DIContainer {
         container.bind<ICardService>(TYPES.CardService).to(CardService).inRequestScope();
         container.bind<CardSeeder>(TYPES.CardSeeder).to(CardSeeder).inRequestScope();
         container.bind<NotificationRepository>(TYPES.NotificationRepository).to(NotificationRepository).inRequestScope();
+        container.bind<IUserDeviceTokenRepository>(TYPES.UserDeviceTokenRepository).to(UserDeviceTokenRepository).inRequestScope();
+        container.bind<IUserDeviceTokenService>(TYPES.UserDeviceTokenService).to(UserDeviceTokenService).inRequestScope();
+        container.bind<IPushNotificationService>(TYPES.PushNotificationService).to(FcmPushService).inRequestScope();
         container.bind<DisputeRepository>(TYPES.DisputeRepository).to(DisputeRepository).inRequestScope();
         container.bind<ChatRepository>(TYPES.ChatRepository).to(ChatRepository).inRequestScope();
         container.bind<ChatMessageRepository>(TYPES.ChatMessageRepository).to(ChatMessageRepository).inRequestScope();
@@ -296,18 +316,34 @@ export class DIContainer {
         container.bind<EthereumTransactionRepository>(TYPES.EthereumTransactionRepository).to(EthereumTransactionRepository).inRequestScope();
         container.bind<IBlockchainService>(TYPES.BlockchainService).to(BlockchainService).inRequestScope();
         container.bind<IPaystackService>(TYPES.PaystackService).to(PaystackService).inRequestScope();
+        const accountVerificationProvider = (process.env.ACCOUNT_VERIFICATION || 'paystack').toLowerCase().trim();
+        if (accountVerificationProvider === 'prembly') {
+            container
+                .bind<IAccountVerificationService>(TYPES.AccountVerificationService)
+                .to(PremblyAccountVerificationService)
+                .inRequestScope();
+        } else {
+            container
+                .bind<IAccountVerificationService>(TYPES.AccountVerificationService)
+                .to(PaystackAccountVerificationService)
+                .inRequestScope();
+        }
         container.bind<ISpotPriceService>(TYPES.SpotPriceService).to(SpotPriceService).inSingletonScope();
         container.bind<ITradingRateService>(TYPES.TradingRateService).to(TradingRateService).inRequestScope();
         container.bind<ITradingOrderService>(TYPES.TradingOrderService).to(TradingOrderService).inRequestScope();
         container.bind<TradeQuoteService>(TYPES.TradeQuoteService).to(TradeQuoteService).inRequestScope();
         container.bind<ITradeIntentService>(TYPES.TradeIntentService).to(TradeIntentService).inRequestScope();
+        const transactionMode = (process.env.TRANSACTION_MODE || 'automated').toLowerCase().trim();
         const custodyProvider = (process.env.CUSTODY_PROVIDER || 'inhouse').toLowerCase();
-        if (custodyProvider === 'liminal') {
+        if (transactionMode === 'manual') {
+            container.bind<ICustodyProvider>(TYPES.CustodyProvider).to(ManualCustodyProvider).inSingletonScope();
+        } else if (custodyProvider === 'liminal') {
             container.bind<ICustodyProvider>(TYPES.CustodyProvider).to(LiminalCustodyProvider).inSingletonScope();
         } else {
             container.bind<ICustodyProvider>(TYPES.CustodyProvider).to(InHouseCustodyProvider).inSingletonScope();
         }
         container.bind<INotificationService>(TYPES.NotificationService).to(NotificationService).inRequestScope();
+        container.bind<TradeIntentNotificationHelper>(TYPES.TradeIntentNotificationHelper).to(TradeIntentNotificationHelper).inRequestScope();
         container.bind<IDisputeService>(TYPES.DisputeService).to(DisputeService).inRequestScope();
         container.bind<IChatService>(TYPES.ChatService).to(ChatService).inRequestScope();
         container.bind<ISystemAnnouncementService>(TYPES.SystemAnnouncementService).to(SystemAnnouncementService).inRequestScope();

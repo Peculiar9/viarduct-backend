@@ -1,5 +1,6 @@
 import { inject, injectable } from 'inversify';
 import { INotificationService, CreateNotificationInput, ListNotificationsResult } from '../../Core/Application/Interface/Services/INotificationService';
+import { IPushNotificationService } from '../../Core/Application/Interface/Services/IPushNotificationService';
 import { TYPES } from '../../Core/Types/Constants';
 import { NotificationRepository } from '../Repository/SQL/notifications/NotificationRepository';
 import { INotification } from '../../Core/Application/Interface/Entities/notifications/INotification';
@@ -31,7 +32,8 @@ export class NotificationService implements INotificationService {
     constructor(
         @inject(TYPES.NotificationRepository) private readonly notificationRepository: NotificationRepository,
         @inject(TYPES.UserRepository) private readonly userRepository: UserRepository,
-        @inject(TYPES.RoleRepository) private readonly roleRepository: RoleRepository
+        @inject(TYPES.RoleRepository) private readonly roleRepository: RoleRepository,
+        @inject(TYPES.PushNotificationService) private readonly pushService: IPushNotificationService
     ) {}
 
     async create(input: CreateNotificationInput): Promise<INotification | null> {
@@ -66,7 +68,22 @@ export class NotificationService implements INotificationService {
             has_been_read_by_admin: false
         };
 
-        return await this.notificationRepository.create(entity);
+        const created = await this.notificationRepository.create(entity);
+
+        // Fire-and-forget push (never block / fail the in-app notification path)
+        if (created?._id) {
+            void this.pushService.sendToUser(input.user_id, {
+                title: created.title,
+                body: created.content,
+                data: {
+                    type: String(created.type),
+                    url: created.url || '',
+                    notification_id: created._id
+                }
+            });
+        }
+
+        return created;
     }
 
     async listForUser(

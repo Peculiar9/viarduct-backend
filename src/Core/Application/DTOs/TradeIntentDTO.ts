@@ -122,7 +122,7 @@ export class CreateSellIntentDTO {
 
     @IsNumber()
     @Min(0.00000001)
-    crypto_amount: number;
+    crypto_amount: number;   // The amount of crypto to sell
 
     @IsOptional()
     @IsUUID()
@@ -314,16 +314,23 @@ export class AdminSellPayoutMetadataDTO {
     proof_of_payment: TradeIntentProofOfPaymentItemDTO[];
 }
 
+export class AdminBuyPayoutMetadataDTO {
+    @IsString()
+    @IsNotEmpty({ message: 'outgoing_tx_hash is required for manual buy payouts' })
+    outgoing_tx_hash: string;
+}
+
 @ValidatorConstraint({ name: 'adminPayoutMetadataExclusive', async: false })
 class AdminPayoutMetadataExclusiveConstraint implements ValidatorConstraintInterface {
     validate(_value: unknown, args: ValidationArguments): boolean {
         const dto = args.object as AdminPayoutIntentDTO;
         const hasSell = !!dto.sell_metadata;
+        const hasBuy = !!dto.buy_metadata;
         if (dto.intent_type === 'buy') {
             return !hasSell;
         }
         if (dto.intent_type === 'sell') {
-            return hasSell;
+            return hasSell && !hasBuy;
         }
         return false;
     }
@@ -332,6 +339,9 @@ class AdminPayoutMetadataExclusiveConstraint implements ValidatorConstraintInter
         const dto = args.object as AdminPayoutIntentDTO;
         if (dto.intent_type === 'buy' && dto.sell_metadata) {
             return 'Do not send sell_metadata when intent_type is buy';
+        }
+        if (dto.intent_type === 'sell' && dto.buy_metadata) {
+            return 'Do not send buy_metadata when intent_type is sell';
         }
         return 'sell_metadata with proof_of_payment is required when intent_type is sell';
     }
@@ -354,6 +364,12 @@ export class AdminPayoutIntentDTO {
     @IsString()
     @IsNotEmpty()
     date_of_payment: string;
+
+    @ValidateIf((o) => o.intent_type === 'buy')
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => AdminBuyPayoutMetadataDTO)
+    buy_metadata?: AdminBuyPayoutMetadataDTO;
 
     @ValidateIf((o) => o.intent_type === 'sell')
     @ValidateNested()

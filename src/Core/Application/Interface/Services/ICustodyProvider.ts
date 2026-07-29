@@ -17,7 +17,7 @@ export interface CustodyBroadcastResult {
 }
 
 export interface ICustodyProvider {
-    readonly providerName: 'inhouse' | 'liminal';
+    readonly providerName: 'inhouse' | 'liminal' | 'manual';
 
     createDepositAddress(intentId: string, asset: CustodyAsset): Promise<CustodyDepositAddress>;
 
