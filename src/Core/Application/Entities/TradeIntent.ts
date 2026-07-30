@@ -95,6 +95,9 @@ export class TradeIntent implements ITradeIntent {
     @Column('VARCHAR(20) DEFAULT \'inhouse\'')
     public custody_provider: CustodyProviderName;
 
+    @Column('BOOLEAN DEFAULT FALSE')
+    public awaiting_user_tx_hash?: boolean;
+
     @Index({ unique: false })
     @Column('VARCHAR(255) DEFAULT NULL')
     public incoming_tx_hash?: string | null;

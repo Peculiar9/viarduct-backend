@@ -160,6 +160,7 @@ export class TradeIntentService implements ITradeIntentService {
             recipient_account_number: resolvedAccountNumber,
             recipient_account_name: accountName,
             custody_provider: this.custodyProvider.providerName,
+            awaiting_user_tx_hash: this.custodyProvider.providerName === 'manual',
             created_at: nowIso,
             updated_at: nowIso
         });
@@ -170,15 +171,17 @@ export class TradeIntentService implements ITradeIntentService {
         const updated = await this.tradeIntentRepo.update(intent._id!, {
             deposit_address: deposit.address,
             deposit_derivation_path: deposit.derivationPath,
+            awaiting_user_tx_hash: this.custodyProvider.providerName === 'manual',
             updated_at: new Date().toISOString()
         });
 
         Console.info('Sell trade intent created', {
             intentId: intent._id,
-            depositAddress: deposit.address
+            depositAddress: deposit.address,
+            awaitingUserTxHash: this.custodyProvider.providerName === 'manual'
         });
 
-        const result = updated ?? intent;
+        const result = this.normalizeIntent(updated ?? intent);
         void this.intentNotifications.onIntentCreated(result);
         return result;
     }
@@ -232,11 +235,13 @@ export class TradeIntentService implements ITradeIntentService {
             fiat_destination_account_name: corporateAccount.account_name,
             proof_of_payment: [],
             custody_provider: this.custodyProvider.providerName,
+            awaiting_user_tx_hash: false,
             created_at: nowIso,
             updated_at: nowIso
         });
-        void this.intentNotifications.onIntentCreated(intent);
-        return intent;
+        const normalized = this.normalizeIntent(intent);
+        void this.intentNotifications.onIntentCreated(normalized);
+        return normalized;
     }
 
     async getUserIntents(
@@ -357,9 +362,65 @@ export class TradeIntentService implements ITradeIntentService {
     private normalizeIntent(intent: ITradeIntent): ITradeIntent {
         return {
             ...intent,
+            awaiting_user_tx_hash: intent.awaiting_user_tx_hash === true,
+            user_deposit_tx_status: this.resolveUserDepositTxStatus(intent),
             proof_of_payment: this.normalizeProofOfPayment(intent.proof_of_payment),
             admin_payout_proof: this.normalizeProofOfPayment(intent.admin_payout_proof)
         };
+    }
+
+    private resolveUserDepositTxStatus(
+        intent: ITradeIntent
+    ): 'not_required' | 'awaiting' | 'submitted' {
+        // Only manual sell intents require a user-submitted deposit hash
+        if (intent.type !== 'sell' || intent.custody_provider !== 'manual') {
+            return 'not_required';
+        }
+        if (intent.awaiting_user_tx_hash === true) {
+            return 'awaiting';
+        }
+        if (intent.incoming_tx_hash) {
+            return 'submitted';
+        }
+        return 'not_required';
+    }
+
+    async submitDepositTxHash(userId: string, intentId: string, txHash: string): Promise<ITradeIntent> {
+        const intent = await this.getIntentById(intentId, userId);
+        if (!intent) {
+            throw new ValidationError('Trade intent not found');
+        }
+        if (intent.type !== 'sell') {
+            throw new ValidationError('Deposit tx hash can only be submitted for sell intents');
+        }
+        if (intent.custody_provider !== 'manual') {
+            throw new ValidationError('Deposit tx hash submission is only required in manual transaction mode');
+        }
+        if (intent.status !== 'pending') {
+            throw new ValidationError('Deposit tx hash can only be submitted while the intent is pending');
+        }
+        if (intent.awaiting_user_tx_hash !== true) {
+            throw new ValidationError('This intent is not awaiting a deposit transaction hash');
+        }
+
+        const normalizedHash = txHash.trim();
+        if (!normalizedHash) {
+            throw new ValidationError('tx_hash is required');
+        }
+
+        const nowIso = new Date().toISOString();
+        const updated = await this.tradeIntentRepo.update(intentId, {
+            incoming_tx_hash: normalizedHash,
+            awaiting_user_tx_hash: false,
+            updated_at: nowIso
+        });
+        if (!updated) {
+            throw new ServiceError('Failed to submit deposit transaction hash');
+        }
+
+        const normalized = this.normalizeIntent(updated);
+        void this.intentNotifications.onDepositTxHashSubmitted(normalized);
+        return normalized;
     }
 
     async getIntentById(id: string, userId?: string): Promise<ITradeIntent | null> {
@@ -452,6 +513,16 @@ export class TradeIntentService implements ITradeIntentService {
             throw new ValidationError(`Intent type mismatch: intent is ${intent.type}, not ${dto.intent_type}`);
         }
 
+        if (
+            dto.intent_type === 'sell' &&
+            intent.custody_provider === 'manual' &&
+            intent.awaiting_user_tx_hash === true
+        ) {
+            throw new ValidationError(
+                'Cannot confirm this sell intent yet. User must submit the deposit transaction hash first.'
+            );
+        }
+
         const now = new Date().toISOString();
 
         if (dto.intent_type === 'buy') {
@@ -495,6 +566,7 @@ export class TradeIntentService implements ITradeIntentService {
             incoming_tx_hash: dto.sell_metadata.tx_reference,
             incoming_crypto_amount: dto.sell_metadata.total_crypto_amount_confirmed,
             crypto_detected_at: intent.crypto_detected_at ?? now,
+            awaiting_user_tx_hash: false,
             admin_confirmed_at: now,
             admin_confirmed_by: adminId,
             updated_at: now

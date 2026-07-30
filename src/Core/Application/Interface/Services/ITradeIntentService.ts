@@ -66,6 +66,8 @@ export interface ITradeIntentService {
         proofs: Array<{ title: string; description?: string; url: string }>
     ): Promise<ITradeIntent>;
 
+    submitDepositTxHash(userId: string, intentId: string, txHash: string): Promise<ITradeIntent>;
+
     adminListIntents(filters: {
         status?: string;
         type?: string;

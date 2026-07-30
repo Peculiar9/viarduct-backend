@@ -306,6 +306,19 @@ export class SubmitProofOfPaymentDTO {
     proof_of_payments: TradeIntentProofOfPaymentItemDTO[];
 }
 
+export class SubmitDepositTxHashDTO {
+    @IsUUID()
+    @IsNotEmpty()
+    intent_id: string;
+
+    @IsString()
+    @IsNotEmpty({ message: 'tx_hash is required' })
+    @Matches(/^[a-fA-F0-9]{64}$|^0x[a-fA-F0-9]{64}$/, {
+        message: 'tx_hash must be a valid BTC (64 hex) or ETH (0x + 64 hex) transaction hash'
+    })
+    tx_hash: string;
+}
+
 export class AdminSellPayoutMetadataDTO {
     @IsArray()
     @ArrayMinSize(1, { message: 'At least one payout proof is required for sell intents' })

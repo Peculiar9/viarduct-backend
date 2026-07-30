@@ -55,14 +55,22 @@ export class TradeIntentNotificationHelper {
 
         const typeLabel = intent.type === 'buy' ? 'Buy' : 'Sell';
         const crypto = String(intent.crypto_type || '').toUpperCase();
+        const awaitingHash = intent.type === 'sell' && intent.awaiting_user_tx_hash === true;
 
         await this.safeNotify({
             user_id: intent.user_id,
             type: NotificationType.ORDER,
             title: `${typeLabel} intent created`,
-            content: `Your ${crypto} ${typeLabel.toLowerCase()} intent has been created and is pending review.`,
+            content: awaitingHash
+                ? `Your ${crypto} sell intent was created. Send crypto to the deposit address, then submit your transaction hash.`
+                : `Your ${crypto} ${typeLabel.toLowerCase()} intent has been created and is pending review.`,
             url: `/trade-intents/${intentId}`
         });
+
+        // Manual sell: defer admin notify until user submits deposit tx hash
+        if (awaitingHash) {
+            return;
+        }
 
         const adminIds = await this.listAdminUserIds();
         await Promise.all(
@@ -72,6 +80,38 @@ export class TradeIntentNotificationHelper {
                     type: NotificationType.ORDER,
                     title: `New ${typeLabel.toLowerCase()} intent`,
                     content: `A user submitted a new ${crypto} ${typeLabel.toLowerCase()} intent.`,
+                    url: `/admin/trade-intents/${intentId}`
+                })
+            )
+        );
+    }
+
+    /**
+     * Manual sell: user submitted on-chain deposit tx hash — notify admins to review.
+     */
+    async onDepositTxHashSubmitted(intent: ITradeIntent): Promise<void> {
+        const intentId = intent._id;
+        if (!intentId) return;
+
+        const crypto = String(intent.crypto_type || '').toUpperCase();
+        const txHash = intent.incoming_tx_hash || '';
+
+        await this.safeNotify({
+            user_id: intent.user_id,
+            type: NotificationType.ORDER,
+            title: 'Deposit hash submitted',
+            content: `Your ${crypto} deposit transaction hash was submitted and is awaiting admin review.`,
+            url: `/trade-intents/${intentId}`
+        });
+
+        const adminIds = await this.listAdminUserIds();
+        await Promise.all(
+            adminIds.map((adminId) =>
+                this.safeNotify({
+                    user_id: adminId,
+                    type: NotificationType.ORDER,
+                    title: 'Sell deposit ready for review',
+                    content: `A user submitted a ${crypto} sell deposit hash${txHash ? `: ${txHash.slice(0, 10)}…` : ''}.`,
                     url: `/admin/trade-intents/${intentId}`
                 })
             )

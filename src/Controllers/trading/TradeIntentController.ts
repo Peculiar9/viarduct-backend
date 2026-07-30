@@ -20,6 +20,7 @@ import {
     CreateBuyIntentDTO,
     CreateSellIntentDTO,
     GetTradeQuoteDTO,
+    SubmitDepositTxHashDTO,
     SubmitProofOfPaymentDTO,
     VerifyBankAccountDTO
 } from '../../Core/Application/DTOs/TradeIntentDTO';
@@ -117,6 +118,30 @@ export class TradeIntentController extends BaseController {
                 dto.proof_of_payments
             );
             return this.success(res, intent, 'Proof of payment submitted');
+        } catch (error: any) {
+            return this.error(res, error.message, error.statusCode || 400, error);
+        }
+    }
+
+    /**
+     * Manual sell only: user submits on-chain deposit tx hash after sending crypto.
+     * Admins are notified only after this step.
+     * @route POST /api/v1/trade-intents/deposit-tx-hash
+     */
+    @httpPost('/deposit-tx-hash', AuthMiddleware.authenticate(), validationMiddleware(SubmitDepositTxHashDTO))
+    async submitDepositTxHash(
+        @requestBody() dto: SubmitDepositTxHashDTO,
+        @request() req: Request,
+        @response() res: Response
+    ) {
+        try {
+            const user = req.user as IUser;
+            const intent = await this.tradeIntentService.submitDepositTxHash(
+                user._id!,
+                dto.intent_id,
+                dto.tx_hash
+            );
+            return this.success(res, intent, 'Deposit transaction hash submitted');
         } catch (error: any) {
             return this.error(res, error.message, error.statusCode || 400, error);
         }

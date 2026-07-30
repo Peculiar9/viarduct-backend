@@ -15,6 +15,9 @@ export type TradeIntentSettlementMode = 'controlled_p2p';
 
 export type CustodyProviderName = 'inhouse' | 'liminal' | 'manual';
 
+/** FE guide: show submit-hash UI only when `awaiting` */
+export type UserDepositTxStatus = 'not_required' | 'awaiting' | 'submitted';
+
 export interface ITradeIntent {
     _id?: string;
     user_id: string;
@@ -45,6 +48,16 @@ export interface ITradeIntent {
     deposit_address?: string | null;
     deposit_derivation_path?: string | null;
     custody_provider: CustodyProviderName;
+    /**
+     * Manual sell only: true until user submits deposit tx hash.
+     * Always false / not applicable for automated mode and buy intents.
+     */
+    awaiting_user_tx_hash?: boolean;
+    /**
+     * Derived for API clients — always present on normalized responses.
+     * not_required | awaiting | submitted
+     */
+    user_deposit_tx_status?: UserDepositTxStatus;
     incoming_tx_hash?: string | null;
     incoming_crypto_amount?: number | null;
     crypto_detected_at?: string | null;
