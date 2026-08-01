@@ -26,6 +26,7 @@ import './Controllers/trading/AdminTradingOrderController';
 import './Controllers/trading/TradeIntentController';
 import './Controllers/trading/AdminTradeIntentController';
 import './Controllers/bank/BankAccountController';
+import './Controllers/bank/AdminBankAccountController';
 import './Controllers/trading/AdminCryptoAddressController';
 import './Controllers/trading/AdminPayoutConsentController';
 import './Controllers/me/MeController';
