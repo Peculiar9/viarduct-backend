@@ -67,13 +67,18 @@ export class PremblyAccountVerificationService implements IAccountVerificationSe
             }
         });
 
-        if (appId) {
+        // Ignore placeholder / empty app ids — a fake app-id makes Prembly return "System error occurred"
+        const looksLikePlaceholder =
+            !appId ||
+            /^your[_-]?app[_-]?id/i.test(appId) ||
+            appId.toLowerCase() === 'changeme';
+        if (!looksLikePlaceholder) {
             this.client.defaults.headers.common['app-id'] = appId;
         }
 
         Console.info('PremblyAccountVerificationService ready', {
             baseURL,
-            hasAppId: Boolean(appId)
+            hasAppId: !looksLikePlaceholder
         });
     }
 
@@ -203,7 +208,11 @@ export class PremblyAccountVerificationService implements IAccountVerificationSe
 
             const body = response.data;
             if (body.status === false || !Array.isArray(body.data)) {
-                throw new ServiceError(body.message || body.detail || 'Failed to fetch banks from Prembly');
+                const providerMsg = body.message || body.detail || 'Failed to fetch banks from Prembly';
+                throw new ServiceError(
+                    `Prembly banks list failed: ${providerMsg}. ` +
+                        `Check PREMBLY_API_KEY / PREMBLY_APP_ID, or set ACCOUNT_VERIFICATION=paystack.`
+                );
             }
 
             const banks = body.data

@@ -11,6 +11,12 @@ export interface IUserBankAccountRepository {
         accountNumber: string,
         bankCode: string
     ): Promise<IUserBankAccount | null>;
+    /** Includes inactive rows (for cache reuse / reactivation). bankCode optional = match by account number only. */
+    findUserAccountByNumberAndCode(
+        userId: string,
+        accountNumber: string,
+        bankCode?: string
+    ): Promise<IUserBankAccount | null>;
     update(id: string, entity: Partial<IUserBankAccount>): Promise<IUserBankAccount | null>;
     clearCorporateDefaults(): Promise<void>;
     delete(id: string): Promise<boolean>;

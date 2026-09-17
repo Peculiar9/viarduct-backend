@@ -13,7 +13,7 @@ export type TradeIntentStatus =
 
 export type TradeIntentSettlementMode = 'controlled_p2p';
 
-export type CustodyProviderName = 'inhouse' | 'liminal' | 'manual';
+export type CustodyProviderName = 'inhouse' | 'liminal' | 'manual' | 'thresh0ld';
 
 /** FE guide: show submit-hash UI only when `awaiting` */
 export type UserDepositTxStatus = 'not_required' | 'awaiting' | 'submitted';
@@ -27,6 +27,8 @@ export interface ITradeIntent {
     settlement_mode: TradeIntentSettlementMode;
 
     spot_price_ngn: number;
+    /** Live Binance USD spot (BTCUSDT / ETHUSDT) at quote time. */
+    spot_price_usd?: number | null;
     buy_rate: number;
     sell_rate: number;
     rate_used: number;

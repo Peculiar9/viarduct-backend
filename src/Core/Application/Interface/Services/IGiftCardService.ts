@@ -14,8 +14,14 @@ export interface IGiftCardService {
         expiry_date?: string;
         notes?: string;
         reference?: string;
-        serial_number?: string; 
+        serial_number?: string;
         country?: string;
+        bank_account_id?: string;
+        prefered_bank_detail?: {
+            recipient_bank_code: string;
+            recipient_bank_name: string;
+            recipient_account_number: string;
+        };
     }): Promise<IGiftCardSubmission>;
     getMySubmissions(userId: string, filters: GiftCardSubmissionFiltersForUser, limit?: number, offset?: number): Promise<{ items: IGiftCardSubmission[]; total: number }>;
     getSubmissionById(userId: string, submissionId: string): Promise<IGiftCardSubmission | null>;

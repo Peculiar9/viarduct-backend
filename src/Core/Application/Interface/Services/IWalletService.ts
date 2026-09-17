@@ -65,6 +65,16 @@ export interface IWalletService {
     debitUserWallet(userId: string, amount: number): Promise<IWalletAccount>;
 
     /**
+     * Debit a user's wallet account by currency code (NGN, BTC, ETH, ...).
+     */
+    debitUserWalletByCurrency(userId: string, currencyCode: string, amount: number): Promise<IWalletAccount>;
+
+    /**
+     * Credit a user's wallet account by currency code (used for purchase rollbacks).
+     */
+    creditUserWalletByCurrency(userId: string, currencyCode: string, amount: number): Promise<IWalletAccount>;
+
+    /**
      * Generate or get Bitcoin address for user's BTC wallet account
      * @param userId User ID
      * @returns Bitcoin address

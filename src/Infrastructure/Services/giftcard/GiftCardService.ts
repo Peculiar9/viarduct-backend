@@ -9,16 +9,17 @@ import {
 } from '../../../Core/Application/Interface/Repositories/IGiftCardSubmissionRepository';
 import { IWithdrawalService } from '../../../Core/Application/Interface/Services/IWithdrawalService';
 import { IWalletService } from '../../../Core/Application/Interface/Services/IWalletService';
+import { IUserBankAccountService } from '../../../Core/Application/Interface/Services/IUserBankAccountService';
 import { TransactionRepository } from '../../Repository/SQL/payment/TransactionRepository';
 import { CurrencyRepository } from '../../Repository/SQL/wallet/CurrencyRepository';
-import { ValidationError, ServiceError } from '../../../Core/Application/Error/AppError';
+import { ValidationError } from '../../../Core/Application/Error/AppError';
 import { Console } from '../../Utils/Console';
 import {
     RelatedEntityType,
     TransactionType,
-    TransactionStatus
+    TransactionStatus,
+    ITransaction
 } from '../../../Core/Application/Interface/Entities/payments/IPayment';
-import { ITransaction } from '../../../Core/Application/Interface/Entities/payments/IPayment';
 
 const MIN_AMOUNT_NGN = 100;
 
@@ -29,7 +30,8 @@ export class GiftCardService implements IGiftCardService {
         @inject(TYPES.WithdrawalService) private readonly withdrawalService: IWithdrawalService,
         @inject(TYPES.WalletService) private readonly walletService: IWalletService,
         @inject(TYPES.TransactionRepository) private readonly transactionRepo: TransactionRepository,
-        @inject(TYPES.CurrencyRepository) private readonly currencyRepo: CurrencyRepository
+        @inject(TYPES.CurrencyRepository) private readonly currencyRepo: CurrencyRepository,
+        @inject(TYPES.UserBankAccountService) private readonly bankAccountService: IUserBankAccountService
     ) {}
 
     async submit(
@@ -48,6 +50,12 @@ export class GiftCardService implements IGiftCardService {
             reference?: string;
             serial_number?: string;
             country?: string;
+            bank_account_id?: string;
+            prefered_bank_detail?: {
+                recipient_bank_code: string;
+                recipient_bank_name: string;
+                recipient_account_number: string;
+            };
         }
     ): Promise<IGiftCardSubmission> {
         if (!data.card_name || data.card_name.trim() === '') {
@@ -67,9 +75,51 @@ export class GiftCardService implements IGiftCardService {
             throw new ValidationError('Invalid currency. Please select a valid currency.');
         }
 
+        const hasSavedAccount = !!data.bank_account_id;
+        const hasPreferredDetail = !!data.prefered_bank_detail;
+        if (hasSavedAccount === hasPreferredDetail) {
+            throw new ValidationError(
+                hasSavedAccount && hasPreferredDetail
+                    ? 'You cannot provide both bank_account_id and prefered_bank_detail at the same time'
+                    : 'Provide either bank_account_id or prefered_bank_detail for payout'
+            );
+        }
+
         const pinValid = await this.withdrawalService.verifyTransactionPin(userId, data.pin);
         if (!pinValid) {
             throw new ValidationError('Invalid transaction PIN');
+        }
+
+        let bankAccountId: string | null = null;
+        let recipientBankCode: string;
+        let recipientBankName: string;
+        let recipientAccountNumber: string;
+        let recipientAccountName: string;
+
+        if (data.bank_account_id) {
+            const saved = await this.bankAccountService.getUserAccountForIntent(userId, data.bank_account_id);
+            bankAccountId = saved._id ?? null;
+            recipientBankCode = saved.bank_code;
+            recipientBankName = saved.bank_name;
+            recipientAccountNumber = saved.account_number;
+            recipientAccountName = saved.account_name;
+        } else {
+            const preferred = data.prefered_bank_detail!;
+            const resolved = await this.bankAccountService.resolvePreferredBankDetailForIntent(userId, {
+                recipient_account_number: preferred.recipient_account_number,
+                recipient_bank_code: preferred.recipient_bank_code,
+                recipient_bank_name: preferred.recipient_bank_name
+            });
+            bankAccountId = resolved.bank_account_id ?? null;
+            recipientBankCode = resolved.bank_code;
+            recipientBankName = resolved.bank_name;
+            recipientAccountNumber = resolved.account_number;
+            recipientAccountName = resolved.account_name;
+            Console.info('Gift card submit bank resolved', {
+                userId,
+                source: resolved.source,
+                bankAccountId
+            });
         }
 
         const now = new Date().toISOString();
@@ -87,6 +137,11 @@ export class GiftCardService implements IGiftCardService {
             reference: data.reference?.trim() || null,
             serial_number: data.serial_number?.trim() || null,
             country: data.country?.trim() || null,
+            bank_account_id: bankAccountId,
+            recipient_bank_code: recipientBankCode,
+            recipient_bank_name: recipientBankName,
+            recipient_account_number: recipientAccountNumber,
+            recipient_account_name: recipientAccountName,
             status: 'pending_validation',
             created_at: now,
             updated_at: now
@@ -96,7 +151,8 @@ export class GiftCardService implements IGiftCardService {
             submissionId: submission._id,
             userId,
             card_name: data.card_name,
-            amount: data.amount
+            amount: data.amount,
+            bankAccountId
         });
         return submission;
     }
@@ -172,7 +228,12 @@ export class GiftCardService implements IGiftCardService {
                 card_type: submission.card_type,
                 approved_by: adminUserId,
                 admin_notes: reason,
-                submitted_amount: submission.amount_ngn
+                submitted_amount: submission.amount_ngn,
+                payout_bank_account_id: submission.bank_account_id,
+                payout_account_number: submission.recipient_account_number,
+                payout_account_name: submission.recipient_account_name,
+                payout_bank_code: submission.recipient_bank_code,
+                payout_bank_name: submission.recipient_bank_name
             },
             completed_at: now,
             created_at: now,
@@ -194,7 +255,8 @@ export class GiftCardService implements IGiftCardService {
             submissionId,
             userId: submission.user_id,
             amountCredited: amountToCredit,
-            adminUserId
+            adminUserId,
+            payoutAccount: submission.recipient_account_number
         });
         return updated!;
     }

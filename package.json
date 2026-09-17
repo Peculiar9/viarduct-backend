@@ -10,6 +10,8 @@
     "buildprod": "tsc",
     "worker:system-announcements": "node dist/workers/systemAnnouncementsWorker.js",
     "worker:system-announcements:dev": "ts-node src/workers/systemAnnouncementsWorker.ts",
+    "thresh0ld:create-wallets": "ts-node scripts/create-thresh0ld-wallets.ts",
+    "thresh0ld:list-wallets": "ts-node scripts/create-thresh0ld-wallets.ts --list-only",
     "test": "jest",
     "test:twilio": "jest --testPathPattern=TwilioService",
     "lint": "eslint src --ext .ts",

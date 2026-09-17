@@ -41,6 +41,7 @@ export enum TableNames {
     USER_BANK_ACCOUNTS = 'user_bank_accounts',
     USER_TRANSACTION_PINS = 'user_transaction_pins',
     GIFT_CARD_SUBMISSIONS = 'gift_card_submissions',
+    GIFT_CARD_TRANSACTIONS = 'gift_card_transactions',
     CARDS = 'cards',
     NOTIFICATIONS = 'notifications',
     DISPUTES = 'disputes',

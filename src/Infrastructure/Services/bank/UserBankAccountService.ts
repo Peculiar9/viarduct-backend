@@ -6,6 +6,7 @@ import { IAccountVerificationService } from '../../../Core/Application/Interface
 import { IUserBankAccount } from '../../../Core/Application/Interface/Entities/bank/IUserBankAccount';
 import { NotFoundError, ValidationError } from '../../../Core/Application/Error/AppError';
 import { TradeIntentNotificationHelper } from '../trading/TradeIntentNotificationHelper';
+import { Console } from '../../Utils/Console';
 
 @injectable()
 export class UserBankAccountService implements IUserBankAccountService {
@@ -71,6 +72,111 @@ export class UserBankAccountService implements IUserBankAccountService {
             throw new NotFoundError('Saved bank account not found');
         }
         return account;
+    }
+
+    async resolvePreferredBankDetailForIntent(
+        userId: string,
+        dto: {
+            recipient_account_number: string;
+            recipient_bank_code: string;
+            recipient_bank_name?: string;
+        }
+    ): Promise<{
+        account_number: string;
+        bank_code: string;
+        bank_name: string;
+        account_name: string;
+        source: 'cache' | 'provider';
+        bank_account_id?: string;
+    }> {
+        const accountNumber = this.normalizeAccountNumber(dto.recipient_account_number);
+        const bankCode = dto.recipient_bank_code.trim();
+
+        const cached =
+            (await this.bankAccountRepo.findUserAccountByNumberAndCode(userId, accountNumber, bankCode)) ||
+            (await this.bankAccountRepo.findUserAccountByNumberAndCode(userId, accountNumber));
+
+        if (cached && cached.is_active) {
+            Console.info('Bank resolve cache hit — skipping Prembly', {
+                userId,
+                accountSuffix: accountNumber.slice(-4),
+                bankAccountId: cached._id
+            });
+            return {
+                account_number: cached.account_number,
+                bank_code: cached.bank_code,
+                bank_name: cached.bank_name,
+                account_name: cached.account_name,
+                source: 'cache',
+                bank_account_id: cached._id
+            };
+        }
+
+        const verified = await this.accountVerificationService.verifyAccountNumber(accountNumber, bankCode);
+        if (!verified.status || !verified.data) {
+            throw new ValidationError(verified.message || 'Bank account verification failed');
+        }
+
+        const resolvedNumber = this.normalizeAccountNumber(verified.data.account_number || accountNumber);
+        const resolvedCode = verified.data.bank?.code ?? bankCode;
+        const resolvedBankName = verified.data.bank?.name ?? dto.recipient_bank_name ?? '';
+        const resolvedAccountName = verified.data.account_name;
+
+        const nowIso = new Date().toISOString();
+        let saved: IUserBankAccount;
+
+        if (cached && !cached.is_active) {
+            const updated = await this.bankAccountRepo.update(cached._id!, {
+                account_number: resolvedNumber,
+                bank_code: resolvedCode,
+                bank_name: resolvedBankName || cached.bank_name,
+                account_name: resolvedAccountName,
+                is_active: true,
+                updated_at: nowIso
+            });
+            saved = updated ?? cached;
+            Console.info('Bank resolve reactivated saved account after Prembly verify', {
+                userId,
+                bankAccountId: saved._id
+            });
+        } else {
+            saved = await this.bankAccountRepo.create({
+                user_id: userId,
+                type: 'user',
+                account_number: resolvedNumber,
+                bank_code: resolvedCode,
+                bank_name: resolvedBankName,
+                account_name: resolvedAccountName,
+                label: null,
+                is_active: true,
+                is_default: false,
+                created_by: userId,
+                created_at: nowIso,
+                updated_at: nowIso
+            });
+            void this.intentNotifications.onBankAccountSaved(userId, saved);
+            Console.info('Bank resolve Prembly verify + auto-saved account', {
+                userId,
+                bankAccountId: saved._id
+            });
+        }
+
+        return {
+            account_number: resolvedNumber,
+            bank_code: resolvedCode,
+            bank_name: resolvedBankName,
+            account_name: resolvedAccountName,
+            source: 'provider',
+            bank_account_id: saved._id
+        };
+    }
+
+    private normalizeAccountNumber(accountNumber: string): string {
+        const digits = accountNumber.trim().replace(/\s+/g, '');
+        if (!/^\d{9,10}$/.test(digits)) {
+            throw new ValidationError('Account number must be 9 or 10 digits');
+        }
+        return digits.padStart(10, '0');
     }
 
     async getBankAccountById(accountId: string): Promise<IUserBankAccount> {

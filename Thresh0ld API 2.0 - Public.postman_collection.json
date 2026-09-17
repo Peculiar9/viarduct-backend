@@ -1,0 +1,3459 @@
+{
+  "info": {
+    "_postman_id": "7d31b683-9eb4-4131-b138-504870587943",
+    "name": "Thresh0ld API 2.0 - Public",
+    "description": "---\n\n**Thresh0ld 2.0 API Documentation**\n\nWelcome to the Thresh0ld 2.0 API!\n\n**Important Note:**\n\nWhen using the `Create RSA Key` endpoint, ensure you call this endpoint **only once** during your integration setup. Generating multiple RSA keys can cause inconsistencies and may lead to issues with secure communication.\n\nIf you have any questions or encounter issues, refer to the API documentation or contact support for assistance.\n\n---",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "11355955"
+  },
+  "item": [
+    {
+      "name": "Activation",
+      "item": [
+        {
+          "name": "Create Rsa Key",
+          "request": {
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "password",
+                  "value": "{{client_secret}}",
+                  "type": "string"
+                },
+                {
+                  "key": "username",
+                  "value": "{{client_id}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{vault:basic-auth}}",
+                "disabled": true
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{base_url}}/api/mpc-shard/create-rsakey",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "mpc-shard",
+                "create-rsakey"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Import key",
+          "request": {
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "password",
+                  "value": "{{client_secret}}",
+                  "type": "string"
+                },
+                {
+                  "key": "username",
+                  "value": "{{client_id}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{vault:basic-auth}}",
+                "disabled": true
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{base_url}}/api/mpc-shard/import",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "mpc-shard",
+                "import"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Wallets",
+      "item": [
+        {
+          "name": "Wallets Creation",
+          "item": [
+            {
+              "name": "Hot Wallets Creation",
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "{{client_secret}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "{{client_id}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Basic VFQ0cEFuMkMyVmZWVmR0S2dWc2VUR08wOGE5NEZqaWI6cnVTRWJzZlhGX0ttTFgteEtnOC1OTTMyZm9yNDBYazZHcUFqRmhrbDJqMkZ0UDJKUHFUc0IzendNWlVHZldCVg==",
+                    "disabled": true
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"cloudProvider\":\"mpc\",\n    \"wallet\":{\n        \"coin\":\"ADA\",\n        \"walletType\":\"withdrawal\"\n    }\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/onboarding/create-wallet",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "onboarding",
+                    "create-wallet"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Wallet Data",
+          "item": [
+            {
+              "name": "Get List Of Wallet",
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "{{client_secret}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "{{client_id}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\"\n    }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/wallet/get-list-wallet",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "wallet",
+                    "get-list-wallet"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Wallet Data",
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "{{client_secret}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "{{client_id}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"walletId\":1,\n        \"allToken\":true\n    }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/wallet/get-wallet",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "wallet",
+                    "get-wallet"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Wallet Balance",
+          "item": [
+            {
+              "name": "Token",
+              "item": [
+                {
+                  "name": "Get Balance by Token",
+                  "request": {
+                    "auth": {
+                      "type": "basic",
+                      "basic": [
+                        {
+                          "key": "password",
+                          "value": "{{client_secret}}",
+                          "type": "string"
+                        },
+                        {
+                          "key": "username",
+                          "value": "{{client_id}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"walletId\":1,\n        \"allToken\":true,\n        \"tokenOptions\":{\n                \"tokenName\":\"dai\",\n                \"tokenAddress\":\"0xdc31Ee1784292379Fbb2964b3B9C4124D8F89C60\"\n            }\n    }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/wallet/balance",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "wallet",
+                        "balance"
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            },
+            {
+              "name": "Native",
+              "item": [
+                {
+                  "name": "Get Wallet Balance By Native",
+                  "request": {
+                    "auth": {
+                      "type": "basic",
+                      "basic": [
+                        {
+                          "key": "password",
+                          "value": "{{client_secret}}",
+                          "type": "string"
+                        },
+                        {
+                          "key": "username",
+                          "value": "{{client_id}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"walletId\":1,\n        \"allToken\":true\n    }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/wallet/balance",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "wallet",
+                        "balance"
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Address",
+      "item": [
+        {
+          "name": "Generate Address",
+          "item": [
+            {
+              "name": "Generate Single Address",
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "{{client_secret}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "{{client_id}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"walletId\":1,\n        \"allToken\":true\n    },\n    \"path\":1\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/wallet/generate-address",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "wallet",
+                    "generate-address"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Generate Single Address Copy",
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "{{client_secret}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "{{client_id}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"walletId\":1,\n        \"allToken\":true\n    },\n    \"path\":1\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/wallet/generate-address",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "wallet",
+                    "generate-address"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Generate Many Address",
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "{{client_secret}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "{{client_id}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"walletId\":1,\n        \"allToken\":true\n    },\n    \"path\":{\n        \"startIndex\":0,\n        \"endIndex\":10\n    }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/wallet/generate-many-address",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "wallet",
+                    "generate-many-address"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Balance",
+          "item": [
+            {
+              "name": "NativeCoin",
+              "item": [
+                {
+                  "name": "Get Address Balance",
+                  "request": {
+                    "auth": {
+                      "type": "basic",
+                      "basic": [
+                        {
+                          "key": "password",
+                          "value": "{{client_secret}}",
+                          "type": "string"
+                        },
+                        {
+                          "key": "username",
+                          "value": "{{client_id}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"walletId\":22179\n    },\n    \"getAddressBalanceOption\":{\n        \"address\":\"0x401D3e7d28cAc478d113cAc1bb3307B77b6DDE6A\"\n    }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/wallet/address-balance",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "wallet",
+                        "address-balance"
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Get Address Balance By Pagination",
+                  "request": {
+                    "auth": {
+                      "type": "basic",
+                      "basic": [
+                        {
+                          "key": "password",
+                          "value": "{{client_secret}}",
+                          "type": "string"
+                        },
+                        {
+                          "key": "username",
+                          "value": "{{client_id}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"walletId\":1\n    },\n    \"getAddressBalanceOption\":{\n       \"pagination\":{\n                    \"pageNumber\":1,\n                    \"pageSize\":50\n                }\n    }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/wallet/address-balance",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "wallet",
+                        "address-balance"
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            },
+            {
+              "name": "Token",
+              "item": [
+                {
+                  "name": "Get Address balance by Token",
+                  "request": {
+                    "auth": {
+                      "type": "basic",
+                      "basic": [
+                        {
+                          "key": "username",
+                          "value": "{{client_id}}",
+                          "type": "string"
+                        },
+                        {
+                          "key": "password",
+                          "value": "{{client_secret}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"walletId\":1\n    },\n    \"getAddressBalanceOption\":{\n        \"address\":\"0x4014c023192ef37a91adcea4ac2fdd90914bd76f\",\n        \"isTokenBalance\":true\n    }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/wallet/address-balance",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "wallet",
+                        "address-balance"
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Get Address Balance Token By Pagination",
+                  "request": {
+                    "auth": {
+                      "type": "basic",
+                      "basic": [
+                        {
+                          "key": "password",
+                          "value": "{{client_secret}}",
+                          "type": "string"
+                        },
+                        {
+                          "key": "username",
+                          "value": "{{client_id}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"walletId\":1\n    }, \n    \"getAddressBalanceOption\":{\n        \"pagination\":{\n                    \"pageNumber\":1,\n                    \"pageSize\":10\n                },\n        \"isTokenBalance\":true\n    }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/wallet/address-balance",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "wallet",
+                        "address-balance"
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Transfers",
+      "item": [
+        {
+          "name": "Withdrawal Wallets",
+          "item": [
+            {
+              "name": "Token Withdrawal",
+              "item": [
+                {
+                  "name": "Token asset withdrawal",
+                  "request": {
+                    "auth": {
+                      "type": "basic",
+                      "basic": [
+                        {
+                          "key": "password",
+                          "value": "{{client_secret}}",
+                          "type": "string"
+                        },
+                        {
+                          "key": "username",
+                          "value": "{{client_id}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n       \"wallet\": {\n        \"coin\": \"eth\",\n        \"allToken\": true,\n        \"tokenOptions\": {\n            \"tokenName\": \"dai\",\n            \"tokenAddress\": \"0x407bd2fc25f6b8cf913b551e5b1cbd3b49d2282f\"\n        }\n    },\n    \"transactions\": {\n        \"recipientsData\": {\n            \"recipients\": [\n                {\n                    \"address\": \"0x69Bb2f11f6778a5396696D0b7DDE98D50464654E\",\n                    \"amount\": 9910\n                }\n            ],\n            \"sequenceId\": \"66t6g6t7gy8887\"\n        }\n    }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/v2/wallets/31279/send-many-transaction-request",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v2",
+                        "wallets",
+                        "31279",
+                        "send-many-transaction-request"
+                      ]
+                    }
+                  },
+                  "response": [
+                    {
+                      "name": "Token asset withdrawal",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n       \"wallet\": {\n        \"coin\": \"trx\",\n        \"allToken\": true,\n        \"tokenOptions\": {\n            \"tokenName\": \"usdt\",\n            \"tokenAddress\": \"TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs\"\n        }\n    },\n    \"transactions\": {\n        \"recipientsData\": {\n            \"recipients\": [\n                {\n                    \"address\": \"TNVo1Ttd6vt1TCzJ9XtcsQ8sxGpgA4kFuM\",\n                    \"amount\": 5000\n                }\n            ],\n            \"sequenceId\": \"66t6g6t7gy7\"\n        }\n    }\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{base_url}}/api/v2/wallets/31890/send-many-transaction-request",
+                          "host": [
+                            "{{base_url}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v2",
+                            "wallets",
+                            "31890",
+                            "send-many-transaction-request"
+                          ]
+                        }
+                      },
+                      "status": "Created",
+                      "code": 201,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "Date",
+                          "value": "Thu, 20 Feb 2025 09:11:06 GMT"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "Content-Length",
+                          "value": "455"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "X-DNS-Prefetch-Control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "X-Frame-Options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "Strict-Transport-Security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "X-Download-Options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "X-Content-Type-Options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "X-XSS-Protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "Access-Control-Allow-Origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "ETag",
+                          "value": "W/\"1c7-EVxeepn4TpNh9WQjKpA+QnAuj4E\""
+                        },
+                        {
+                          "key": "Vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Set-Cookie",
+                          "value": "AWSALBAPP-0=_remove_; Expires=Thu, 27 Feb 2025 09:11:06 GMT; Path=/"
+                        },
+                        {
+                          "key": "Set-Cookie",
+                          "value": "AWSALBAPP-1=_remove_; Expires=Thu, 27 Feb 2025 09:11:06 GMT; Path=/"
+                        },
+                        {
+                          "key": "Set-Cookie",
+                          "value": "AWSALBAPP-2=_remove_; Expires=Thu, 27 Feb 2025 09:11:06 GMT; Path=/"
+                        },
+                        {
+                          "key": "Set-Cookie",
+                          "value": "AWSALBAPP-3=_remove_; Expires=Thu, 27 Feb 2025 09:11:06 GMT; Path=/"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": true,\n    \"data\": {\n        \"amount\": 5000,\n        \"destinationAddress\": \"TNVo1Ttd6vt1TCzJ9XtcsQ8sxGpgA4kFuM\",\n        \"coin\": \"usdt\",\n        \"comment\": \"\",\n        \"sequenceId\": \"66t6g6t7gy7\",\n        \"data\": \"\",\n        \"messageToSign\": \"5000|TNVo1Ttd6vt1TCzJ9XtcsQ8sxGpgA4kFuM|usdt\",\n        \"signature\": \"0x\",\n        \"timestamp\": 1740042659463,\n        \"isInternal\": false,\n        \"tokenAddress\": \"TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs\",\n        \"tokenName\": \"usdt\",\n        \"output\": [\n            {\n                \"address\": \"TNVo1Ttd6vt1TCzJ9XtcsQ8sxGpgA4kFuM\",\n                \"valueUnitAmount\": 5000\n            }\n        ]\n    },\n    \"message\": null\n}"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Chain Transactions",
+              "item": [
+                {
+                  "name": "Blockchain Asset Withdrawal",
+                  "request": {
+                    "auth": {
+                      "type": "basic",
+                      "basic": [
+                        {
+                          "key": "password",
+                          "value": "{{client_secret}}",
+                          "type": "string"
+                        },
+                        {
+                          "key": "username",
+                          "value": "{{client_id}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"wallet\": {\n        \"coin\": \"trx\"\n    },\n    \"transactions\": {\n        \"recipientsData\": {\n            \"recipients\": [\n                {\n                    \"address\": \"0x69Bb2f11f6778a5396696D0b7DDE98D50464654E\",\n                    \"amount\": 10\n                }\n            ],\n            \"sequenceId\": \"{{$guid}}\"\n        }\n    }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/v2/wallets/19576/send-many-transaction-request",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v2",
+                        "wallets",
+                        "19576",
+                        "send-many-transaction-request"
+                      ]
+                    }
+                  },
+                  "response": [
+                    {
+                      "name": "Blockchain Asset Withdrawal",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"wallet\": {\n        \"coin\": \"trx\"\n    },\n    \"transactions\": {\n        \"recipientsData\": {\n            \"recipients\": [\n                {\n                    \"address\": \"TNVo1Ttd6vt1TCzJ9XtcsQ8sxGpgA4kFuM\",\n                    \"amount\": 1940\n                }\n            ],\n            \"sequenceId\": \"343343r3r3e\"\n        }\n    }\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{base_url}}/api/v2/wallets/31890/send-many-transaction-request",
+                          "host": [
+                            "{{base_url}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v2",
+                            "wallets",
+                            "31890",
+                            "send-many-transaction-request"
+                          ]
+                        }
+                      },
+                      "status": "Created",
+                      "code": 201,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "Date",
+                          "value": "Thu, 20 Feb 2025 08:41:01 GMT"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "Content-Length",
+                          "value": "382"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "X-DNS-Prefetch-Control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "X-Frame-Options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "Strict-Transport-Security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "X-Download-Options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "X-Content-Type-Options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "X-XSS-Protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "Access-Control-Allow-Origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "ETag",
+                          "value": "W/\"17e-KfOFC1OQ/DHiAgt6N4R5YY8/liQ\""
+                        },
+                        {
+                          "key": "Vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Set-Cookie",
+                          "value": "AWSALBAPP-0=_remove_; Expires=Thu, 27 Feb 2025 08:41:01 GMT; Path=/"
+                        },
+                        {
+                          "key": "Set-Cookie",
+                          "value": "AWSALBAPP-1=_remove_; Expires=Thu, 27 Feb 2025 08:41:01 GMT; Path=/"
+                        },
+                        {
+                          "key": "Set-Cookie",
+                          "value": "AWSALBAPP-2=_remove_; Expires=Thu, 27 Feb 2025 08:41:01 GMT; Path=/"
+                        },
+                        {
+                          "key": "Set-Cookie",
+                          "value": "AWSALBAPP-3=_remove_; Expires=Thu, 27 Feb 2025 08:41:01 GMT; Path=/"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": true,\n    \"data\": {\n        \"amount\": 1940,\n        \"destinationAddress\": \"TNVo1Ttd6vt1TCzJ9XtcsQ8sxGpgA4kFuM\",\n        \"coin\": \"TRX\",\n        \"comment\": \"\",\n        \"sequenceId\": \"343343r3r3e\",\n        \"data\": \"\",\n        \"messageToSign\": \"1940|TNVo1Ttd6vt1TCzJ9XtcsQ8sxGpgA4kFuM|TRX\",\n        \"signature\": \"0x\",\n        \"timestamp\": 1740040854252,\n        \"isInternal\": false,\n        \"output\": [\n            {\n                \"address\": \"TNVo1Ttd6vt1TCzJ9XtcsQ8sxGpgA4kFuM\",\n                \"valueUnitAmount\": 1940\n            }\n        ]\n    },\n    \"message\": null\n}"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Memo Transaction",
+              "item": [
+                {
+                  "name": "Memo Transaction - XRP/COSMOS/XLM",
+                  "request": {
+                    "auth": {
+                      "type": "basic",
+                      "basic": [
+                        {
+                          "key": "password",
+                          "value": "{{client_secret}}",
+                          "type": "string"
+                        },
+                        {
+                          "key": "username",
+                          "value": "{{client_id}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "",
+                        "value": "",
+                        "type": "text",
+                        "disabled": true
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"wallet\": {\n        \"coin\": \"xrp\",\n        \"walletId\": 17889\n    },\n    \"transactions\": {\n        \"recipientsData\": {\n            \"recipients\": [\n                {\n                    \"address\": \"rJAQaRf9rUzMb1mkfu5DZ74Sk8WLs7tJCk\",\n                    \"amount\": 50,\n                    \"data\": \"02042024\" // Memo Or Destination Tag\n                }\n            ],\n            \"sequenceId\": \"{{guid}}\"\n        }\n    }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/wallet/send-many-transaction",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "wallet",
+                        "send-many-transaction"
+                      ]
+                    }
+                  },
+                  "response": [
+                    {
+                      "name": "Memo Transaction - XRP/COSMOS/XLM",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "",
+                            "value": "",
+                            "type": "text",
+                            "disabled": true
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"wallet\": {\n        \"coin\": \"xlm\",\n        \"walletId\":35143\n    },\n    \"transactions\": {\n        \"recipientsData\": {\n            \"recipients\": [\n                {\n                    \"address\": \"GCEEOPWJ56DXOVMQXKAKX5TCKMEKZ26NIQDYI5IW42FYARC2FSBHAH63\",\n                    \"amount\": 50,\n                    \"data\": \"8767754\" // Memo Or Destination Tag\n                }\n            ],\n            \"sequenceId\": \"{{guid}}\"\n        }\n    }\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{base_url}}/api/v2/wallets/35143/send-many-transaction-request",
+                          "host": [
+                            "{{base_url}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v2",
+                            "wallets",
+                            "35143",
+                            "send-many-transaction-request"
+                          ]
+                        }
+                      },
+                      "status": "Internal Server Error",
+                      "code": 500,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "Date",
+                          "value": "Fri, 14 Feb 2025 09:50:31 GMT"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "Content-Length",
+                          "value": "147"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "X-DNS-Prefetch-Control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "X-Frame-Options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "Strict-Transport-Security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "X-Download-Options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "X-Content-Type-Options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "X-XSS-Protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "Access-Control-Allow-Origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "ETag",
+                          "value": "W/\"93-FqOivUDFhKRjlR/IuDbgDsqWEYE\""
+                        },
+                        {
+                          "key": "Vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Set-Cookie",
+                          "value": "AWSALBAPP-0=_remove_; Expires=Fri, 21 Feb 2025 09:50:31 GMT; Path=/"
+                        },
+                        {
+                          "key": "Set-Cookie",
+                          "value": "AWSALBAPP-1=_remove_; Expires=Fri, 21 Feb 2025 09:50:31 GMT; Path=/"
+                        },
+                        {
+                          "key": "Set-Cookie",
+                          "value": "AWSALBAPP-2=_remove_; Expires=Fri, 21 Feb 2025 09:50:31 GMT; Path=/"
+                        },
+                        {
+                          "key": "Set-Cookie",
+                          "value": "AWSALBAPP-3=_remove_; Expires=Fri, 21 Feb 2025 09:50:31 GMT; Path=/"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": false,\n    \"data\": {},\n    \"message\": \"{\\\"success\\\":false,\\\"data\\\":{},\\\"message\\\":\\\"Error: Wallet doesn't support teams\\\",\\\"code\\\":\\\"\\\"}\",\n    \"code\": \"\"\n}"
+                    },
+                    {
+                      "name": "Memo Transaction - XRP/COSMOS/XLM",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "",
+                            "value": "",
+                            "type": "text",
+                            "disabled": true
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"wallet\": {\n        \"coin\": \"xlm\",\n        \"walletId\":35202\n    },\n    \"transactions\": {\n        \"recipientsData\": {\n            \"recipients\": [\n                {\n                    \"address\": \"GDEXR6U3CE5XDR3IE42A6F3XEW57GCR5UOV4EDNEK6V6MSNWZY77ETFH\",\n                    \"amount\": 570,\n                    \"data\": \"020420251\" // Memo Or Destination Tag\n                }\n            ],\n            \"sequenceId\": \"7878734\"\n        }\n    }\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{base_url}}/api/wallet/send-many-transaction",
+                          "host": [
+                            "{{base_url}}"
+                          ],
+                          "path": [
+                            "api",
+                            "wallet",
+                            "send-many-transaction"
+                          ]
+                        }
+                      },
+                      "status": "Internal Server Error",
+                      "code": 500,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "Date",
+                          "value": "Tue, 25 Feb 2025 10:34:31 GMT"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "Content-Length",
+                          "value": "131"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "X-DNS-Prefetch-Control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "X-Frame-Options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "Strict-Transport-Security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "X-Download-Options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "X-Content-Type-Options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "X-XSS-Protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "Access-Control-Allow-Origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "ETag",
+                          "value": "W/\"83-9mV4Ot3docnl1YbIVV2cPwkI+mg\""
+                        },
+                        {
+                          "key": "Vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Set-Cookie",
+                          "value": "AWSALBAPP-0=_remove_; Expires=Tue, 04 Mar 2025 10:34:31 GMT; Path=/"
+                        },
+                        {
+                          "key": "Set-Cookie",
+                          "value": "AWSALBAPP-1=_remove_; Expires=Tue, 04 Mar 2025 10:34:31 GMT; Path=/"
+                        },
+                        {
+                          "key": "Set-Cookie",
+                          "value": "AWSALBAPP-2=_remove_; Expires=Tue, 04 Mar 2025 10:34:31 GMT; Path=/"
+                        },
+                        {
+                          "key": "Set-Cookie",
+                          "value": "AWSALBAPP-3=_remove_; Expires=Tue, 04 Mar 2025 10:34:31 GMT; Path=/"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": false,\n    \"data\": {},\n    \"message\": \"{\\\"success\\\":false,\\\"data\\\":{},\\\"message\\\":\\\"UnAuthorized Access\\\",\\\"code\\\":\\\"\\\"}\",\n    \"code\": \"\"\n}"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Approve Withdrawal Transaction",
+              "item": [
+                {
+                  "name": "Submit Transaction Job",
+                  "request": {
+                    "auth": {
+                      "type": "basic",
+                      "basic": [
+                        {
+                          "key": "password",
+                          "value": "{{client_secret}}",
+                          "type": "string"
+                        },
+                        {
+                          "key": "username",
+                          "value": "{{client_id}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\"wallet\":{\"coin\":\"btc\"}}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/v2/wallets/36690/submit-transaction",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v2",
+                        "wallets",
+                        "36690",
+                        "submit-transaction"
+                      ]
+                    }
+                  },
+                  "response": [
+                    {
+                      "name": "Sign-Transaction-Job-Error",
+                      "originalRequest": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "http://localhost:8081/api/wallet/v2/sign-transaction-job/:flag",
+                          "protocol": "http",
+                          "host": [
+                            "localhost"
+                          ],
+                          "port": "8081",
+                          "path": [
+                            "api",
+                            "wallet",
+                            "v2",
+                            "sign-transaction-job",
+                            ":flag"
+                          ],
+                          "variable": [
+                            {
+                              "key": "flag",
+                              "value": "kishor"
+                            }
+                          ]
+                        }
+                      },
+                      "status": "Bad Request",
+                      "code": 400,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "X-DNS-Prefetch-Control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "X-Frame-Options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "Strict-Transport-Security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "X-Download-Options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "X-Content-Type-Options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "X-XSS-Protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "Access-Control-Allow-Origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "Content-Length",
+                          "value": "141"
+                        },
+                        {
+                          "key": "ETag",
+                          "value": "W/\"8d-QQJdViQH8LToruSWZ85F7ZvC8x8\""
+                        },
+                        {
+                          "key": "Vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Date",
+                          "value": "Wed, 06 Dec 2023 12:45:43 GMT"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "Keep-Alive",
+                          "value": "timeout=5"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": false,\n    \"data\": {\n        \"errors\": [\n            {\n                \"value\": \"kishor\",\n                \"msg\": \"flag must be start or stop\",\n                \"param\": \"flag\",\n                \"location\": \"params\"\n            }\n        ]\n    },\n    \"message\": null\n}"
+                    },
+                    {
+                      "name": "Sign-Transaction-Job-Ok-Response",
+                      "originalRequest": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "http://localhost:8081/api/wallet/v2/sign-transaction-job/:flag",
+                          "protocol": "http",
+                          "host": [
+                            "localhost"
+                          ],
+                          "port": "8081",
+                          "path": [
+                            "api",
+                            "wallet",
+                            "v2",
+                            "sign-transaction-job",
+                            ":flag"
+                          ],
+                          "variable": [
+                            {
+                              "key": "flag",
+                              "value": "stop"
+                            }
+                          ]
+                        }
+                      },
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "X-DNS-Prefetch-Control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "X-Frame-Options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "Strict-Transport-Security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "X-Download-Options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "X-Content-Type-Options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "X-XSS-Protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "Access-Control-Allow-Origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "Content-Length",
+                          "value": "59"
+                        },
+                        {
+                          "key": "ETag",
+                          "value": "W/\"3b-ZXALtQwkH6qIVnS+fmQWUOMAFwc\""
+                        },
+                        {
+                          "key": "Vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Date",
+                          "value": "Wed, 06 Dec 2023 12:52:27 GMT"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "Keep-Alive",
+                          "value": "timeout=5"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": true,\n    \"data\": \"Transaction broadcast stopped....\"\n}"
+                    },
+                    {
+                      "name": "Sign-Transaction-Job-Transaction-Broadcast-not-started-Error",
+                      "originalRequest": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "http://localhost:8081/api/wallet/v2/sign-transaction-job/:flag",
+                          "protocol": "http",
+                          "host": [
+                            "localhost"
+                          ],
+                          "port": "8081",
+                          "path": [
+                            "api",
+                            "wallet",
+                            "v2",
+                            "sign-transaction-job",
+                            ":flag"
+                          ],
+                          "variable": [
+                            {
+                              "key": "flag",
+                              "value": "stop"
+                            }
+                          ]
+                        }
+                      },
+                      "status": "Internal Server Error",
+                      "code": 500,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "X-DNS-Prefetch-Control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "X-Frame-Options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "Strict-Transport-Security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "X-Download-Options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "X-Content-Type-Options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "X-XSS-Protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "Access-Control-Allow-Origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "Content-Length",
+                          "value": "84"
+                        },
+                        {
+                          "key": "ETag",
+                          "value": "W/\"54-V86fTiBL+ouH9fEB6ftvbAq/0j0\""
+                        },
+                        {
+                          "key": "Vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Date",
+                          "value": "Wed, 06 Dec 2023 12:57:06 GMT"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "Keep-Alive",
+                          "value": "timeout=5"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": false,\n    \"data\": {},\n    \"message\": \"Transaction Broadcast not started.\",\n    \"code\": \"\"\n}"
+                    },
+                    {
+                      "name": "Sign-Transaction-Job-Transaction-Broadcast-already-started.",
+                      "originalRequest": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "http://localhost:8081/api/wallet/v2/sign-transaction-job/:flag",
+                          "protocol": "http",
+                          "host": [
+                            "localhost"
+                          ],
+                          "port": "8081",
+                          "path": [
+                            "api",
+                            "wallet",
+                            "v2",
+                            "sign-transaction-job",
+                            ":flag"
+                          ],
+                          "variable": [
+                            {
+                              "key": "flag",
+                              "value": "start"
+                            }
+                          ]
+                        }
+                      },
+                      "status": "Internal Server Error",
+                      "code": 500,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "X-DNS-Prefetch-Control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "X-Frame-Options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "Strict-Transport-Security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "X-Download-Options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "X-Content-Type-Options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "X-XSS-Protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "Access-Control-Allow-Origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "Content-Length",
+                          "value": "88"
+                        },
+                        {
+                          "key": "ETag",
+                          "value": "W/\"58-XAXJ7S7EroiDSXrCLjbHWxUov+A\""
+                        },
+                        {
+                          "key": "Vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Date",
+                          "value": "Wed, 06 Dec 2023 12:58:52 GMT"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "Keep-Alive",
+                          "value": "timeout=5"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": false,\n    \"data\": {},\n    \"message\": \"Transaction Broadcast already started.\",\n    \"code\": \"\"\n}"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "Get Approx Fees",
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "{{client_secret}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "{{client_id}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"wallet\":{\n        \"coin\": \"btc\",\n        \"walletId\":36690\n    }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/wallet/get-approx-fees",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "wallet",
+                    "get-approx-fees"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Resend Transaction EVM Only",
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "{{client_secret}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "{{client_id}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"walletId\": 1\n    },\n    \"walletIdList\":[1]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/wallet/resend-evm-transaction",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "wallet",
+                    "resend-evm-transaction"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Get Transfers",
+          "item": [
+            {
+              "name": "Get Transfer by Sequence Id",
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "{{client_secret}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "{{client_id}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"walletId\":1\n    },\n    \"sequenceId\":\"93544241-c00e-c754-3bd0-494567a67ee8\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/wallet/get-transfer",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "wallet",
+                    "get-transfer"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Transfer by TransactionId",
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "{{client_secret}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "{{client_id}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"walletId\":1\n    },\n    \"txId\":\"0x992ea09580d5c3c18cde5092dc96c9564c4945b42dafc1eba3f67b72b99f2efb\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/wallet/get-transfer",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "wallet",
+                    "get-transfer"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Transfer List",
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "{{client_secret}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "{{client_id}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"walletId\":1\n    },\n     \"pagination\":{\n                    \"pageNumber\":1,\n                    \"pageSize\":10\n                }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/wallet/get-transfer-list",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "wallet",
+                    "get-transfer-list"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Pending Transactions",
+          "item": [
+            {
+              "name": "Get Pending Transactions",
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "ebkpgb6qBecMLvRX3wC-QBuquS6rs5gP-81FWQj4BalkBgSEy6omt5ukjFm9XpLZ",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "ArfDABW79iujaGxGMYPQXK0RFFh1wwcI",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/wallet/v2/pending-transaction-list",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "wallet",
+                    "v2",
+                    "pending-transaction-list"
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "name": "Get-Pending-Request-Ok-Response",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "http://localhost:8081/api/wallet/v2/pending-transaction-list",
+                      "protocol": "http",
+                      "host": [
+                        "localhost"
+                      ],
+                      "port": "8081",
+                      "path": [
+                        "api",
+                        "wallet",
+                        "v2",
+                        "pending-transaction-list"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "X-DNS-Prefetch-Control",
+                      "value": "off"
+                    },
+                    {
+                      "key": "X-Frame-Options",
+                      "value": "SAMEORIGIN"
+                    },
+                    {
+                      "key": "Strict-Transport-Security",
+                      "value": "max-age=15552000; includeSubDomains"
+                    },
+                    {
+                      "key": "X-Download-Options",
+                      "value": "noopen"
+                    },
+                    {
+                      "key": "X-Content-Type-Options",
+                      "value": "nosniff"
+                    },
+                    {
+                      "key": "X-XSS-Protection",
+                      "value": "1; mode=block"
+                    },
+                    {
+                      "key": "Access-Control-Allow-Origin",
+                      "value": "*"
+                    },
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    },
+                    {
+                      "key": "ETag",
+                      "value": "W/\"cac-evMb5DE2v1oL/7p9jeDVtGxmkeU\""
+                    },
+                    {
+                      "key": "Vary",
+                      "value": "Accept-Encoding"
+                    },
+                    {
+                      "key": "Content-Encoding",
+                      "value": "gzip"
+                    },
+                    {
+                      "key": "Date",
+                      "value": "Wed, 06 Dec 2023 04:40:16 GMT"
+                    },
+                    {
+                      "key": "Connection",
+                      "value": "keep-alive"
+                    },
+                    {
+                      "key": "Keep-Alive",
+                      "value": "timeout=5"
+                    },
+                    {
+                      "key": "Transfer-Encoding",
+                      "value": "chunked"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n    \"success\": true,\n    \"data\": [\n        {\n            \"transactions\": [\n                {\n                    \"id\": 3575,\n                    \"destinationAddress\": \"0xf53835ADc48fb8C8FA29cc1f9552c6e81Cf93b76\",\n                    \"amount\": \"0.00800000\",\n                    \"walletId\": 14655,\n                    \"userId\": 2626,\n                    \"asset\": \"ETH\",\n                    \"data\": \"\",\n                    \"comment\": null,\n                    \"msgToSign\": \"0.008|0xf53835ADc48fb8C8FA29cc1f9552c6e81Cf93b76|ETH\",\n                    \"txn_req_id\": 489737,\n                    \"status\": 1,\n                    \"createdAt\": \"2023-12-05T22:32:37.000Z\",\n                    \"chain\": \"ETH\",\n                    \"parentchain\": \"EVM\",\n                    \"orgid\": 1308,\n                    \"sequenceId\": \"c5de909a-50bc-4ba7-a077-5abf55f12cad\",\n                    \"token_address\": null,\n                    \"amountHex\": \"0x1c6bf526340000\",\n                    \"wallet\": {\n                        \"id\": 14655,\n                        \"name\": \"HP hot mng org  wallet test MPC Withdrawal ETH\",\n                        \"type\": \"mpc\",\n                        \"config\": \"2of2\",\n                        \"status\": 1,\n                        \"balance\": \"0.02923298\",\n                        \"balanceusd\": \"64.33863381\",\n                        \"raw\": null,\n                        \"issynced\": true,\n                        \"walletpath\": \"m/44/60/1/14655/0/0\",\n                        \"walletidentifier\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\",\n                        \"coin\": \"ETH\",\n                        \"chain\": \"ETH\",\n                        \"parentchain\": \"EVM\",\n                        \"subtype\": \"hot\",\n                        \"isArchived\": false,\n                        \"teamId\": null,\n                        \"version\": 2,\n                        \"orgid\": 1308,\n                        \"suspendedStatus\": 0,\n                        \"suspendedRemark\": null\n                    },\n                    \"txReq\": {\n                        \"id\": 489737,\n                        \"raw\": \"{\\\"txHex\\\":\\\"02f30502850165a0bc00850165a0bc30827b0c94f53835adc48fb8c8fa29cc1f9552c6e81cf93b76871c6bf52634000080c0808080\\\",\\\"nonce\\\":2,\\\"halfSigned\\\":{\\\"payload\\\":\\\"{\\\\\\\"amount\\\\\\\":0.008,\\\\\\\"destinationAddress\\\\\\\":\\\\\\\"0xf53835ADc48fb8C8FA29cc1f9552c6e81Cf93b76\\\\\\\",\\\\\\\"coinSymbol\\\\\\\":\\\\\\\"ETH\\\\\\\",\\\\\\\"transactionHash\\\\\\\":\\\\\\\"0xbaa0b613836b1968a58a598e7352ee1f53a9a039eee270d11e5cd3f5a1d79758\\\\\\\",\\\\\\\"fromAddress\\\\\\\":\\\\\\\"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\\\\\\\",\\\\\\\"data\\\\\\\":\\\\\\\"\\\\\\\"}\\\",\\\"txBase64\\\":\\\"\\\",\\\"txHex\\\":\\\"02f30502850165a0bc00850165a0bc30827b0c94f53835adc48fb8c8fa29cc1f9552c6e81cf93b76871c6bf52634000080c0808080\\\"},\\\"gasFeesDetails\\\":{\\\"baseGasFees\\\":\\\"0.000000012\\\",\\\"LessBaseGasFees\\\":\\\"0.000000012\\\",\\\"maxFeePerGas\\\":\\\"6.000000048\\\",\\\"maxPriorityFeePerGas\\\":\\\"6\\\",\\\"blockNumber\\\":10165624},\\\"msgToSign\\\":\\\"e05ab7052dc773b7b3c4b1f02f366396cfb50625959d3f82142ea98b5ec11363\\\",\\\"transactionSequenceId\\\":-1,\\\"signature\\\":\\\"\\\"}\",\n                        \"walletid\": \"14655\",\n                        \"status\": 1,\n                        \"userid\": 2626,\n                        \"identifier\": \"0xbaa0b613836b1968a58a598e7352ee1f53a9a039eee270d11e5cd3f5a1d79758\",\n                        \"destinationAddress\": \"0xf53835ADc48fb8C8FA29cc1f9552c6e81Cf93b76\",\n                        \"amount\": \"0.00800000\",\n                        \"type\": 1,\n                        \"asset\": \"ETH\",\n                        \"chain\": \"ETH\",\n                        \"comment\": null,\n                        \"noceidentifier\": null,\n                        \"timestamp\": \"2023-12-06T04:02:45.000Z\",\n                        \"transactionSequenceId\": 592989,\n                        \"txNonce\": \"2\",\n                        \"baseGasFees\": null,\n                        \"maxFeesPerGas\": null,\n                        \"maxPriorityFeeGas\": null,\n                        \"lessBaseGasFees\": null,\n                        \"maxTransactionFees\": null,\n                        \"blockNumber\": null,\n                        \"fromAddress\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\",\n                        \"txType\": null,\n                        \"gasUsed\": null\n                    },\n                    \"input\": {\n                        \"id\": 10612035,\n                        \"address\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\",\n                        \"type\": \"receive\",\n                        \"path\": \"m/14655/0/0\",\n                        \"balance\": \"0.02923298\",\n                        \"txcount\": 4,\n                        \"walletid\": 14655,\n                        \"utxoCount\": 0\n                    },\n                    \"usdAmount\": 18.205360000000002,\n                    \"metadata\": {\n                        \"id\": 3232,\n                        \"transactionReqId\": null,\n                        \"teamTransactionId\": 3575,\n                        \"metadata\": null\n                    }\n                }\n            ],\n            \"org\": {\n                \"id\": 1308,\n                \"name\": \"hp sub org hot wallet \",\n                \"address\": null,\n                \"country\": \"Afghanistan\",\n                \"number\": \"7418529633\",\n                \"billingcycle\": null,\n                \"lastbill\": \"2023-11-21T08:21:25.000Z\",\n                \"billingAmount\": null,\n                \"currentPlan\": null,\n                \"photoUrl\": null,\n                \"businessName\": \"hp sub org hit wallet \",\n                \"createdAt\": \"2023-11-21T08:21:25.000Z\",\n                \"updatedAt\": null,\n                \"gasStationUserId\": 2622,\n                \"status\": 1,\n                \"orgType\": 3,\n                \"type\": 3,\n                \"management_org_id\": 1307,\n                \"custody_type\": 2\n            }\n        }\n    ]\n}"
+                }
+              ]
+            },
+            {
+              "name": "Get Transaction Status",
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "{{client_secret}}",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "{{client_id}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"walletId\":1\n    },\n    \"sequenceId\":\"dbb1a39d-5261-4d82-84ae-a4e62488bb60\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/wallet/transaction-status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "wallet",
+                    "transaction-status"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Deposit Wallets",
+      "item": [
+        {
+          "name": "Transactions",
+          "item": [
+            {
+              "name": "Consolidation Address",
+              "item": [
+                {
+                  "name": "Chain Consolidate Transaction Request",
+                  "request": {
+                    "auth": {
+                      "type": "basic",
+                      "basic": [
+                        {
+                          "key": "password",
+                          "value": "{{client_secret}}",
+                          "type": "string"
+                        },
+                        {
+                          "key": "username",
+                          "value": "{{client_id}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\"\n\n    },\n    \"transactions\":{\n        \"consolidateOptions\": {\n                \"targetAddress\": \"0x514e12Db12F0DaD3531e64965c1e992A8B62259b\"\n            }\n    }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/v2/wallets/31279/consolidate-transaction-request",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v2",
+                        "wallets",
+                        "31279",
+                        "consolidate-transaction-request"
+                      ]
+                    }
+                  },
+                  "response": [
+                    {
+                      "name": "Consolidate-Transaction-Request-Bad-Request",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"wallet\":{\n        \"coin\": \"\",\n        \"allToken\":\"\"\n    },\n    \"transactions\":{\n        \"consolidateOptions\": {\n                \"targetAddress\": \"\"\n            }\n    }\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "http://localhost:8081/api/wallet/v2/hi/consolidate-transaction-request",
+                          "protocol": "http",
+                          "host": [
+                            "localhost"
+                          ],
+                          "port": "8081",
+                          "path": [
+                            "api",
+                            "wallet",
+                            "v2",
+                            "hi",
+                            "consolidate-transaction-request"
+                          ]
+                        }
+                      },
+                      "status": "Bad Request",
+                      "code": 400,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "X-DNS-Prefetch-Control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "X-Frame-Options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "Strict-Transport-Security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "X-Download-Options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "X-Content-Type-Options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "X-XSS-Protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "Access-Control-Allow-Origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "Content-Length",
+                          "value": "430"
+                        },
+                        {
+                          "key": "ETag",
+                          "value": "W/\"1ae-4yVczEEaJtZtD2H4YYZ9ItR50j0\""
+                        },
+                        {
+                          "key": "Vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Date",
+                          "value": "Wed, 06 Dec 2023 10:02:18 GMT"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "Keep-Alive",
+                          "value": "timeout=5"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": false,\n    \"data\": {\n        \"errors\": [\n            {\n                \"value\": \"\",\n                \"msg\": \"coin is required\",\n                \"param\": \"wallet.coin\",\n                \"location\": \"body\"\n            },\n            {\n                \"value\": \"hi\",\n                \"msg\": \"wallet id should be positive number\",\n                \"param\": \"id\",\n                \"location\": \"params\"\n            },\n            {\n                \"value\": \"\",\n                \"msg\": \"all token value should be boolean\",\n                \"param\": \"wallet.allToken\",\n                \"location\": \"body\"\n            },\n            {\n                \"value\": \"\",\n                \"msg\": \"Invalid value\",\n                \"param\": \"transactions.consolidateOptions.targetAddress\",\n                \"location\": \"body\"\n            }\n        ]\n    },\n    \"message\": null\n}"
+                    },
+                    {
+                      "name": "Consolidate-Transaction-Request-Only-Deposit-Wallet-Error",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"allToken\":true\n    },\n    \"transactions\":{\n        \"consolidateOptions\": {\n                \"targetAddress\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\"\n            }\n    }\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "http://localhost:8081/api/wallet/v2/14655/consolidate-transaction-request",
+                          "protocol": "http",
+                          "host": [
+                            "localhost"
+                          ],
+                          "port": "8081",
+                          "path": [
+                            "api",
+                            "wallet",
+                            "v2",
+                            "14655",
+                            "consolidate-transaction-request"
+                          ]
+                        }
+                      },
+                      "status": "Internal Server Error",
+                      "code": 500,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "X-DNS-Prefetch-Control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "X-Frame-Options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "Strict-Transport-Security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "X-Download-Options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "X-Content-Type-Options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "X-XSS-Protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "Access-Control-Allow-Origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "Content-Length",
+                          "value": "110"
+                        },
+                        {
+                          "key": "ETag",
+                          "value": "W/\"6e-hXI8cign6GGVUAccPTrfIWYWf7k\""
+                        },
+                        {
+                          "key": "Vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Date",
+                          "value": "Wed, 06 Dec 2023 10:05:36 GMT"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "Keep-Alive",
+                          "value": "timeout=5"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": false,\n    \"data\": {},\n    \"message\": \"Consolidation Transaction is only allowed for Deposit Wallet\",\n    \"code\": \"\"\n}"
+                    },
+                    {
+                      "name": "Consolidate-Transaction-Request-OK-Response",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"allToken\":true\n    },\n    \"transactions\":{\n        \"consolidateOptions\": {\n                \"targetAddress\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\"\n            }\n    }\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "http://localhost:8081/api/wallet/v2/14687/consolidate-transaction-request",
+                          "protocol": "http",
+                          "host": [
+                            "localhost"
+                          ],
+                          "port": "8081",
+                          "path": [
+                            "api",
+                            "wallet",
+                            "v2",
+                            "14687",
+                            "consolidate-transaction-request"
+                          ]
+                        }
+                      },
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "X-DNS-Prefetch-Control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "X-Frame-Options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "Strict-Transport-Security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "X-Download-Options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "X-Content-Type-Options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "X-XSS-Protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "Access-Control-Allow-Origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "ETag",
+                          "value": "W/\"874-AVD0RONhEE5SDVCZRCnqCC09vwc\""
+                        },
+                        {
+                          "key": "Vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Content-Encoding",
+                          "value": "gzip"
+                        },
+                        {
+                          "key": "Date",
+                          "value": "Wed, 06 Dec 2023 10:40:04 GMT"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "Keep-Alive",
+                          "value": "timeout=5"
+                        },
+                        {
+                          "key": "Transfer-Encoding",
+                          "value": "chunked"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": true,\n    \"data\": {\n        \"transactionList\": [\n            {\n                \"sequenceId\": \"7836ecf0-840e-7b6f-42eb-cba4477d8b74\",\n                \"value\": {\n                    \"coin\": \"ETH\",\n                    \"sequenceId\": \"7836ecf0-840e-7b6f-42eb-cba4477d8b74\",\n                    \"data\": \"\",\n                    \"signature\": \"0x\",\n                    \"timestamp\": 1701859138579,\n                    \"tokenName\": \"ETH\",\n                    \"output\": [\n                        {\n                            \"address\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\",\n                            \"valueUnitAmount\": 0.00785298999748\n                        }\n                    ],\n                    \"chainGasFees\": {\n                        \"maxFeesPerGasWeiHex\": \"0x1a13b8678\",\n                        \"maxPriorityFeeGasWeiHex\": \"0x1a13b8600\",\n                        \"currentBaseGasFeesGwei\": \"0.00000004\",\n                        \"lessBaseGasFeesGwei\": \"0.00000003\",\n                        \"blockNumber\": 10167185\n                    },\n                    \"input\": {\n                        \"address\": \"0xf53835ADc48fb8C8FA29cc1f9552c6e81Cf93b76\",\n                        \"amount\": 0.00785298999748,\n                        \"path\": \"m/14687/0/1\",\n                        \"type\": \"receive\"\n                    },\n                    \"messageToSign\": \"0.00785298999748|0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd|ETH\"\n                }\n            },\n            {\n                \"sequenceId\": \"3873dee5-01af-d30a-6e80-a7060b88ac0e\",\n                \"value\": {\n                    \"coin\": \"ETH\",\n                    \"sequenceId\": \"3873dee5-01af-d30a-6e80-a7060b88ac0e\",\n                    \"data\": \"\",\n                    \"signature\": \"0x\",\n                    \"timestamp\": 1701859159017,\n                    \"tokenName\": \"ETH\",\n                    \"output\": [\n                        {\n                            \"address\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\",\n                            \"valueUnitAmount\": 0.00770599999748\n                        }\n                    ],\n                    \"chainGasFees\": {\n                        \"maxFeesPerGasWeiHex\": \"0x1a13b8678\",\n                        \"maxPriorityFeeGasWeiHex\": \"0x1a13b8600\",\n                        \"currentBaseGasFeesGwei\": \"0.00000004\",\n                        \"lessBaseGasFeesGwei\": \"0.00000003\",\n                        \"blockNumber\": 10167185\n                    },\n                    \"input\": {\n                        \"address\": \"0x15DB1B97037af0B7dfDc5Ef42b6e59e84f90C283\",\n                        \"amount\": 0.00770599999748,\n                        \"path\": \"m/14687/0/3\",\n                        \"type\": \"receive\"\n                    },\n                    \"messageToSign\": \"0.00770599999748|0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd|ETH\"\n                }\n            },\n            {\n                \"sequenceId\": \"f96b593b-f8f1-cc89-353b-5d0ae6be6635\",\n                \"value\": {\n                    \"coin\": \"ETH\",\n                    \"sequenceId\": \"f96b593b-f8f1-cc89-353b-5d0ae6be6635\",\n                    \"data\": \"\",\n                    \"signature\": \"0x\",\n                    \"timestamp\": 1701859178029,\n                    \"tokenName\": \"ETH\",\n                    \"output\": [\n                        {\n                            \"address\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\",\n                            \"valueUnitAmount\": 0.00570599999748\n                        }\n                    ],\n                    \"chainGasFees\": {\n                        \"maxFeesPerGasWeiHex\": \"0x1a13b8678\",\n                        \"maxPriorityFeeGasWeiHex\": \"0x1a13b8600\",\n                        \"currentBaseGasFeesGwei\": \"0.00000004\",\n                        \"lessBaseGasFeesGwei\": \"0.00000003\",\n                        \"blockNumber\": 10167185\n                    },\n                    \"input\": {\n                        \"address\": \"0xa0845f0148456E37e6147f02F5991a0025866234\",\n                        \"amount\": 0.00570599999748,\n                        \"path\": \"m/14687/0/2\",\n                        \"type\": \"receive\"\n                    },\n                    \"messageToSign\": \"0.00570599999748|0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd|ETH\"\n                }\n            }\n        ],\n        \"errorList\": []\n    }\n}"
+                    },
+                    {
+                      "name": "Consolidate Transaction Request-eth",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"wallet\":{\n        \"coin\": \"ETH\"\n\n    },\n    \"transactions\":{\n        \"consolidateOptions\": {\n                \"targetAddress\": \"0x6fD5Cb9d1d372FD749CDfB0D1e26387533EA6fBE\"\n            }\n    }\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "https://api-sdk-whitelabel.lmnl.dev/api/v2/wallets/31279/consolidate-transaction-request",
+                          "protocol": "https",
+                          "host": [
+                            "api-sdk-whitelabel",
+                            "lmnl",
+                            "dev"
+                          ],
+                          "path": [
+                            "api",
+                            "v2",
+                            "wallets",
+                            "31279",
+                            "consolidate-transaction-request"
+                          ]
+                        }
+                      },
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "Date",
+                          "value": "Tue, 17 Dec 2024 09:38:08 GMT"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "Transfer-Encoding",
+                          "value": "chunked"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "x-dns-prefetch-control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "x-frame-options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "strict-transport-security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "x-download-options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "x-content-type-options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "x-xss-protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "access-control-allow-origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "etag",
+                          "value": "W/\"6d5-gKyT4LGHs7gVn+cB6BlAKzAEC30\""
+                        },
+                        {
+                          "key": "vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Content-Encoding",
+                          "value": "gzip"
+                        },
+                        {
+                          "key": "cf-cache-status",
+                          "value": "DYNAMIC"
+                        },
+                        {
+                          "key": "Server",
+                          "value": "cloudflare"
+                        },
+                        {
+                          "key": "CF-RAY",
+                          "value": "8f35f0328f35ede0-LHR"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": true,\n    \"data\": {\n        \"transactionList\": [\n            {\n                \"sequenceId\": \"901a1307-e604-371e-9f12-e20249515489\",\n                \"value\": {\n                    \"coin\": \"ETH\",\n                    \"sequenceId\": \"901a1307-e604-371e-9f12-e20249515489\",\n                    \"data\": \"\",\n                    \"signature\": \"0x\",\n                    \"timestamp\": 1734428288389,\n                    \"output\": [\n                        {\n                            \"address\": \"0x6fD5Cb9d1d372FD749CDfB0D1e26387533EA6fBE\",\n                            \"valueUnitAmount\": 0.1947\n                        }\n                    ],\n                    \"chainGasFees\": {\n                        \"maxFeesPerGasWeiHex\": \"0x1b5bfdc292\",\n                        \"maxPriorityFeeGasWeiHex\": \"0x1a13b8600\",\n                        \"currentBaseGasFeesGwei\": \"39.169158022\",\n                        \"lessBaseGasFeesGwei\": \"29.3768685165\",\n                        \"blockNumber\": 7296801\n                    },\n                    \"prebuildResult\": {\n                        \"txDataResponse\": {\n                            \"data\": \"0x\",\n                            \"gasLimit\": \"0xa410\",\n                            \"maxFeePerGas\": \"0x1b5bfdc292\",\n                            \"maxPriorityFeePerGas\": \"0x1a13b8600\",\n                            \"nonce\": 0,\n                            \"to\": \"0x6fD5Cb9d1d372FD749CDfB0D1e26387533EA6fBE\",\n                            \"value\": \"0x2b3b69e51c4c000\",\n                            \"chain\": \"0x04\",\n                            \"type\": \"0x02\"\n                        },\n                        \"txOutputs\": {\n                            \"destinationAddress\": \"0x6fD5Cb9d1d372FD749CDfB0D1e26387533EA6fBE\",\n                            \"destinationAmount\": 0.1947,\n                            \"coinSymbol\": \"ETH\"\n                        },\n                        \"gasFeesDetails\": {\n                            \"baseGasFees\": \"39.169158022\",\n                            \"LessBaseGasFees\": \"29.3768685165\",\n                            \"maxFeePerGas\": \"117.507474066\",\n                            \"maxPriorityFeePerGas\": \"7\",\n                            \"blockNumber\": 7296801\n                        },\n                        \"txInput\": {\n                            \"address\": \"0xeCFC3f89c357303f66ec1F60B8df12e3B70c3C14\",\n                            \"amount\": 0.1947,\n                            \"path\": \"m/0/19\",\n                            \"type\": \"receive\"\n                        },\n                        \"maxTxFee\": \"0.005229313910772\",\n                        \"amlScreening\": [],\n                        \"txPreBuildResponseV2\": {\n                            \"txInput\": {\n                                \"address\": \"0xeCFC3f89c357303f66ec1F60B8df12e3B70c3C14\",\n                                \"amount\": 0.1947,\n                                \"path\": \"m/0/19\",\n                                \"type\": \"receive\",\n                                \"chainGasFees\": {\n                                    \"maxFeesPerGasWeiHex\": \"0x1b5bfdc292\",\n                                    \"maxPriorityFeeGasWeiHex\": \"0x1a13b8600\",\n                                    \"currentBaseGasFeesGwei\": \"39.169158022\",\n                                    \"lessBaseGasFeesGwei\": \"29.3768685165\",\n                                    \"blockNumber\": 7296801\n                                }\n                            },\n                            \"txOutputs\": {\n                                \"destinationAddress\": \"0x6fD5Cb9d1d372FD749CDfB0D1e26387533EA6fBE\",\n                                \"destinationAmount\": 0.1947,\n                                \"coinSymbol\": \"ETH\"\n                            }\n                        },\n                        \"sequenceId\": \"901a1307-e604-371e-9f12-e20249515489\"\n                    }\n                }\n            }\n        ],\n        \"errorList\": []\n    }\n}"
+                    }
+                  ]
+                },
+                {
+                  "name": "memo Chain Consolidate Transaction Request",
+                  "request": {
+                    "auth": {
+                      "type": "basic",
+                      "basic": [
+                        {
+                          "key": "password",
+                          "value": "{{client_secret}}",
+                          "type": "string"
+                        },
+                        {
+                          "key": "username",
+                          "value": "{{client_id}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\"\n\n    },\n    \"transactions\":{\n        \"consolidateOptions\": {\n                \"targetAddress\": \"0x514e12Db12F0DaD3531e64965c1e992A8B62259b\"\n            }\n    }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/v2/wallets/31279/consolidate-transaction-request",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v2",
+                        "wallets",
+                        "31279",
+                        "consolidate-transaction-request"
+                      ]
+                    }
+                  },
+                  "response": [
+                    {
+                      "name": "Consolidate-Transaction-Request-Bad-Request",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"wallet\":{\n        \"coin\": \"\",\n        \"allToken\":\"\"\n    },\n    \"transactions\":{\n        \"consolidateOptions\": {\n                \"targetAddress\": \"\"\n            }\n    }\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "http://localhost:8081/api/wallet/v2/hi/consolidate-transaction-request",
+                          "protocol": "http",
+                          "host": [
+                            "localhost"
+                          ],
+                          "port": "8081",
+                          "path": [
+                            "api",
+                            "wallet",
+                            "v2",
+                            "hi",
+                            "consolidate-transaction-request"
+                          ]
+                        }
+                      },
+                      "status": "Bad Request",
+                      "code": 400,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "X-DNS-Prefetch-Control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "X-Frame-Options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "Strict-Transport-Security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "X-Download-Options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "X-Content-Type-Options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "X-XSS-Protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "Access-Control-Allow-Origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "Content-Length",
+                          "value": "430"
+                        },
+                        {
+                          "key": "ETag",
+                          "value": "W/\"1ae-4yVczEEaJtZtD2H4YYZ9ItR50j0\""
+                        },
+                        {
+                          "key": "Vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Date",
+                          "value": "Wed, 06 Dec 2023 10:02:18 GMT"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "Keep-Alive",
+                          "value": "timeout=5"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": false,\n    \"data\": {\n        \"errors\": [\n            {\n                \"value\": \"\",\n                \"msg\": \"coin is required\",\n                \"param\": \"wallet.coin\",\n                \"location\": \"body\"\n            },\n            {\n                \"value\": \"hi\",\n                \"msg\": \"wallet id should be positive number\",\n                \"param\": \"id\",\n                \"location\": \"params\"\n            },\n            {\n                \"value\": \"\",\n                \"msg\": \"all token value should be boolean\",\n                \"param\": \"wallet.allToken\",\n                \"location\": \"body\"\n            },\n            {\n                \"value\": \"\",\n                \"msg\": \"Invalid value\",\n                \"param\": \"transactions.consolidateOptions.targetAddress\",\n                \"location\": \"body\"\n            }\n        ]\n    },\n    \"message\": null\n}"
+                    },
+                    {
+                      "name": "Consolidate-Transaction-Request-Only-Deposit-Wallet-Error",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"allToken\":true\n    },\n    \"transactions\":{\n        \"consolidateOptions\": {\n                \"targetAddress\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\"\n            }\n    }\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "http://localhost:8081/api/wallet/v2/14655/consolidate-transaction-request",
+                          "protocol": "http",
+                          "host": [
+                            "localhost"
+                          ],
+                          "port": "8081",
+                          "path": [
+                            "api",
+                            "wallet",
+                            "v2",
+                            "14655",
+                            "consolidate-transaction-request"
+                          ]
+                        }
+                      },
+                      "status": "Internal Server Error",
+                      "code": 500,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "X-DNS-Prefetch-Control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "X-Frame-Options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "Strict-Transport-Security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "X-Download-Options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "X-Content-Type-Options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "X-XSS-Protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "Access-Control-Allow-Origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "Content-Length",
+                          "value": "110"
+                        },
+                        {
+                          "key": "ETag",
+                          "value": "W/\"6e-hXI8cign6GGVUAccPTrfIWYWf7k\""
+                        },
+                        {
+                          "key": "Vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Date",
+                          "value": "Wed, 06 Dec 2023 10:05:36 GMT"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "Keep-Alive",
+                          "value": "timeout=5"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": false,\n    \"data\": {},\n    \"message\": \"Consolidation Transaction is only allowed for Deposit Wallet\",\n    \"code\": \"\"\n}"
+                    },
+                    {
+                      "name": "Consolidate-Transaction-Request-OK-Response",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"allToken\":true\n    },\n    \"transactions\":{\n        \"consolidateOptions\": {\n                \"targetAddress\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\"\n            }\n    }\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "http://localhost:8081/api/wallet/v2/14687/consolidate-transaction-request",
+                          "protocol": "http",
+                          "host": [
+                            "localhost"
+                          ],
+                          "port": "8081",
+                          "path": [
+                            "api",
+                            "wallet",
+                            "v2",
+                            "14687",
+                            "consolidate-transaction-request"
+                          ]
+                        }
+                      },
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "X-DNS-Prefetch-Control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "X-Frame-Options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "Strict-Transport-Security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "X-Download-Options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "X-Content-Type-Options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "X-XSS-Protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "Access-Control-Allow-Origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "ETag",
+                          "value": "W/\"874-AVD0RONhEE5SDVCZRCnqCC09vwc\""
+                        },
+                        {
+                          "key": "Vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Content-Encoding",
+                          "value": "gzip"
+                        },
+                        {
+                          "key": "Date",
+                          "value": "Wed, 06 Dec 2023 10:40:04 GMT"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "Keep-Alive",
+                          "value": "timeout=5"
+                        },
+                        {
+                          "key": "Transfer-Encoding",
+                          "value": "chunked"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": true,\n    \"data\": {\n        \"transactionList\": [\n            {\n                \"sequenceId\": \"7836ecf0-840e-7b6f-42eb-cba4477d8b74\",\n                \"value\": {\n                    \"coin\": \"ETH\",\n                    \"sequenceId\": \"7836ecf0-840e-7b6f-42eb-cba4477d8b74\",\n                    \"data\": \"\",\n                    \"signature\": \"0x\",\n                    \"timestamp\": 1701859138579,\n                    \"tokenName\": \"ETH\",\n                    \"output\": [\n                        {\n                            \"address\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\",\n                            \"valueUnitAmount\": 0.00785298999748\n                        }\n                    ],\n                    \"chainGasFees\": {\n                        \"maxFeesPerGasWeiHex\": \"0x1a13b8678\",\n                        \"maxPriorityFeeGasWeiHex\": \"0x1a13b8600\",\n                        \"currentBaseGasFeesGwei\": \"0.00000004\",\n                        \"lessBaseGasFeesGwei\": \"0.00000003\",\n                        \"blockNumber\": 10167185\n                    },\n                    \"input\": {\n                        \"address\": \"0xf53835ADc48fb8C8FA29cc1f9552c6e81Cf93b76\",\n                        \"amount\": 0.00785298999748,\n                        \"path\": \"m/14687/0/1\",\n                        \"type\": \"receive\"\n                    },\n                    \"messageToSign\": \"0.00785298999748|0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd|ETH\"\n                }\n            },\n            {\n                \"sequenceId\": \"3873dee5-01af-d30a-6e80-a7060b88ac0e\",\n                \"value\": {\n                    \"coin\": \"ETH\",\n                    \"sequenceId\": \"3873dee5-01af-d30a-6e80-a7060b88ac0e\",\n                    \"data\": \"\",\n                    \"signature\": \"0x\",\n                    \"timestamp\": 1701859159017,\n                    \"tokenName\": \"ETH\",\n                    \"output\": [\n                        {\n                            \"address\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\",\n                            \"valueUnitAmount\": 0.00770599999748\n                        }\n                    ],\n                    \"chainGasFees\": {\n                        \"maxFeesPerGasWeiHex\": \"0x1a13b8678\",\n                        \"maxPriorityFeeGasWeiHex\": \"0x1a13b8600\",\n                        \"currentBaseGasFeesGwei\": \"0.00000004\",\n                        \"lessBaseGasFeesGwei\": \"0.00000003\",\n                        \"blockNumber\": 10167185\n                    },\n                    \"input\": {\n                        \"address\": \"0x15DB1B97037af0B7dfDc5Ef42b6e59e84f90C283\",\n                        \"amount\": 0.00770599999748,\n                        \"path\": \"m/14687/0/3\",\n                        \"type\": \"receive\"\n                    },\n                    \"messageToSign\": \"0.00770599999748|0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd|ETH\"\n                }\n            },\n            {\n                \"sequenceId\": \"f96b593b-f8f1-cc89-353b-5d0ae6be6635\",\n                \"value\": {\n                    \"coin\": \"ETH\",\n                    \"sequenceId\": \"f96b593b-f8f1-cc89-353b-5d0ae6be6635\",\n                    \"data\": \"\",\n                    \"signature\": \"0x\",\n                    \"timestamp\": 1701859178029,\n                    \"tokenName\": \"ETH\",\n                    \"output\": [\n                        {\n                            \"address\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\",\n                            \"valueUnitAmount\": 0.00570599999748\n                        }\n                    ],\n                    \"chainGasFees\": {\n                        \"maxFeesPerGasWeiHex\": \"0x1a13b8678\",\n                        \"maxPriorityFeeGasWeiHex\": \"0x1a13b8600\",\n                        \"currentBaseGasFeesGwei\": \"0.00000004\",\n                        \"lessBaseGasFeesGwei\": \"0.00000003\",\n                        \"blockNumber\": 10167185\n                    },\n                    \"input\": {\n                        \"address\": \"0xa0845f0148456E37e6147f02F5991a0025866234\",\n                        \"amount\": 0.00570599999748,\n                        \"path\": \"m/14687/0/2\",\n                        \"type\": \"receive\"\n                    },\n                    \"messageToSign\": \"0.00570599999748|0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd|ETH\"\n                }\n            }\n        ],\n        \"errorList\": []\n    }\n}"
+                    },
+                    {
+                      "name": "Consolidate Transaction Request-eth",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"wallet\":{\n        \"coin\": \"ETH\"\n\n    },\n    \"transactions\":{\n        \"consolidateOptions\": {\n                \"targetAddress\": \"0x6fD5Cb9d1d372FD749CDfB0D1e26387533EA6fBE\"\n            }\n    }\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "https://api-sdk-whitelabel.lmnl.dev/api/v2/wallets/31279/consolidate-transaction-request",
+                          "protocol": "https",
+                          "host": [
+                            "api-sdk-whitelabel",
+                            "lmnl",
+                            "dev"
+                          ],
+                          "path": [
+                            "api",
+                            "v2",
+                            "wallets",
+                            "31279",
+                            "consolidate-transaction-request"
+                          ]
+                        }
+                      },
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "Date",
+                          "value": "Tue, 17 Dec 2024 09:38:08 GMT"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "Transfer-Encoding",
+                          "value": "chunked"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "x-dns-prefetch-control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "x-frame-options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "strict-transport-security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "x-download-options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "x-content-type-options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "x-xss-protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "access-control-allow-origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "etag",
+                          "value": "W/\"6d5-gKyT4LGHs7gVn+cB6BlAKzAEC30\""
+                        },
+                        {
+                          "key": "vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Content-Encoding",
+                          "value": "gzip"
+                        },
+                        {
+                          "key": "cf-cache-status",
+                          "value": "DYNAMIC"
+                        },
+                        {
+                          "key": "Server",
+                          "value": "cloudflare"
+                        },
+                        {
+                          "key": "CF-RAY",
+                          "value": "8f35f0328f35ede0-LHR"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": true,\n    \"data\": {\n        \"transactionList\": [\n            {\n                \"sequenceId\": \"901a1307-e604-371e-9f12-e20249515489\",\n                \"value\": {\n                    \"coin\": \"ETH\",\n                    \"sequenceId\": \"901a1307-e604-371e-9f12-e20249515489\",\n                    \"data\": \"\",\n                    \"signature\": \"0x\",\n                    \"timestamp\": 1734428288389,\n                    \"output\": [\n                        {\n                            \"address\": \"0x6fD5Cb9d1d372FD749CDfB0D1e26387533EA6fBE\",\n                            \"valueUnitAmount\": 0.1947\n                        }\n                    ],\n                    \"chainGasFees\": {\n                        \"maxFeesPerGasWeiHex\": \"0x1b5bfdc292\",\n                        \"maxPriorityFeeGasWeiHex\": \"0x1a13b8600\",\n                        \"currentBaseGasFeesGwei\": \"39.169158022\",\n                        \"lessBaseGasFeesGwei\": \"29.3768685165\",\n                        \"blockNumber\": 7296801\n                    },\n                    \"prebuildResult\": {\n                        \"txDataResponse\": {\n                            \"data\": \"0x\",\n                            \"gasLimit\": \"0xa410\",\n                            \"maxFeePerGas\": \"0x1b5bfdc292\",\n                            \"maxPriorityFeePerGas\": \"0x1a13b8600\",\n                            \"nonce\": 0,\n                            \"to\": \"0x6fD5Cb9d1d372FD749CDfB0D1e26387533EA6fBE\",\n                            \"value\": \"0x2b3b69e51c4c000\",\n                            \"chain\": \"0x04\",\n                            \"type\": \"0x02\"\n                        },\n                        \"txOutputs\": {\n                            \"destinationAddress\": \"0x6fD5Cb9d1d372FD749CDfB0D1e26387533EA6fBE\",\n                            \"destinationAmount\": 0.1947,\n                            \"coinSymbol\": \"ETH\"\n                        },\n                        \"gasFeesDetails\": {\n                            \"baseGasFees\": \"39.169158022\",\n                            \"LessBaseGasFees\": \"29.3768685165\",\n                            \"maxFeePerGas\": \"117.507474066\",\n                            \"maxPriorityFeePerGas\": \"7\",\n                            \"blockNumber\": 7296801\n                        },\n                        \"txInput\": {\n                            \"address\": \"0xeCFC3f89c357303f66ec1F60B8df12e3B70c3C14\",\n                            \"amount\": 0.1947,\n                            \"path\": \"m/0/19\",\n                            \"type\": \"receive\"\n                        },\n                        \"maxTxFee\": \"0.005229313910772\",\n                        \"amlScreening\": [],\n                        \"txPreBuildResponseV2\": {\n                            \"txInput\": {\n                                \"address\": \"0xeCFC3f89c357303f66ec1F60B8df12e3B70c3C14\",\n                                \"amount\": 0.1947,\n                                \"path\": \"m/0/19\",\n                                \"type\": \"receive\",\n                                \"chainGasFees\": {\n                                    \"maxFeesPerGasWeiHex\": \"0x1b5bfdc292\",\n                                    \"maxPriorityFeeGasWeiHex\": \"0x1a13b8600\",\n                                    \"currentBaseGasFeesGwei\": \"39.169158022\",\n                                    \"lessBaseGasFeesGwei\": \"29.3768685165\",\n                                    \"blockNumber\": 7296801\n                                }\n                            },\n                            \"txOutputs\": {\n                                \"destinationAddress\": \"0x6fD5Cb9d1d372FD749CDfB0D1e26387533EA6fBE\",\n                                \"destinationAmount\": 0.1947,\n                                \"coinSymbol\": \"ETH\"\n                            }\n                        },\n                        \"sequenceId\": \"901a1307-e604-371e-9f12-e20249515489\"\n                    }\n                }\n            }\n        ],\n        \"errorList\": []\n    }\n}"
+                    }
+                  ]
+                },
+                {
+                  "name": "Token Consolidate Transaction Request",
+                  "request": {
+                    "auth": {
+                      "type": "basic",
+                      "basic": [
+                        {
+                          "key": "password",
+                          "value": "{{client_secret}}",
+                          "type": "string"
+                        },
+                        {
+                          "key": "username",
+                          "value": "{{client_id}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"allToken\":true,\n        \"tokenOptions\":{\n                \"tokenName\":\"DAI\",\n                \"tokenAddress\":\"0x407bd2FC25F6b8cf913b551E5B1cBd3B49D2282F\"\n            }\n    },\n    \"transactions\":{\n       \"consolidateOptions\":{\n                \"targetAddress\":\"0x5f05eDc8993aa0e2468E076DBE104B90236ec888\"\n            }\n    }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/v2/wallets/31279/consolidate-transaction-request",
+                      "host": [
+                        "{{base_url}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v2",
+                        "wallets",
+                        "31279",
+                        "consolidate-transaction-request"
+                      ]
+                    }
+                  },
+                  "response": [
+                    {
+                      "name": "Consolidate-Transaction-Request-Bad-Request",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"wallet\":{\n        \"coin\": \"\",\n        \"allToken\":\"\"\n    },\n    \"transactions\":{\n        \"consolidateOptions\": {\n                \"targetAddress\": \"\"\n            }\n    }\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "http://localhost:8081/api/wallet/v2/hi/consolidate-transaction-request",
+                          "protocol": "http",
+                          "host": [
+                            "localhost"
+                          ],
+                          "port": "8081",
+                          "path": [
+                            "api",
+                            "wallet",
+                            "v2",
+                            "hi",
+                            "consolidate-transaction-request"
+                          ]
+                        }
+                      },
+                      "status": "Bad Request",
+                      "code": 400,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "X-DNS-Prefetch-Control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "X-Frame-Options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "Strict-Transport-Security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "X-Download-Options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "X-Content-Type-Options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "X-XSS-Protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "Access-Control-Allow-Origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "Content-Length",
+                          "value": "430"
+                        },
+                        {
+                          "key": "ETag",
+                          "value": "W/\"1ae-4yVczEEaJtZtD2H4YYZ9ItR50j0\""
+                        },
+                        {
+                          "key": "Vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Date",
+                          "value": "Wed, 06 Dec 2023 10:02:18 GMT"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "Keep-Alive",
+                          "value": "timeout=5"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": false,\n    \"data\": {\n        \"errors\": [\n            {\n                \"value\": \"\",\n                \"msg\": \"coin is required\",\n                \"param\": \"wallet.coin\",\n                \"location\": \"body\"\n            },\n            {\n                \"value\": \"hi\",\n                \"msg\": \"wallet id should be positive number\",\n                \"param\": \"id\",\n                \"location\": \"params\"\n            },\n            {\n                \"value\": \"\",\n                \"msg\": \"all token value should be boolean\",\n                \"param\": \"wallet.allToken\",\n                \"location\": \"body\"\n            },\n            {\n                \"value\": \"\",\n                \"msg\": \"Invalid value\",\n                \"param\": \"transactions.consolidateOptions.targetAddress\",\n                \"location\": \"body\"\n            }\n        ]\n    },\n    \"message\": null\n}"
+                    },
+                    {
+                      "name": "Consolidate-Transaction-Request-Only-Deposit-Wallet-Error",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"allToken\":true\n    },\n    \"transactions\":{\n        \"consolidateOptions\": {\n                \"targetAddress\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\"\n            }\n    }\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "http://localhost:8081/api/wallet/v2/14655/consolidate-transaction-request",
+                          "protocol": "http",
+                          "host": [
+                            "localhost"
+                          ],
+                          "port": "8081",
+                          "path": [
+                            "api",
+                            "wallet",
+                            "v2",
+                            "14655",
+                            "consolidate-transaction-request"
+                          ]
+                        }
+                      },
+                      "status": "Internal Server Error",
+                      "code": 500,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "X-DNS-Prefetch-Control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "X-Frame-Options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "Strict-Transport-Security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "X-Download-Options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "X-Content-Type-Options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "X-XSS-Protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "Access-Control-Allow-Origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "Content-Length",
+                          "value": "110"
+                        },
+                        {
+                          "key": "ETag",
+                          "value": "W/\"6e-hXI8cign6GGVUAccPTrfIWYWf7k\""
+                        },
+                        {
+                          "key": "Vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Date",
+                          "value": "Wed, 06 Dec 2023 10:05:36 GMT"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "Keep-Alive",
+                          "value": "timeout=5"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": false,\n    \"data\": {},\n    \"message\": \"Consolidation Transaction is only allowed for Deposit Wallet\",\n    \"code\": \"\"\n}"
+                    },
+                    {
+                      "name": "Consolidate-Transaction-Request-OK-Response",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"wallet\":{\n        \"coin\": \"eth\",\n        \"allToken\":true\n    },\n    \"transactions\":{\n        \"consolidateOptions\": {\n                \"targetAddress\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\"\n            }\n    }\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "http://localhost:8081/api/wallet/v2/14687/consolidate-transaction-request",
+                          "protocol": "http",
+                          "host": [
+                            "localhost"
+                          ],
+                          "port": "8081",
+                          "path": [
+                            "api",
+                            "wallet",
+                            "v2",
+                            "14687",
+                            "consolidate-transaction-request"
+                          ]
+                        }
+                      },
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "X-DNS-Prefetch-Control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "X-Frame-Options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "Strict-Transport-Security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "X-Download-Options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "X-Content-Type-Options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "X-XSS-Protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "Access-Control-Allow-Origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "ETag",
+                          "value": "W/\"874-AVD0RONhEE5SDVCZRCnqCC09vwc\""
+                        },
+                        {
+                          "key": "Vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Content-Encoding",
+                          "value": "gzip"
+                        },
+                        {
+                          "key": "Date",
+                          "value": "Wed, 06 Dec 2023 10:40:04 GMT"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "Keep-Alive",
+                          "value": "timeout=5"
+                        },
+                        {
+                          "key": "Transfer-Encoding",
+                          "value": "chunked"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": true,\n    \"data\": {\n        \"transactionList\": [\n            {\n                \"sequenceId\": \"7836ecf0-840e-7b6f-42eb-cba4477d8b74\",\n                \"value\": {\n                    \"coin\": \"ETH\",\n                    \"sequenceId\": \"7836ecf0-840e-7b6f-42eb-cba4477d8b74\",\n                    \"data\": \"\",\n                    \"signature\": \"0x\",\n                    \"timestamp\": 1701859138579,\n                    \"tokenName\": \"ETH\",\n                    \"output\": [\n                        {\n                            \"address\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\",\n                            \"valueUnitAmount\": 0.00785298999748\n                        }\n                    ],\n                    \"chainGasFees\": {\n                        \"maxFeesPerGasWeiHex\": \"0x1a13b8678\",\n                        \"maxPriorityFeeGasWeiHex\": \"0x1a13b8600\",\n                        \"currentBaseGasFeesGwei\": \"0.00000004\",\n                        \"lessBaseGasFeesGwei\": \"0.00000003\",\n                        \"blockNumber\": 10167185\n                    },\n                    \"input\": {\n                        \"address\": \"0xf53835ADc48fb8C8FA29cc1f9552c6e81Cf93b76\",\n                        \"amount\": 0.00785298999748,\n                        \"path\": \"m/14687/0/1\",\n                        \"type\": \"receive\"\n                    },\n                    \"messageToSign\": \"0.00785298999748|0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd|ETH\"\n                }\n            },\n            {\n                \"sequenceId\": \"3873dee5-01af-d30a-6e80-a7060b88ac0e\",\n                \"value\": {\n                    \"coin\": \"ETH\",\n                    \"sequenceId\": \"3873dee5-01af-d30a-6e80-a7060b88ac0e\",\n                    \"data\": \"\",\n                    \"signature\": \"0x\",\n                    \"timestamp\": 1701859159017,\n                    \"tokenName\": \"ETH\",\n                    \"output\": [\n                        {\n                            \"address\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\",\n                            \"valueUnitAmount\": 0.00770599999748\n                        }\n                    ],\n                    \"chainGasFees\": {\n                        \"maxFeesPerGasWeiHex\": \"0x1a13b8678\",\n                        \"maxPriorityFeeGasWeiHex\": \"0x1a13b8600\",\n                        \"currentBaseGasFeesGwei\": \"0.00000004\",\n                        \"lessBaseGasFeesGwei\": \"0.00000003\",\n                        \"blockNumber\": 10167185\n                    },\n                    \"input\": {\n                        \"address\": \"0x15DB1B97037af0B7dfDc5Ef42b6e59e84f90C283\",\n                        \"amount\": 0.00770599999748,\n                        \"path\": \"m/14687/0/3\",\n                        \"type\": \"receive\"\n                    },\n                    \"messageToSign\": \"0.00770599999748|0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd|ETH\"\n                }\n            },\n            {\n                \"sequenceId\": \"f96b593b-f8f1-cc89-353b-5d0ae6be6635\",\n                \"value\": {\n                    \"coin\": \"ETH\",\n                    \"sequenceId\": \"f96b593b-f8f1-cc89-353b-5d0ae6be6635\",\n                    \"data\": \"\",\n                    \"signature\": \"0x\",\n                    \"timestamp\": 1701859178029,\n                    \"tokenName\": \"ETH\",\n                    \"output\": [\n                        {\n                            \"address\": \"0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd\",\n                            \"valueUnitAmount\": 0.00570599999748\n                        }\n                    ],\n                    \"chainGasFees\": {\n                        \"maxFeesPerGasWeiHex\": \"0x1a13b8678\",\n                        \"maxPriorityFeeGasWeiHex\": \"0x1a13b8600\",\n                        \"currentBaseGasFeesGwei\": \"0.00000004\",\n                        \"lessBaseGasFeesGwei\": \"0.00000003\",\n                        \"blockNumber\": 10167185\n                    },\n                    \"input\": {\n                        \"address\": \"0xa0845f0148456E37e6147f02F5991a0025866234\",\n                        \"amount\": 0.00570599999748,\n                        \"path\": \"m/14687/0/2\",\n                        \"type\": \"receive\"\n                    },\n                    \"messageToSign\": \"0.00570599999748|0xAD4202b9F25d6598De6c0cC7c44BEaf84FB4f4cd|ETH\"\n                }\n            }\n        ],\n        \"errorList\": []\n    }\n}"
+                    },
+                    {
+                      "name": "Consolidate Transaction Request-eth",
+                      "originalRequest": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"wallet\":{\n        \"coin\": \"ETH\"\n\n    },\n    \"transactions\":{\n        \"consolidateOptions\": {\n                \"targetAddress\": \"0x6fD5Cb9d1d372FD749CDfB0D1e26387533EA6fBE\"\n            }\n    }\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "https://api-sdk-whitelabel.lmnl.dev/api/v2/wallets/31279/consolidate-transaction-request",
+                          "protocol": "https",
+                          "host": [
+                            "api-sdk-whitelabel",
+                            "lmnl",
+                            "dev"
+                          ],
+                          "path": [
+                            "api",
+                            "v2",
+                            "wallets",
+                            "31279",
+                            "consolidate-transaction-request"
+                          ]
+                        }
+                      },
+                      "status": "OK",
+                      "code": 200,
+                      "_postman_previewlanguage": "json",
+                      "header": [
+                        {
+                          "key": "Date",
+                          "value": "Tue, 17 Dec 2024 09:38:08 GMT"
+                        },
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json; charset=utf-8"
+                        },
+                        {
+                          "key": "Transfer-Encoding",
+                          "value": "chunked"
+                        },
+                        {
+                          "key": "Connection",
+                          "value": "keep-alive"
+                        },
+                        {
+                          "key": "x-dns-prefetch-control",
+                          "value": "off"
+                        },
+                        {
+                          "key": "x-frame-options",
+                          "value": "SAMEORIGIN"
+                        },
+                        {
+                          "key": "strict-transport-security",
+                          "value": "max-age=15552000; includeSubDomains"
+                        },
+                        {
+                          "key": "x-download-options",
+                          "value": "noopen"
+                        },
+                        {
+                          "key": "x-content-type-options",
+                          "value": "nosniff"
+                        },
+                        {
+                          "key": "x-xss-protection",
+                          "value": "1; mode=block"
+                        },
+                        {
+                          "key": "access-control-allow-origin",
+                          "value": "*"
+                        },
+                        {
+                          "key": "etag",
+                          "value": "W/\"6d5-gKyT4LGHs7gVn+cB6BlAKzAEC30\""
+                        },
+                        {
+                          "key": "vary",
+                          "value": "Accept-Encoding"
+                        },
+                        {
+                          "key": "Content-Encoding",
+                          "value": "gzip"
+                        },
+                        {
+                          "key": "cf-cache-status",
+                          "value": "DYNAMIC"
+                        },
+                        {
+                          "key": "Server",
+                          "value": "cloudflare"
+                        },
+                        {
+                          "key": "CF-RAY",
+                          "value": "8f35f0328f35ede0-LHR"
+                        }
+                      ],
+                      "cookie": [],
+                      "body": "{\n    \"success\": true,\n    \"data\": {\n        \"transactionList\": [\n            {\n                \"sequenceId\": \"901a1307-e604-371e-9f12-e20249515489\",\n                \"value\": {\n                    \"coin\": \"ETH\",\n                    \"sequenceId\": \"901a1307-e604-371e-9f12-e20249515489\",\n                    \"data\": \"\",\n                    \"signature\": \"0x\",\n                    \"timestamp\": 1734428288389,\n                    \"output\": [\n                        {\n                            \"address\": \"0x6fD5Cb9d1d372FD749CDfB0D1e26387533EA6fBE\",\n                            \"valueUnitAmount\": 0.1947\n                        }\n                    ],\n                    \"chainGasFees\": {\n                        \"maxFeesPerGasWeiHex\": \"0x1b5bfdc292\",\n                        \"maxPriorityFeeGasWeiHex\": \"0x1a13b8600\",\n                        \"currentBaseGasFeesGwei\": \"39.169158022\",\n                        \"lessBaseGasFeesGwei\": \"29.3768685165\",\n                        \"blockNumber\": 7296801\n                    },\n                    \"prebuildResult\": {\n                        \"txDataResponse\": {\n                            \"data\": \"0x\",\n                            \"gasLimit\": \"0xa410\",\n                            \"maxFeePerGas\": \"0x1b5bfdc292\",\n                            \"maxPriorityFeePerGas\": \"0x1a13b8600\",\n                            \"nonce\": 0,\n                            \"to\": \"0x6fD5Cb9d1d372FD749CDfB0D1e26387533EA6fBE\",\n                            \"value\": \"0x2b3b69e51c4c000\",\n                            \"chain\": \"0x04\",\n                            \"type\": \"0x02\"\n                        },\n                        \"txOutputs\": {\n                            \"destinationAddress\": \"0x6fD5Cb9d1d372FD749CDfB0D1e26387533EA6fBE\",\n                            \"destinationAmount\": 0.1947,\n                            \"coinSymbol\": \"ETH\"\n                        },\n                        \"gasFeesDetails\": {\n                            \"baseGasFees\": \"39.169158022\",\n                            \"LessBaseGasFees\": \"29.3768685165\",\n                            \"maxFeePerGas\": \"117.507474066\",\n                            \"maxPriorityFeePerGas\": \"7\",\n                            \"blockNumber\": 7296801\n                        },\n                        \"txInput\": {\n                            \"address\": \"0xeCFC3f89c357303f66ec1F60B8df12e3B70c3C14\",\n                            \"amount\": 0.1947,\n                            \"path\": \"m/0/19\",\n                            \"type\": \"receive\"\n                        },\n                        \"maxTxFee\": \"0.005229313910772\",\n                        \"amlScreening\": [],\n                        \"txPreBuildResponseV2\": {\n                            \"txInput\": {\n                                \"address\": \"0xeCFC3f89c357303f66ec1F60B8df12e3B70c3C14\",\n                                \"amount\": 0.1947,\n                                \"path\": \"m/0/19\",\n                                \"type\": \"receive\",\n                                \"chainGasFees\": {\n                                    \"maxFeesPerGasWeiHex\": \"0x1b5bfdc292\",\n                                    \"maxPriorityFeeGasWeiHex\": \"0x1a13b8600\",\n                                    \"currentBaseGasFeesGwei\": \"39.169158022\",\n                                    \"lessBaseGasFeesGwei\": \"29.3768685165\",\n                                    \"blockNumber\": 7296801\n                                }\n                            },\n                            \"txOutputs\": {\n                                \"destinationAddress\": \"0x6fD5Cb9d1d372FD749CDfB0D1e26387533EA6fBE\",\n                                \"destinationAmount\": 0.1947,\n                                \"coinSymbol\": \"ETH\"\n                            }\n                        },\n                        \"sequenceId\": \"901a1307-e604-371e-9f12-e20249515489\"\n                    }\n                }\n            }\n        ],\n        \"errorList\": []\n    }\n}"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "client_id",
+      "value": "3W1XlhnuHPygfGiPL1RSPHNqJ3qBJmFL"
+    },
+    {
+      "key": "client_secret",
+      "value": "dxZnVkFBjxwttl31ZYzo470sUaQ2yUsljo7pUJfit2YrMnbkrlmmm1aNC3lS95Y9"
+    },
+    {
+      "key": "base_url",
+      "value": "https://api-dev.thresh0ld.com"
+    }
+  ]
+}

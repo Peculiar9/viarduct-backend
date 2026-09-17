@@ -392,6 +392,7 @@ export class AdminPayoutIntentDTO {
 
 export interface TradeQuoteLineItems {
     spot_price_ngn: number;
+    spot_price_usd: number;
     buy_rate: number;
     sell_rate: number;
     rate_used: number;

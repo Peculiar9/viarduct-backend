@@ -56,6 +56,26 @@ export class GiftCardSubmission implements IGiftCardSubmission {
     @Column('VARCHAR(10) DEFAULT NULL')
     public country?: string | null;
 
+    @ForeignKey({
+        table: TableNames.USER_BANK_ACCOUNTS,
+        field: '_id',
+        constraint: 'fk_gift_card_submission_bank_account_id'
+    })
+    @Column('UUID DEFAULT NULL')
+    public bank_account_id?: string | null;
+
+    @Column('VARCHAR(20) DEFAULT NULL')
+    public recipient_bank_code?: string | null;
+
+    @Column('VARCHAR(100) DEFAULT NULL')
+    public recipient_bank_name?: string | null;
+
+    @Column('VARCHAR(20) DEFAULT NULL')
+    public recipient_account_number?: string | null;
+
+    @Column('VARCHAR(255) DEFAULT NULL')
+    public recipient_account_name?: string | null;
+
     @Index({ unique: false })
     @Column('VARCHAR(30) NOT NULL DEFAULT \'pending_validation\'')
     public status: IGiftCardSubmission['status'];

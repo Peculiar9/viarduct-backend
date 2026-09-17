@@ -27,6 +27,39 @@ export class CryptoService {
         }
         return result;
     }
+
+    /**
+     * AES-encrypt sensitive payload (gift card codes, PINs, claim URLs).
+     * Key resolution: GIFTCARD_ENCRYPTION_KEY → BITCOIN_ENCRYPTION_KEY → JWT_ACCESS_SECRET
+     */
+    public static encryptSensitive(plainText: string, encryptionKey?: string): string {
+        const key = encryptionKey || this.resolveSensitiveKey();
+        return CryptoJS.AES.encrypt(plainText, key).toString();
+    }
+
+    public static decryptSensitive(cipherText: string, encryptionKey?: string): string {
+        const key = encryptionKey || this.resolveSensitiveKey();
+        const bytes = CryptoJS.AES.decrypt(cipherText, key);
+        const plain = bytes.toString(CryptoJS.enc.Utf8);
+        if (!plain) {
+            throw new Error('Failed to decrypt sensitive value');
+        }
+        return plain;
+    }
+
+    private static resolveSensitiveKey(): string {
+        const key =
+            process.env.GIFTCARD_ENCRYPTION_KEY ||
+            process.env.BITCOIN_ENCRYPTION_KEY ||
+            process.env.JWT_ACCESS_SECRET ||
+            '';
+        if (!key) {
+            throw new Error(
+                'No encryption key configured (GIFTCARD_ENCRYPTION_KEY / BITCOIN_ENCRYPTION_KEY / JWT_ACCESS_SECRET)'
+            );
+        }
+        return key;
+    }
 }
 
 export default CryptoService;

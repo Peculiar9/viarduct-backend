@@ -397,6 +397,126 @@ export class WalletService implements IWalletService {
         }
     }
 
+    async debitUserWalletByCurrency(
+        userId: string,
+        currencyCode: string,
+        amount: number
+    ): Promise<IWalletAccount> {
+        try {
+            if (!(amount > 0)) {
+                throw new ValidationError('Debit amount must be greater than 0');
+            }
+            const code = currencyCode.trim().toUpperCase();
+            const wallet = await this.walletRepository.findByUserId(userId);
+            if (!wallet || !wallet._id) {
+                throw new ValidationError('Wallet not found for user');
+            }
+            const currency = await this.currencyRepository.findByCode(code);
+            if (!currency || !currency._id) {
+                throw new ServiceError(`${code} currency not found`);
+            }
+            const walletAccount = await this.walletAccountRepository.findByWalletIdAndCurrencyId(
+                wallet._id,
+                currency._id
+            );
+            if (!walletAccount) {
+                throw new ValidationError(`${code} wallet account not found`);
+            }
+            const availableBalance = parseFloat(String(walletAccount.available_balance ?? 0));
+            const currentBalance = parseFloat(String(walletAccount.balance ?? 0));
+            const lockedBalance = parseFloat(String(walletAccount.locked_balance ?? 0));
+            if (availableBalance < amount) {
+                throw new ValidationError(
+                    `Insufficient ${code} balance. Need ${amount}, have ${availableBalance}`
+                );
+            }
+            const updated = await this.walletAccountRepository.updateBalance(
+                walletAccount._id!,
+                currentBalance - amount,
+                availableBalance - amount,
+                lockedBalance
+            );
+            if (!updated) {
+                throw new ServiceError(`Failed to debit ${code} wallet`);
+            }
+            Console.info('Wallet debited by currency', {
+                userId,
+                currencyCode: code,
+                amount,
+                newBalance: updated.available_balance
+            });
+            return updated;
+        } catch (error: any) {
+            Console.error(error, {
+                message: 'Failed to debit user wallet by currency',
+                userId,
+                currencyCode,
+                amount
+            });
+            throw error;
+        }
+    }
+
+    async creditUserWalletByCurrency(
+        userId: string,
+        currencyCode: string,
+        amount: number
+    ): Promise<IWalletAccount> {
+        try {
+            if (!(amount > 0)) {
+                throw new ValidationError('Credit amount must be greater than 0');
+            }
+            const code = currencyCode.trim().toUpperCase();
+            const wallet = await this.walletRepository.findByUserId(userId);
+            if (!wallet || !wallet._id) {
+                throw new ValidationError('Wallet not found for user');
+            }
+            const currency = await this.currencyRepository.findByCode(code);
+            if (!currency || !currency._id) {
+                throw new ServiceError(`${code} currency not found`);
+            }
+            let walletAccount = await this.walletAccountRepository.findByWalletIdAndCurrencyId(
+                wallet._id,
+                currency._id
+            );
+            if (!walletAccount) {
+                walletAccount = await this.walletAccountRepository.create({
+                    wallet_id: wallet._id,
+                    currency_id: currency._id,
+                    balance: amount,
+                    available_balance: amount,
+                    locked_balance: 0,
+                    status: 'active'
+                } as IWalletAccount);
+                return walletAccount;
+            }
+            const updated = await this.walletAccountRepository.updateBalance(
+                walletAccount._id!,
+                parseFloat(String(walletAccount.balance ?? 0)) + amount,
+                parseFloat(String(walletAccount.available_balance ?? 0)) + amount,
+                parseFloat(String(walletAccount.locked_balance ?? 0))
+            );
+            if (!updated) {
+                throw new ServiceError(`Failed to credit ${code} wallet`);
+            }
+            Console.info('Wallet credited by currency', {
+                userId,
+                currencyCode: code,
+                amount,
+                newBalance: updated.available_balance
+            });
+            return updated;
+        } catch (error: any) {
+            Console.error(error, {
+                message: 'Failed to credit user wallet by currency',
+                userId,
+                currencyCode,
+                amount
+            });
+            throw error;
+        }
+    }
+
     /**
      * Generate or get Bitcoin address for user's BTC wallet account
      */

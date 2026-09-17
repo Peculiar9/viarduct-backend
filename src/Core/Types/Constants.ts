@@ -131,6 +131,7 @@ export const TYPES = {
     TradeQuoteService: Symbol.for('TradeQuoteService'),
     TradeIntentSweepJob: Symbol.for('TradeIntentSweepJob'),
     CustodyProvider: Symbol.for('CustodyProvider'),
+    Thresh0ldApiClient: Symbol.for('Thresh0ldApiClient'),
 
     // Bank accounts (user saved + corporate)
     UserBankAccountRepository: Symbol.for('UserBankAccountRepository'),
@@ -162,6 +163,10 @@ export const TYPES = {
     // Gift cards
     GiftCardSubmissionRepository: Symbol.for('GiftCardSubmissionRepository'),
     GiftCardService: Symbol.for('GiftCardService'),
+    GiftCardTransactionRepository: Symbol.for('GiftCardTransactionRepository'),
+    GiftCardPurchaseService: Symbol.for('GiftCardPurchaseService'),
+    GiftCardProvider: Symbol.for('GiftCardProvider'),
+    ReloadlyClient: Symbol.for('ReloadlyClient'),
     CardRepository: Symbol.for('CardRepository'),
     CardService: Symbol.for('CardService'),
     CardSeeder: Symbol.for('CardSeeder'),

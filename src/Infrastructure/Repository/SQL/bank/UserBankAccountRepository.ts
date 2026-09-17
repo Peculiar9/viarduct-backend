@@ -70,6 +70,33 @@ export class UserBankAccountRepository extends BaseRepository<IUserBankAccount> 
         return (result.rows[0] as any) || null;
     }
 
+    async findUserAccountByNumberAndCode(
+        userId: string,
+        accountNumber: string,
+        bankCode?: string
+    ): Promise<IUserBankAccount | null> {
+        if (bankCode) {
+            const exact = await this.executeQuery<IUserBankAccount>(
+                `SELECT * FROM "${this.tableName}"
+                 WHERE user_id = $1 AND type = 'user'
+                   AND account_number = $2 AND bank_code = $3
+                 ORDER BY is_active DESC, updated_at DESC
+                 LIMIT 1`,
+                [userId, accountNumber, bankCode]
+            );
+            if (exact.rows[0]) return exact.rows[0] as any;
+        }
+
+        const byNumber = await this.executeQuery<IUserBankAccount>(
+            `SELECT * FROM "${this.tableName}"
+             WHERE user_id = $1 AND type = 'user' AND account_number = $2
+             ORDER BY is_active DESC, updated_at DESC
+             LIMIT 1`,
+            [userId, accountNumber]
+        );
+        return (byNumber.rows[0] as any) || null;
+    }
+
     async update(id: string, entity: Partial<IUserBankAccount>): Promise<IUserBankAccount | null> {
         const { setClause, values } = this.buildUpdateSet(entity);
         if (!setClause) return null;

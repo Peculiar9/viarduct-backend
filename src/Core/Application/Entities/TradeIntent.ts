@@ -43,6 +43,9 @@ export class TradeIntent implements ITradeIntent {
     @Column('DECIMAL(20, 2) NOT NULL')
     public spot_price_ngn: number;
 
+    @Column('DECIMAL(20, 8) DEFAULT NULL')
+    public spot_price_usd?: number | null;
+
     @Column('DECIMAL(20, 2) NOT NULL')
     public buy_rate: number;
 

@@ -124,17 +124,20 @@ export class TradeIntentService implements ITradeIntentService {
             accountName = saved.account_name;
         } else {
             const preferred = dto.prefered_bank_detail!;
-            const verified = await this.accountVerificationService.verifyAccountNumber(
-                preferred.recipient_account_number,
-                preferred.recipient_bank_code
-            );
-            if (!verified.status || !verified.data) {
-                throw new ValidationError(verified.message || 'Bank account verification failed');
-            }
-            accountName = verified.data.account_name;
-            resolvedAccountNumber = verified.data.account_number;
-            resolvedBankCode = verified.data.bank?.code ?? preferred.recipient_bank_code;
-            resolvedBankName = verified.data.bank?.name ?? preferred.recipient_bank_name ?? '';
+            const resolved = await this.bankAccountService.resolvePreferredBankDetailForIntent(userId, {
+                recipient_account_number: preferred.recipient_account_number,
+                recipient_bank_code: preferred.recipient_bank_code,
+                recipient_bank_name: preferred.recipient_bank_name
+            });
+            accountName = resolved.account_name;
+            resolvedAccountNumber = resolved.account_number;
+            resolvedBankCode = resolved.bank_code;
+            resolvedBankName = resolved.bank_name;
+            Console.info('Sell intent bank resolved', {
+                userId,
+                source: resolved.source,
+                bankAccountId: resolved.bank_account_id
+            });
         }
 
         const nowIso = new Date().toISOString();
@@ -145,6 +148,7 @@ export class TradeIntentService implements ITradeIntentService {
             crypto_type: asset,
             settlement_mode: 'controlled_p2p',
             spot_price_ngn: quote.spot_price_ngn,
+            spot_price_usd: quote.spot_price_usd,
             buy_rate: quote.buy_rate,
             sell_rate: quote.sell_rate,
             rate_used: quote.rate_used,
@@ -178,6 +182,8 @@ export class TradeIntentService implements ITradeIntentService {
         Console.info('Sell trade intent created', {
             intentId: intent._id,
             depositAddress: deposit.address,
+            deposit_derivation_path: deposit.derivationPath,
+            custodyProvider: this.custodyProvider.providerName,
             awaitingUserTxHash: this.custodyProvider.providerName === 'manual'
         });
 
@@ -216,6 +222,7 @@ export class TradeIntentService implements ITradeIntentService {
             crypto_type: asset,
             settlement_mode: 'controlled_p2p',
             spot_price_ngn: quote.spot_price_ngn,
+            spot_price_usd: quote.spot_price_usd,
             buy_rate: quote.buy_rate,
             sell_rate: quote.sell_rate,
             rate_used: quote.rate_used,
@@ -917,6 +924,7 @@ export class TradeIntentService implements ITradeIntentService {
             incoming_tx_hash: params.txHash,
             incoming_crypto_amount: params.amountCrypto,
             crypto_detected_at: now,
+            awaiting_user_tx_hash: false,
             updated_at: now
         });
         return updated;

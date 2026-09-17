@@ -16,6 +16,12 @@ export interface IGiftCardSubmission {
     reference?: string | null;    // e.g. GC_8921AB2
     serial_number?: string | null; // e.g. A89D2231X
     country?: string | null;      // e.g. US
+    /** Saved user bank account used for NGN payout (optional FK). */
+    bank_account_id?: string | null;
+    recipient_bank_code?: string | null;
+    recipient_bank_name?: string | null;
+    recipient_account_number?: string | null;
+    recipient_account_name?: string | null;
     status: GiftCardSubmissionStatus;
     admin_notes?: string | null;
     validated_by?: string | null;

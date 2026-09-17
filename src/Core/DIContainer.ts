@@ -109,6 +109,8 @@ import { TradeIntentSweepJob } from '../Infrastructure/Services/trading/TradeInt
 import { InHouseCustodyProvider } from '../Infrastructure/Services/custody/InHouseCustodyProvider';
 import { LiminalCustodyProvider } from '../Infrastructure/Services/custody/LiminalCustodyProvider';
 import { ManualCustodyProvider } from '../Infrastructure/Services/custody/ManualCustodyProvider';
+import { Thresh0ldCustodyProvider } from '../Infrastructure/Services/custody/Thresh0ldCustodyProvider';
+import { Thresh0ldApiClient } from '../Infrastructure/Services/custody/thresh0ld/Thresh0ldApiClient';
 import { ICustodyProvider } from './Application/Interface/Services/ICustodyProvider';
 import { UserBankAccountRepository } from '../Infrastructure/Repository/SQL/bank/UserBankAccountRepository';
 import { IUserBankAccountRepository } from './Application/Interface/Repositories/IUserBankAccountRepository';
@@ -146,6 +148,13 @@ import { CardRepository } from '../Infrastructure/Repository/SQL/giftcard/CardRe
 import { ICardRepository } from './Application/Interface/Repositories/ICardRepository';
 import { CardService } from '../Infrastructure/Services/giftcard/CardService';
 import { ICardService } from './Application/Interface/Services/ICardService';
+import { GiftCardTransactionRepository } from '../Infrastructure/Repository/SQL/giftcard/GiftCardTransactionRepository';
+import { IGiftCardTransactionRepository } from './Application/Interface/Repositories/IGiftCardTransactionRepository';
+import { GiftCardPurchaseService } from '../Infrastructure/Services/giftcard/GiftCardPurchaseService';
+import { IGiftCardPurchaseService } from './Application/Interface/Services/IGiftCardPurchaseService';
+import { IGiftCardProvider } from './Application/Interface/Services/IGiftCardProvider';
+import { ReloadlyClient } from '../Infrastructure/Services/giftcard/reloadly/ReloadlyClient';
+import { ReloadlyGiftCardProvider } from '../Infrastructure/Services/giftcard/ReloadlyGiftCardProvider';
 import { CardSeeder } from '../Infrastructure/Config/CardSeeder';
 import { NotificationRepository } from '../Infrastructure/Repository/SQL/notifications/NotificationRepository';
 import { INotificationService } from './Application/Interface/Services/INotificationService';
@@ -274,6 +283,14 @@ export class DIContainer {
         container.bind<IGiftCardSubmissionRepository>(TYPES.GiftCardSubmissionRepository).to(GiftCardSubmissionRepository).inRequestScope();
         container.bind<IWithdrawalService>(TYPES.WithdrawalService).to(WithdrawalService).inRequestScope();
         container.bind<IGiftCardService>(TYPES.GiftCardService).to(GiftCardService).inRequestScope();
+        container.bind<IGiftCardTransactionRepository>(TYPES.GiftCardTransactionRepository)
+            .to(GiftCardTransactionRepository)
+            .inRequestScope();
+        container.bind<ReloadlyClient>(TYPES.ReloadlyClient).to(ReloadlyClient).inSingletonScope();
+        container.bind<IGiftCardProvider>(TYPES.GiftCardProvider).to(ReloadlyGiftCardProvider).inSingletonScope();
+        container.bind<IGiftCardPurchaseService>(TYPES.GiftCardPurchaseService)
+            .to(GiftCardPurchaseService)
+            .inRequestScope();
         container.bind<ICardRepository>(TYPES.CardRepository).to(CardRepository).inRequestScope();
         container.bind<ICardService>(TYPES.CardService).to(CardService).inRequestScope();
         container.bind<CardSeeder>(TYPES.CardSeeder).to(CardSeeder).inRequestScope();
@@ -335,8 +352,11 @@ export class DIContainer {
         container.bind<ITradeIntentService>(TYPES.TradeIntentService).to(TradeIntentService).inRequestScope();
         const transactionMode = (process.env.TRANSACTION_MODE || 'automated').toLowerCase().trim();
         const custodyProvider = (process.env.CUSTODY_PROVIDER || 'inhouse').toLowerCase();
+        container.bind<Thresh0ldApiClient>(TYPES.Thresh0ldApiClient).to(Thresh0ldApiClient).inSingletonScope();
         if (transactionMode === 'manual') {
             container.bind<ICustodyProvider>(TYPES.CustodyProvider).to(ManualCustodyProvider).inSingletonScope();
+        } else if (custodyProvider === 'thresh0ld') {
+            container.bind<ICustodyProvider>(TYPES.CustodyProvider).to(Thresh0ldCustodyProvider).inSingletonScope();
         } else if (custodyProvider === 'liminal') {
             container.bind<ICustodyProvider>(TYPES.CustodyProvider).to(LiminalCustodyProvider).inSingletonScope();
         } else {

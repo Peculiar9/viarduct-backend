@@ -39,6 +39,7 @@ import './Controllers/giftcard/GiftCardController';
 import './Controllers/giftcard/AdminGiftCardController';
 import './Controllers/card/AdminCardController';
 import './Controllers/bitcoin/BitcoinWebhookController';
+import './Controllers/webhooks/Thresh0ldWebhookController';
 import './Controllers/dashboard/AdminDashboardController';
 import './Controllers/notification/NotificationController';
 import './Controllers/notification/AdminNotificationController';
@@ -106,7 +107,7 @@ class App {
             this.setupGracefulShutdown();
 
             // Start background jobs
-            this.startBackgroundJobs();
+            // this.startBackgroundJobs();
 
             // Log route information
             const routeInfo = getRouteInfo(this.container);
@@ -136,28 +137,28 @@ class App {
         });
     }
 
-    private startBackgroundJobs() {
-        try {
-            // Start order completion job
-            const orderCompletionJob = this.container.get<IOrderCompletionJob>(TYPES.OrderCompletionJob);
-            orderCompletionJob.start();
+    // private startBackgroundJobs() {
+    //     try {
+    //         // Start order completion job
+    //         const orderCompletionJob = this.container.get<IOrderCompletionJob>(TYPES.OrderCompletionJob);
+    //         orderCompletionJob.start();
 
-            // Start platform BTC sweep job (custodial consolidation)
-            const btcSweepJob = this.container.get<PlatformBtcSweepJob>(TYPES.PlatformBtcSweepJob);
-            btcSweepJob.start();
+    //         // Start platform BTC sweep job (custodial consolidation)
+    //         const btcSweepJob = this.container.get<PlatformBtcSweepJob>(TYPES.PlatformBtcSweepJob);
+    //         btcSweepJob.start();
 
-            const ethSweepJob = this.container.get<PlatformEthSweepJob>(TYPES.PlatformEthSweepJob);
-            ethSweepJob.start();
+    //         const ethSweepJob = this.container.get<PlatformEthSweepJob>(TYPES.PlatformEthSweepJob);
+    //         ethSweepJob.start();
 
-            const tradeIntentSweepJob = this.container.get<TradeIntentSweepJob>(TYPES.TradeIntentSweepJob);
-            tradeIntentSweepJob.start();
+    //         const tradeIntentSweepJob = this.container.get<TradeIntentSweepJob>(TYPES.TradeIntentSweepJob);
+    //         tradeIntentSweepJob.start();
 
-            Console.info('✅ Background jobs started successfully');
-        } catch (error: any) {
-            Console.error(error, { message: 'Failed to start background jobs' });
-            // Don't throw - allow server to start even if background jobs fail
-        }
-    }
+    //         Console.info('✅ Background jobs started successfully');
+    //     } catch (error: any) {
+    //         Console.error(error, { message: 'Failed to start background jobs' });
+    //         // Don't throw - allow server to start even if background jobs fail
+    //     }
+    // }
 
     private setupGracefulShutdown() {
         const shutdown = async () => {

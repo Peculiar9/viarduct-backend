@@ -29,6 +29,7 @@ import { PlatformCryptoAddress } from '../../Core/Application/Entities/PlatformC
 import { UserDeviceToken } from '../../Core/Application/Entities/UserDeviceToken';
 import { UserTransactionPin } from '../../Core/Application/Entities/UserTransactionPin';
 import { GiftCardSubmission } from '../../Core/Application/Entities/GiftCardSubmission';
+import { GiftCardTransaction } from '../../Core/Application/Entities/GiftCardTransaction';
 import { Card } from '../../Core/Application/Entities/Card';
 import { Notification } from '../../Core/Application/Entities/Notification';
 import { Dispute } from '../../Core/Application/Entities/Dispute';
@@ -71,6 +72,7 @@ export class DatabaseInitializer {
             { entity: UserTransactionPin, tableName: TableNames.USER_TRANSACTION_PINS },
             { entity: Card, tableName: TableNames.CARDS },
             { entity: GiftCardSubmission, tableName: TableNames.GIFT_CARD_SUBMISSIONS },
+            { entity: GiftCardTransaction, tableName: TableNames.GIFT_CARD_TRANSACTIONS },
             { entity: Notification, tableName: TableNames.NOTIFICATIONS },
             { entity: Dispute, tableName: TableNames.DISPUTES },
             { entity: Chat, tableName: TableNames.CHATS },

@@ -3,8 +3,10 @@ import { TYPES } from '../../../Core/Types/Constants';
 import { ITradeQuoteService } from '../../../Core/Application/Interface/Services/ITradeIntentService';
 import { ITradingRateService } from '../../../Core/Application/Interface/Services/ITradingRateService';
 import { ICustodyProvider } from '../../../Core/Application/Interface/Services/ICustodyProvider';
+import { ISpotPriceService } from '../../../Core/Application/Interface/Services/ISpotPriceService';
 import { TradeQuoteLineItems } from '../../../Core/Application/DTOs/TradeIntentDTO';
-import { ServiceError, ValidationError } from '../../../Core/Application/Error/AppError';
+import { ValidationError } from '../../../Core/Application/Error/AppError';
+import { Console } from '../../Utils/Console';
 
 const QUOTE_TTL_MS = 5 * 60 * 1000;
 
@@ -12,7 +14,8 @@ const QUOTE_TTL_MS = 5 * 60 * 1000;
 export class TradeQuoteService implements ITradeQuoteService {
     constructor(
         @inject(TYPES.TradingRateService) private readonly tradingRateService: ITradingRateService,
-        @inject(TYPES.CustodyProvider) private readonly custodyProvider: ICustodyProvider
+        @inject(TYPES.CustodyProvider) private readonly custodyProvider: ICustodyProvider,
+        @inject(TYPES.SpotPriceService) private readonly spotPriceService: ISpotPriceService
     ) {}
 
     private quoteExpiry(): string {
@@ -27,6 +30,20 @@ export class TradeQuoteService implements ITradeQuoteService {
         return asset;
     }
 
+    private async resolveSpotUsd(asset: 'BTC' | 'ETH'): Promise<number> {
+        try {
+            return asset === 'BTC'
+                ? await this.spotPriceService.getBtcUsdSpotPrice()
+                : await this.spotPriceService.getEthUsdSpotPrice();
+        } catch (err: any) {
+            Console.warn('USD spot fetch failed; defaulting spot_price_usd to 0', {
+                asset,
+                error: err?.message
+            });
+            return 0;
+        }
+    }
+
     async buildSellQuote(cryptoType: string, cryptoAmount: number): Promise<TradeQuoteLineItems> {
         if (cryptoAmount <= 0) {
             throw new ValidationError('Crypto amount must be greater than 0');
@@ -36,6 +53,7 @@ export class TradeQuoteService implements ITradeQuoteService {
         const spot = Number(rate.last_spot_price ?? rate.buy_rate);
         const buyRate = Number(rate.buy_rate);
         const sellRate = Number(rate.sell_rate);
+        const spotUsd = await this.resolveSpotUsd(asset);
 
         const grossFiat = cryptoAmount * buyRate;
         const vaultAddress = await this.custodyProvider.getVaultAddress(asset);
@@ -53,6 +71,7 @@ export class TradeQuoteService implements ITradeQuoteService {
 
         return {
             spot_price_ngn: spot,
+            spot_price_usd: spotUsd,
             buy_rate: buyRate,
             sell_rate: sellRate,
             rate_used: buyRate,
@@ -82,6 +101,7 @@ export class TradeQuoteService implements ITradeQuoteService {
         const spot = Number(rate.last_spot_price ?? rate.sell_rate);
         const buyRate = Number(rate.buy_rate);
         const sellRate = Number(rate.sell_rate);
+        const spotUsd = await this.resolveSpotUsd(asset);
 
         const grossCrypto = fiatAmount / sellRate;
         const vaultAddress = await this.custodyProvider.getVaultAddress(asset);
@@ -98,6 +118,7 @@ export class TradeQuoteService implements ITradeQuoteService {
 
         return {
             spot_price_ngn: spot,
+            spot_price_usd: spotUsd,
             buy_rate: buyRate,
             sell_rate: sellRate,
             rate_used: sellRate,

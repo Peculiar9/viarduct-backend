@@ -182,12 +182,26 @@ export class TokenService implements ITokenService {
                 message: `Token verification error: ${error.message}`,
                 level: LogLevel.ERROR
             });
-            
+
+            if (error instanceof AuthenticationError) {
+                throw error;
+            }
+
             if (error.name === 'TokenExpiredError') {
                 throw new AuthenticationError(ResponseMessage.INVALID_TOKEN_MESSAGE);
             }
-            
-            throw new AuthenticationError(error.message);
+
+            // jsonwebtoken: "jwt malformed" / "invalid token" / "invalid signature"
+            if (
+                error.name === 'JsonWebTokenError' ||
+                /jwt malformed|invalid token|invalid signature/i.test(error.message || '')
+            ) {
+                throw new AuthenticationError(
+                    'Invalid access token. Send Authorization: Bearer <access_token> from login (not refresh token, and not quoted).'
+                );
+            }
+
+            throw new AuthenticationError(ResponseMessage.INVALID_TOKEN_MESSAGE);
         }
     }
 
