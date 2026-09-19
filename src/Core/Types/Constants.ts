@@ -132,6 +132,7 @@ export const TYPES = {
     TradeIntentSweepJob: Symbol.for('TradeIntentSweepJob'),
     CustodyProvider: Symbol.for('CustodyProvider'),
     Thresh0ldApiClient: Symbol.for('Thresh0ldApiClient'),
+    CustodyDerivationCounterRepository: Symbol.for('CustodyDerivationCounterRepository'),
 
     // Bank accounts (user saved + corporate)
     UserBankAccountRepository: Symbol.for('UserBankAccountRepository'),

@@ -52,4 +52,5 @@ export enum TableNames {
     ADMIN_PAYOUT_CONSENTS = 'admin_payout_consents',
     PLATFORM_CRYPTO_ADDRESSES = 'platform_crypto_addresses',
     USER_DEVICE_TOKENS = 'user_device_tokens',
+    CUSTODY_DERIVATION_COUNTERS = 'custody_derivation_counters',
 }

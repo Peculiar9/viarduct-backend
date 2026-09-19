@@ -68,7 +68,7 @@ class App {
 
     constructor() {
         this.container = DIContainer.getInstance(); 
-        this.app = express();
+        this.app = express(); 
     }
 
     public async initialize(): Promise<express.Application> {

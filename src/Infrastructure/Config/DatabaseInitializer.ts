@@ -26,6 +26,7 @@ import { WithdrawalRequest } from '../../Core/Application/Entities/WithdrawalReq
 import { UserBankAccount } from '../../Core/Application/Entities/UserBankAccount';
 import { AdminPayoutConsent } from '../../Core/Application/Entities/AdminPayoutConsent';
 import { PlatformCryptoAddress } from '../../Core/Application/Entities/PlatformCryptoAddress';
+import { CustodyDerivationCounter } from '../../Core/Application/Entities/CustodyDerivationCounter';
 import { UserDeviceToken } from '../../Core/Application/Entities/UserDeviceToken';
 import { UserTransactionPin } from '../../Core/Application/Entities/UserTransactionPin';
 import { GiftCardSubmission } from '../../Core/Application/Entities/GiftCardSubmission';
@@ -58,6 +59,7 @@ export class DatabaseInitializer {
             { entity: TradingOrder, tableName: TableNames.TRADING_ORDERS },
             { entity: UserBankAccount, tableName: TableNames.USER_BANK_ACCOUNTS },
             { entity: TradeIntent, tableName: TableNames.TRADE_INTENTS },
+            { entity: CustodyDerivationCounter, tableName: TableNames.CUSTODY_DERIVATION_COUNTERS },
             { entity: AdminPayoutConsent, tableName: TableNames.ADMIN_PAYOUT_CONSENTS },
             { entity: PlatformCryptoAddress, tableName: TableNames.PLATFORM_CRYPTO_ADDRESSES },
             { entity: UserDeviceToken, tableName: TableNames.USER_DEVICE_TOKENS },

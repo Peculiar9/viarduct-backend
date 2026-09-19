@@ -6,6 +6,7 @@ import { ITradeIntentRepository } from '../../../../Core/Application/Interface/R
 import { TableNames } from '../../../../Core/Application/Enums/TableNames';
 import { TYPES } from '../../../../Core/Types/Constants';
 import { DatabaseError } from '../../../../Core/Application/Error/AppError';
+import { parseDerivationPathIndex } from '../../../Services/custody/thresh0ld/Thresh0ldDerivationPath';
 
 @injectable()
 export class TradeIntentRepository extends BaseRepository<ITradeIntent> implements ITradeIntentRepository {
@@ -273,6 +274,63 @@ export class TradeIntentRepository extends BaseRepository<ITradeIntent> implemen
             return result.rows as any[];
         } catch (error: any) {
             throw new DatabaseError(`Failed to find sell intents ready for sweep: ${error.message}`);
+        }
+    }
+
+    async findMaxDepositDerivationIndex(cryptoType: string): Promise<number | null> {
+        try {
+            const result = await this.executeQuery(
+                `SELECT deposit_derivation_path
+                 FROM "${this.tableName}"
+                 WHERE type = 'sell'
+                   AND UPPER(crypto_type) = UPPER($1)
+                   AND deposit_derivation_path IS NOT NULL
+                   AND BTRIM(deposit_derivation_path) <> ''`,
+                [cryptoType]
+            );
+
+            let max: number | null = null;
+            for (const row of result.rows as Array<{ deposit_derivation_path?: string }>) {
+                const idx = parseDerivationPathIndex(row.deposit_derivation_path);
+                if (idx == null) continue;
+                if (max == null || idx > max) max = idx;
+            }
+            return max;
+        } catch (error: any) {
+            throw new DatabaseError(`Failed to find max deposit derivation index: ${error.message}`);
+        }
+    }
+
+    async countWithDerivationPath(derivationPath: string, cryptoType: string): Promise<number> {
+        try {
+            const result = await this.executeQuery(
+                `SELECT COUNT(*)::int AS count
+                 FROM "${this.tableName}"
+                 WHERE type = 'sell'
+                   AND UPPER(crypto_type) = UPPER($1)
+                   AND deposit_derivation_path = $2`,
+                [cryptoType, derivationPath]
+            );
+            return Number((result.rows[0] as any)?.count ?? 0);
+        } catch (error: any) {
+            throw new DatabaseError(`Failed to count derivation paths: ${error.message}`);
+        }
+    }
+
+    async countWithDepositDerivationPath(cryptoType: string): Promise<number> {
+        try {
+            const result = await this.executeQuery(
+                `SELECT COUNT(*)::int AS count
+                 FROM "${this.tableName}"
+                 WHERE type = 'sell'
+                   AND UPPER(crypto_type) = UPPER($1)
+                   AND deposit_derivation_path IS NOT NULL
+                   AND BTRIM(deposit_derivation_path) <> ''`,
+                [cryptoType]
+            );
+            return Number((result.rows[0] as any)?.count ?? 0);
+        } catch (error: any) {
+            throw new DatabaseError(`Failed to count deposit derivation paths: ${error.message}`);
         }
     }
 }

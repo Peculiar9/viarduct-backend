@@ -1,4 +1,3 @@
-import { createHash } from 'crypto';
 import { inject, injectable } from 'inversify';
 import { TYPES } from '../../../Core/Types/Constants';
 import {
@@ -12,20 +11,27 @@ import { EnvironmentConfig } from '../../Config/EnvironmentConfig';
 import { Console } from '../../Utils/Console';
 import { ServiceError } from '../../../Core/Application/Error/AppError';
 import { Thresh0ldApiClient } from './thresh0ld/Thresh0ldApiClient';
-import { THRESH0LD_ADDRESS_INDEX_BATCH_SIZE } from './thresh0ld/Thresh0ldTypes';
+import { ICustodyDerivationCounterRepository } from '../../../Core/Application/Interface/Repositories/ICustodyDerivationCounterRepository';
+import {
+    assertThresh0ldPathIndex,
+    formatThresh0ldDerivationPath
+} from './thresh0ld/Thresh0ldDerivationPath';
 
 @injectable()
 export class Thresh0ldCustodyProvider implements ICustodyProvider {
     readonly providerName = 'thresh0ld' as const;
 
     constructor(
-        @inject(TYPES.Thresh0ldApiClient) private readonly apiClient: Thresh0ldApiClient
+        @inject(TYPES.Thresh0ldApiClient) private readonly apiClient: Thresh0ldApiClient,
+        @inject(TYPES.CustodyDerivationCounterRepository)
+        private readonly derivationCounterRepo: ICustodyDerivationCounterRepository
     ) {}
 
     async createDepositAddress(intentId: string, asset: CustodyAsset): Promise<CustodyDepositAddress> {
-        const pathIndex = this.pathIndexFromIntentId(intentId);
-        this.assertValidPathIndex(pathIndex);
-        const derivationPath = this.formatDerivationPath(pathIndex);
+        // Strict sequential HD indices (0,1,2,...) — required by Thresh0ld gap-limit watcher
+        const pathIndex = await this.derivationCounterRepo.allocateNextIndex(asset);
+        assertThresh0ldPathIndex(pathIndex);
+        const derivationPath = formatThresh0ldDerivationPath(pathIndex);
 
         Console.info('Thresh0ldCustodyProvider: generating deposit address', {
             intentId,
@@ -35,9 +41,15 @@ export class Thresh0ldCustodyProvider implements ICustodyProvider {
         });
 
         const generated = await this.apiClient.generateAddress(pathIndex, asset.toLowerCase());
+        Console.info('Thresh0ldCustodyProvider: deposit address generated', {
+            intentId,
+            asset,
+            address: generated.address,
+            deposit_derivation_path: derivationPath
+        });
+
         return {
             address: generated.address,
-            // Always persist BIP-style path under the first batch: m/0/{0..39999}
             derivationPath,
             providerRef: this.apiClient.getHotWalletId(asset.toLowerCase())
         };
@@ -147,31 +159,6 @@ export class Thresh0ldCustodyProvider implements ICustodyProvider {
             txHash: result.txHash,
             feeCrypto: 0
         };
-    }
-
-    /**
-     * Deterministic non-negative path index from intent UUID (stable across retries).
-     * Thresh0ld API 2.0 expects a numeric address index (see generate-address `path`).
-     * Must stay within the first watcher batch: 0..39999.
-     */
-    private pathIndexFromIntentId(intentId: string): number {
-        const digest = createHash('sha256').update(intentId).digest();
-        const absoluteCounter = digest.readUInt32BE(0);
-        const safeDerivationIndex = absoluteCounter % THRESH0LD_ADDRESS_INDEX_BATCH_SIZE;
-        return safeDerivationIndex;
-    }
-
-    private assertValidPathIndex(index: number): void {
-        if (!Number.isInteger(index) || index < 0 || index >= THRESH0LD_ADDRESS_INDEX_BATCH_SIZE) {
-            throw new ServiceError(
-                `Derivation index ${index} out of initial Thresh0ld batch index range (0-${THRESH0LD_ADDRESS_INDEX_BATCH_SIZE - 1}).`
-            );
-        }
-    }
-
-    /** Canonical path stored on sell intents for ops / debugging. */
-    private formatDerivationPath(index: number): string {
-        return `m/0/${index}`;
     }
 
     private formatAmount(asset: CustodyAsset, amount: number): string {

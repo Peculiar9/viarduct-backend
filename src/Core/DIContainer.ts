@@ -111,6 +111,8 @@ import { LiminalCustodyProvider } from '../Infrastructure/Services/custody/Limin
 import { ManualCustodyProvider } from '../Infrastructure/Services/custody/ManualCustodyProvider';
 import { Thresh0ldCustodyProvider } from '../Infrastructure/Services/custody/Thresh0ldCustodyProvider';
 import { Thresh0ldApiClient } from '../Infrastructure/Services/custody/thresh0ld/Thresh0ldApiClient';
+import { CustodyDerivationCounterRepository } from '../Infrastructure/Repository/SQL/custody/CustodyDerivationCounterRepository';
+import { ICustodyDerivationCounterRepository } from './Application/Interface/Repositories/ICustodyDerivationCounterRepository';
 import { ICustodyProvider } from './Application/Interface/Services/ICustodyProvider';
 import { UserBankAccountRepository } from '../Infrastructure/Repository/SQL/bank/UserBankAccountRepository';
 import { IUserBankAccountRepository } from './Application/Interface/Repositories/IUserBankAccountRepository';
@@ -353,6 +355,10 @@ export class DIContainer {
         const transactionMode = (process.env.TRANSACTION_MODE || 'automated').toLowerCase().trim();
         const custodyProvider = (process.env.CUSTODY_PROVIDER || 'inhouse').toLowerCase();
         container.bind<Thresh0ldApiClient>(TYPES.Thresh0ldApiClient).to(Thresh0ldApiClient).inSingletonScope();
+        container
+            .bind<ICustodyDerivationCounterRepository>(TYPES.CustodyDerivationCounterRepository)
+            .to(CustodyDerivationCounterRepository)
+            .inSingletonScope();
         if (transactionMode === 'manual') {
             container.bind<ICustodyProvider>(TYPES.CustodyProvider).to(ManualCustodyProvider).inSingletonScope();
         } else if (custodyProvider === 'thresh0ld') {

@@ -35,4 +35,13 @@ export interface ITradeIntentRepository {
         date_to?: string;
     }): Promise<number>;
     findSellIntentsReadyForSweep(limit?: number): Promise<ITradeIntent[]>;
+
+    /** Highest parsed `deposit_derivation_path` index for sell intents of this asset (null if none). */
+    findMaxDepositDerivationIndex(cryptoType: string): Promise<number | null>;
+
+    /** Count sell intents that already use this exact derivation path for the asset. */
+    countWithDerivationPath(derivationPath: string, cryptoType: string): Promise<number>;
+
+    /** Count sell intents that have any deposit_derivation_path for the asset. */
+    countWithDepositDerivationPath(cryptoType: string): Promise<number>;
 }
