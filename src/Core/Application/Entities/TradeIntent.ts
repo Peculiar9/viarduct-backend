@@ -37,6 +37,9 @@ export class TradeIntent implements ITradeIntent {
     @Column('VARCHAR(10) NOT NULL')
     public crypto_type: string;
 
+    @Column('VARCHAR(100) DEFAULT NULL')
+    public network?: string | null;
+
     @Column('VARCHAR(20) DEFAULT \'controlled_p2p\'')
     public settlement_mode: TradeIntentSettlementMode;
 

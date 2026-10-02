@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { inject } from 'inversify';
-import { controller, httpPost, httpPatch, request, response, requestBody, requestParam } from 'inversify-express-utils';
+import { controller, httpPost, httpPatch, httpDelete, request, response, requestBody, requestParam } from 'inversify-express-utils';
 import { API_PATH, TYPES } from '../../Core/Types/Constants';
 import { ITradingRateService } from '../../Core/Application/Interface/Services/ITradingRateService';
 import AuthMiddleware from '../../Middleware/AuthMiddleware';
@@ -11,7 +11,7 @@ import { IUser } from '../../Core/Application/Interface/Entities/auth-and-user/I
 
 /**
  * Admin Trading Rate Controller
- * Only write operations (create, update) - requires admin authentication
+ * Write operations (create, update, delete) - requires admin authentication
  */
 @controller(`/${API_PATH}/admin/trading-rates`)
 export class TradingRateController extends BaseController {
@@ -59,6 +59,20 @@ export class TradingRateController extends BaseController {
             const user = req.user as IUser;
             const rate = await this.tradingRateService.updateRate(id, dto, user._id!);
             return this.success(res, rate, 'Trading rate updated successfully');
+        } catch (error: any) {
+            return this.error(res, error.message, error.statusCode || 400);
+        }
+    }
+
+    /**
+     * Delete trading rate (admin only)
+     * @route DELETE /api/v1/admin/trading-rates/:id
+     */
+    @httpDelete('/:id', AuthMiddleware.authenticateAdmin())
+    async deleteRate(@requestParam('id') id: string, @response() res: Response) {
+        try {
+            await this.tradingRateService.deleteRate(id);
+            return this.success(res, { deleted: true, id }, 'Trading rate deleted successfully');
         } catch (error: any) {
             return this.error(res, error.message, error.statusCode || 400);
         }

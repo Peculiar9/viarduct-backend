@@ -38,8 +38,8 @@ export class EthereumWalletController extends BaseController {
                 return this.error(res, 'User not authenticated', 401);
             }
 
-            const address = await this.walletService.generateEthereumAddress(user._id);
-            return this.success(res, { address }, 'Ethereum address retrieved successfully');
+            const result = await this.walletService.getOrCreateUserDepositAddress(user._id, 'ETH');
+            return this.success(res, result, 'Ethereum address retrieved successfully');
         } catch (error: any) {
             console.error('Error getting Ethereum address:', error);
             return this.error(res, error.message, error.statusCode || 400);

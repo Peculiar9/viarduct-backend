@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsString, Min, Length, Matches } from 'class-validator';
+import { IsIn, IsNotEmpty, IsNumber, IsString, Min, Length, Matches } from 'class-validator';
 
 export class ValidateAccountDTO {
     @IsString()
@@ -36,6 +36,21 @@ export class SetTransactionPinDTO {
     @Length(4, 6, { message: 'Confirm PIN must be 4-6 digits' })
     @Matches(/^\d+$/, { message: 'Confirm PIN must contain only digits' })
     confirm_pin: string;
+}
+
+export class WithdrawCryptoDTO {
+    @IsString()
+    @IsNotEmpty({ message: 'crypto_type is required' })
+    @IsIn(['BTC', 'ETH', 'USDT'], { message: 'crypto_type must be BTC, ETH, or USDT' })
+    crypto_type: string;
+
+    @IsNumber()
+    @Min(0.00000001, { message: 'Withdrawal amount must be greater than 0' })
+    amount: number;
+
+    @IsString()
+    @IsNotEmpty({ message: 'destination_address is required' })
+    destination_address: string;
 }
 
 export class ChangeTransactionPinDTO {

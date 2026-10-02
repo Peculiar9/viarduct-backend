@@ -86,6 +86,13 @@ export class InternalServerError extends AppError {
   }
 }
 
+export class TooManyRequestsError extends AppError {
+  constructor(message: string = 'Too many requests') {
+    super(message, 429, 429);
+    this.name = 'TooManyRequestsError';
+  }
+}
+
 export class DatabaseError extends AppError {
   protected details?: any;
 
@@ -111,6 +118,13 @@ export class ServiceError extends AppError {
     constructor(message: string) {
         super(message, 503, 13); // 503 Service Unavailable
         this.name = 'ServiceError';
+    }
+}
+
+export class SolvencyError extends AppError {
+    constructor(message: string) {
+        super(message, 409, 710);
+        this.name = 'SolvencyError';
     }
 }
 

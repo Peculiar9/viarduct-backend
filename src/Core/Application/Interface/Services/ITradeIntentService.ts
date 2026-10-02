@@ -145,7 +145,12 @@ export interface ITradeIntentService {
         adminNotes?: string,
         actualGasNgn?: number
     ): Promise<ITradeIntent>;
-    adminReleaseCrypto(adminId: string, intentId: string, adminNotes?: string): Promise<ITradeIntent>;
+    adminReleaseCrypto(
+        adminId: string,
+        intentId: string,
+        adminNotes?: string,
+        consentCode?: string
+    ): Promise<ITradeIntent>;
 
     handleIncomingCryptoDeposit(params: {
         address: string;

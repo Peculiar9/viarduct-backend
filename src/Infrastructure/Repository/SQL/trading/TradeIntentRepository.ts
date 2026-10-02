@@ -333,4 +333,21 @@ export class TradeIntentRepository extends BaseRepository<ITradeIntent> implemen
             throw new DatabaseError(`Failed to count deposit derivation paths: ${error.message}`);
         }
     }
+
+    async sumPendingBuyPayouts(cryptoType: 'BTC' | 'ETH'): Promise<number> {
+        try {
+            const result = await this.executeQuery<{ total: string }>(
+                `SELECT COALESCE(SUM(net_crypto_amount), 0) AS total
+                 FROM "${this.tableName}"
+                 WHERE type = 'buy'
+                   AND UPPER(crypto_type) = UPPER($1)
+                   AND payout_at IS NULL
+                   AND status IN ('fiat_verified', 'processing')`,
+                [cryptoType]
+            );
+            return Number(parseFloat(String((result.rows[0] as any)?.total ?? '0')));
+        } catch (error: any) {
+            throw new DatabaseError(`Failed to sum pending buy payouts: ${error.message}`);
+        }
+    }
 }

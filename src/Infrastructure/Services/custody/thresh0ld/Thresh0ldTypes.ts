@@ -126,6 +126,16 @@ export interface Thresh0ldWalletListRequest {
     };
 }
 
+export interface Thresh0ldTransfer {
+    txHash: string;
+    amount: number;
+    toAddress: string | null;
+    fromAddress: string | null;
+    type: string;
+    status: string;
+    confirmations: number | null;
+}
+
 export interface Thresh0ldWebhookPayload {
     event?: string;
     type?: string;
@@ -138,6 +148,7 @@ export interface Thresh0ldWebhookPayload {
     transactionHash?: string;
     coin?: string;
     asset?: string;
+    confirmations?: number | string;
     data?: {
         address?: string;
         amount?: string | number;
@@ -148,5 +159,9 @@ export interface Thresh0ldWebhookPayload {
         asset?: string;
         type?: string;
         event?: string;
+        status?: string;
+        confirmations?: number | string;
+        tokenName?: string;
+        tokenAddress?: string;
     };
 }

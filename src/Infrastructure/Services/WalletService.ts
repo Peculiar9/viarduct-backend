@@ -1,19 +1,34 @@
 import { inject, injectable } from 'inversify';
-import { IWalletService } from '../../Core/Application/Interface/Services/IWalletService';
+import { IWalletService, WalletAccountWithCurrency } from '../../Core/Application/Interface/Services/IWalletService';
 import { IWallet } from '../../Core/Application/Interface/Entities/wallet/IWallet';
 import { IWalletAccount } from '../../Core/Application/Interface/Entities/wallet/IWalletAccount';
 import { WalletRepository } from '../Repository/SQL/wallet/WalletRepository';
 import { WalletAccountRepository } from '../Repository/SQL/wallet/WalletAccountRepository';
 import { CurrencyRepository } from '../Repository/SQL/wallet/CurrencyRepository';
 import { TYPES } from '../../Core/Types/Constants';
-import { ValidationError, ServiceError } from '../../Core/Application/Error/AppError';
+import { ValidationError, ServiceError, TooManyRequestsError } from '../../Core/Application/Error/AppError';
 import { Console } from '../Utils/Console';
 import { ICurrency } from '@/Core/Application/Interface/Entities/wallet/ICurrency';
 import { IBitcoinWalletService } from '../../Core/Application/Interface/Services/IBitcoinWalletService';
 import { IEthereumWalletService } from '../../Core/Application/Interface/Services/IEthereumWalletService';
 import { ITradingRateService } from '../../Core/Application/Interface/Services/ITradingRateService';
 import { IWalletAccountTradingMetadata } from '../../Core/Application/Interface/Entities/wallet/IWalletAccountMetadata';
-import { WalletAccountWithCurrency } from '../../Core/Application/Interface/Services/IWalletService';
+import { TransactionManager } from '../Repository/SQL/Abstractions/TransactionManager';
+import { WalletTransactionRepository } from '../Repository/SQL/wallet/WalletTransactionRepository';
+import { UserRepository } from '../Repository/SQL/users/UserRepository';
+import { Thresh0ldApiClient } from './custody/thresh0ld/Thresh0ldApiClient';
+import { ICustodyDerivationCounterRepository } from '../../Core/Application/Interface/Repositories/ICustodyDerivationCounterRepository';
+import { EnvironmentConfig } from '../Config/EnvironmentConfig';
+import {
+    assertThresh0ldPathIndex,
+    formatThresh0ldDerivationPath
+} from './custody/thresh0ld/Thresh0ldDerivationPath';
+import { resolveNetworkName } from './trading/getNetworkName';
+import { IUser } from '../../Core/Application/Interface/Entities/auth-and-user/IUser';
+import { Thresh0ldTransfer } from './custody/thresh0ld/Thresh0ldTypes';
+
+const WALLET_SYNC_COOLDOWN_MS = 30_000;
+const walletSyncCooldownByUserAsset = new Map<string, number>();
 
 @injectable()
 export class WalletService implements IWalletService {
@@ -23,7 +38,14 @@ export class WalletService implements IWalletService {
         @inject(TYPES.CurrencyRepository) private readonly currencyRepository: CurrencyRepository,
         @inject(TYPES.BitcoinWalletService) private readonly bitcoinWalletService: IBitcoinWalletService,
         @inject(TYPES.EthereumWalletService) private readonly ethereumWalletService: IEthereumWalletService,
-        @inject(TYPES.TradingRateService) private readonly tradingRateService: ITradingRateService
+        @inject(TYPES.TradingRateService) private readonly tradingRateService: ITradingRateService,
+        @inject(TYPES.UserRepository) private readonly userRepository: UserRepository,
+        @inject(TYPES.WalletTransactionRepository)
+        private readonly walletTransactionRepository: WalletTransactionRepository,
+        @inject(TYPES.TransactionManager) private readonly transactionManager: TransactionManager,
+        @inject(TYPES.Thresh0ldApiClient) private readonly thresh0ldApiClient: Thresh0ldApiClient,
+        @inject(TYPES.CustodyDerivationCounterRepository)
+        private readonly derivationCounterRepo: ICustodyDerivationCounterRepository
     ) {}
 
     /**
@@ -457,6 +479,98 @@ export class WalletService implements IWalletService {
         }
     }
 
+    async debitUserCryptoBalance(
+        userId: string,
+        asset: 'BTC' | 'ETH',
+        amount: number
+    ): Promise<IWalletAccount> {
+        if (!(amount > 0)) {
+            throw new ValidationError('Debit amount must be greater than 0');
+        }
+        const updatedUser = await this.userRepository.tryDebitCryptoBalance(userId, asset, amount);
+        if (!updatedUser) {
+            const user = await this.userRepository.findById(userId);
+            const field = asset === 'ETH' ? 'eth_balance' : 'btc_balance';
+            const available = Number(user?.[field] ?? 0);
+            throw new ValidationError(
+                `Insufficient ${asset} balance. Need ${amount}, have ${available}`
+            );
+        }
+        try {
+            return await this.debitUserWalletByCurrency(userId, asset, amount);
+        } catch (error) {
+            await this.userRepository.creditCryptoBalance(userId, asset, amount);
+            throw error;
+        }
+    }
+
+    async creditUserCryptoBalance(
+        userId: string,
+        asset: 'BTC' | 'ETH',
+        amount: number
+    ): Promise<IWalletAccount> {
+        await this.userRepository.creditCryptoBalance(userId, asset, amount);
+        return this.creditUserWalletByCurrency(userId, asset, amount);
+    }
+
+    async debitPlatformOwnedForOutbound(asset: 'BTC' | 'ETH', amount: number): Promise<number> {
+        if (!(amount > 0)) {
+            return 0;
+        }
+        let remaining = amount;
+        const platformWallet = await this.walletRepository.findPlatformWallet();
+        if (platformWallet?._id) {
+            const currency = await this.currencyRepository.findByCode(asset);
+            if (currency?._id) {
+                const platformAccount = await this.walletAccountRepository.findByWalletIdAndCurrencyId(
+                    platformWallet._id,
+                    currency._id
+                );
+                if (platformAccount?._id) {
+                    remaining -= await this.debitPlatformOwnedFromAccount(platformAccount._id, remaining);
+                }
+            }
+        }
+
+        if (remaining > 1e-12) {
+            const others =
+                asset === 'BTC'
+                    ? await this.walletAccountRepository.findBtcAccountsWithPlatformOwnedAbove(0, 500)
+                    : await this.walletAccountRepository.findEthAccountsWithPlatformOwnedAbove(0, 500);
+            for (const account of others) {
+                if (remaining <= 1e-12) {
+                    break;
+                }
+                if (!account._id) {
+                    continue;
+                }
+                remaining -= await this.debitPlatformOwnedFromAccount(account._id, remaining);
+            }
+        }
+
+        const debited = amount - Math.max(0, remaining);
+        if (remaining > 1e-12) {
+            Console.warn('Treasury ledger shortfall after outbound payout', {
+                asset,
+                requested: amount,
+                debited,
+                shortfall: remaining
+            });
+        }
+        return debited;
+    }
+
+    private async debitPlatformOwnedFromAccount(accountId: string, remaining: number): Promise<number> {
+        const current = await this.walletAccountRepository.findById(accountId);
+        const owned = Number(parseFloat(String(current?.platform_owned_balance ?? 0)));
+        if (!(owned > 0) || !(remaining > 0)) {
+            return 0;
+        }
+        const debit = Math.min(owned, remaining);
+        const updated = await this.walletAccountRepository.tryDebitPlatformOwned(accountId, debit);
+        return updated ? debit : 0;
+    }
+
     async creditUserWalletByCurrency(
         userId: string,
         currencyCode: string,
@@ -517,103 +631,437 @@ export class WalletService implements IWalletService {
         }
     }
 
-    /**
-     * Generate or get Bitcoin address for user's BTC wallet account
-     */
     async generateBitcoinAddress(userId: string): Promise<string> {
-        try {
-            // Get user's wallet
-            const wallet = await this.walletRepository.findByUserId(userId);
-            if (!wallet || !wallet._id) {
-                throw new ValidationError('Wallet not found for user');
-            }
+        const result = await this.getOrCreateUserDepositAddress(userId, 'BTC');
+        return result.address;
+    }
 
-            // Get BTC currency
-            const btcCurrency = await this.currencyRepository.findByCode('BTC');
-            if (!btcCurrency || !btcCurrency._id) {
-                throw new ServiceError('BTC currency not found');
-            }
+    async generateEthereumAddress(userId: string): Promise<string> {
+        const result = await this.getOrCreateUserDepositAddress(userId, 'ETH');
+        return result.address;
+    }
 
-            // Get or create BTC wallet account
-            let walletAccount = await this.walletAccountRepository.findByWalletIdAndCurrencyId(
-                wallet._id,
-                btcCurrency._id
+    async getOrCreateUserDepositAddress(
+        userId: string,
+        cryptoType: string
+    ): Promise<{
+        crypto_type: 'BTC' | 'ETH';
+        address: string;
+        derivation_path: string | null;
+        network: string;
+        already_existed: boolean;
+    }> {
+        const asset = this.assertCryptoType(cryptoType);
+        const network = resolveNetworkName(asset);
+        const user = await this.userRepository.findById(userId);
+        if (!user) {
+            throw new ValidationError('User not found');
+        }
+
+        const existingAddress =
+            asset === 'BTC' ? user.btc_deposit_address : user.eth_deposit_address;
+        const existingPath =
+            asset === 'BTC' ? user.btc_derivation_path : user.eth_derivation_path;
+
+        if (existingAddress && String(existingAddress).trim()) {
+            await this.syncWalletAccountAddress(
+                userId,
+                asset,
+                String(existingAddress).trim(),
+                existingPath ?? null
             );
+            return {
+                crypto_type: asset,
+                address: String(existingAddress).trim(),
+                derivation_path: existingPath ?? null,
+                network,
+                already_existed: true
+            };
+        }
 
-            if (!walletAccount) {
-                // Create BTC account if it doesn't exist
-                const accountData: Partial<IWalletAccount> = {
-                    wallet_id: wallet._id,
-                    currency_id: btcCurrency._id,
-                    balance: 0,
-                    available_balance: 0,
-                    locked_balance: 0,
-                    status: 'active'
-                };
-                walletAccount = await this.walletAccountRepository.create(accountData as IWalletAccount);
+        const generated = await this.generateCustodialAddress(userId, asset);
+        await this.persistUserDepositAddress(userId, asset, generated.address, generated.derivationPath);
+        await this.syncWalletAccountAddress(userId, asset, generated.address, generated.derivationPath);
+
+        Console.info('Created permanent user deposit address', {
+            userId,
+            asset,
+            address: generated.address,
+            derivation_path: generated.derivationPath,
+            network
+        });
+
+        return {
+            crypto_type: asset,
+            address: generated.address,
+            derivation_path: generated.derivationPath,
+            network,
+            already_existed: false
+        };
+    }
+
+    async handleIncomingWalletDeposit(params: {
+        address: string;
+        txHash: string;
+        amountCrypto: number;
+        asset: 'BTC' | 'ETH';
+        source?: string;
+    }): Promise<{ credited: boolean; userId?: string; alreadyProcessed?: boolean }> {
+        const user = await this.userRepository.findByCryptoDepositAddress(params.address, params.asset);
+        if (!user?._id) {
+            return { credited: false };
+        }
+
+        const ledgerSource = params.source || 'thresh0ld_webhook';
+
+        await this.transactionManager.beginTransaction();
+        try {
+            const existingTx = await this.walletTransactionRepository.lockByIncomingTxHash(params.txHash);
+            if (existingTx && String(existingTx.status || '').toUpperCase() === 'COMPLETED') {
+                await this.transactionManager.rollback();
+                Console.info('Wallet deposit already processed', {
+                    userId: user._id,
+                    txHash: params.txHash
+                });
+                return { credited: false, userId: user._id, alreadyProcessed: true };
             }
 
-            if (!walletAccount._id) {
-                throw new ServiceError('Failed to get or create wallet account');
+            const lockedUser = await this.userRepository.lockById(user._id);
+            if (!lockedUser?._id) {
+                await this.transactionManager.rollback();
+                return { credited: false };
             }
 
-            // Generate or get Bitcoin address
-            const address = await this.bitcoinWalletService.getOrGenerateAddress(userId, walletAccount._id);
-            
-            return address;
+            await this.userRepository.incrementCryptoBalance(lockedUser._id, params.asset, params.amountCrypto);
+            const walletAccount = await this.creditCryptoDeposit(lockedUser._id, params.asset, params.amountCrypto);
+
+            const now = new Date().toISOString();
+            const existingMeta =
+                existingTx?.metadata &&
+                typeof existingTx.metadata === 'object' &&
+                !Array.isArray(existingTx.metadata)
+                    ? existingTx.metadata
+                    : {};
+            const metadata = {
+                ...existingMeta,
+                source: ledgerSource
+            };
+
+            if (existingTx?._id) {
+                await this.walletTransactionRepository.update(existingTx._id, {
+                    status: 'COMPLETED',
+                    amount: params.amountCrypto,
+                    wallet_account_id: walletAccount._id ?? existingTx.wallet_account_id,
+                    address: params.address,
+                    network: resolveNetworkName(params.asset),
+                    metadata
+                });
+            } else {
+                await this.walletTransactionRepository.create({
+                    user_id: lockedUser._id,
+                    wallet_account_id: walletAccount._id ?? null,
+                    crypto_type: params.asset,
+                    type: 'DEPOSIT',
+                    status: 'COMPLETED',
+                    amount: params.amountCrypto,
+                    incoming_tx_hash: params.txHash,
+                    address: params.address,
+                    network: resolveNetworkName(params.asset),
+                    metadata,
+                    created_at: now,
+                    updated_at: now
+                });
+            }
+
+            await this.transactionManager.commit();
+
+            Console.info('Credited user wallet from Thresh0ld deposit', {
+                userId: lockedUser._id,
+                asset: params.asset,
+                amount: params.amountCrypto,
+                txHash: params.txHash
+            });
+
+            return { credited: true, userId: lockedUser._id };
         } catch (error: any) {
-            Console.error(error, { message: 'Failed to generate Bitcoin address', userId });
+            try {
+                if (this.transactionManager.isActive()) {
+                    await this.transactionManager.rollback();
+                }
+            } catch (rollbackError: any) {
+                Console.error(rollbackError, { message: 'Failed to rollback wallet deposit transaction' });
+            }
+
+            if (this.isUniqueViolation(error)) {
+                Console.info('Wallet deposit unique constraint hit (concurrent webhook)', {
+                    txHash: params.txHash,
+                    userId: user._id
+                });
+                return { credited: false, userId: user._id, alreadyProcessed: true };
+            }
             throw error;
         }
     }
 
-    /**
-     * Generate or get Ethereum address for user's ETH wallet account
-     */
-    async generateEthereumAddress(userId: string): Promise<string> {
-        try {
-            const wallet = await this.walletRepository.findByUserId(userId);
-            if (!wallet || !wallet._id) {
-                throw new ValidationError('Wallet not found for user');
-            }
+    async syncUserWallet(
+        userId: string,
+        asset: 'BTC' | 'ETH'
+    ): Promise<{
+        asset: 'BTC' | 'ETH';
+        deposit_address: string;
+        btc_balance: number;
+        eth_balance: number;
+        synced_tx_hashes: string[];
+    }> {
+        const crypto = this.assertCryptoType(asset);
+        this.assertWalletSyncCooldown(userId, crypto);
 
-            const ethCurrency = await this.currencyRepository.findByCode('ETH');
-            if (!ethCurrency || !ethCurrency._id) {
-                throw new ServiceError('ETH currency not found');
-            }
-
-            let walletAccount = await this.walletAccountRepository.findByWalletIdAndCurrencyId(
-                wallet._id,
-                ethCurrency._id
-            );
-
-            if (!walletAccount) {
-                const accountData: Partial<IWalletAccount> = {
-                    wallet_id: wallet._id,
-                    currency_id: ethCurrency._id,
-                    balance: 0,
-                    available_balance: 0,
-                    locked_balance: 0,
-                    user_balance: 0,
-                    platform_owned_balance: 0,
-                    total_onchain_balance: 0,
-                    sweep_threshold: null,
-                    address: null,
-                    address_type: null,
-                    status: 'active'
-                };
-                walletAccount = await this.walletAccountRepository.create(accountData as IWalletAccount);
-            }
-
-            if (!walletAccount._id) {
-                throw new ServiceError('Failed to get or create ETH wallet account');
-            }
-
-            return await this.ethereumWalletService.getOrGenerateAddress(userId, walletAccount._id);
-        } catch (error: any) {
-            Console.error(error, { message: 'Failed to generate Ethereum address', userId });
-            throw error;
+        if (!this.isThresh0ldCustody()) {
+            throw new ServiceError('Manual wallet sync requires CUSTODY_PROVIDER=thresh0ld');
         }
+
+        const deposit = await this.getOrCreateUserDepositAddress(userId, crypto);
+        const transfers = await this.thresh0ldApiClient.getTransferList(crypto.toLowerCase());
+        const syncedTxHashes: string[] = [];
+        const seen = new Set<string>();
+
+        for (const transfer of transfers) {
+            const txHash = String(transfer.txHash || '').trim();
+            if (!txHash || seen.has(txHash.toLowerCase())) {
+                continue;
+            }
+            seen.add(txHash.toLowerCase());
+
+            if (!this.isIncomingDepositToAddress(transfer, deposit.address)) {
+                continue;
+            }
+            if (!this.isThresh0ldTransferConfirmed(transfer, crypto)) {
+                continue;
+            }
+
+            const amountCrypto = this.normalizeDepositAmount(transfer.amount, crypto);
+            if (!(amountCrypto > 0)) {
+                continue;
+            }
+
+            const existing = await this.walletTransactionRepository.findByIncomingTxHash(txHash);
+            if (existing && String(existing.status || '').toUpperCase() === 'COMPLETED') {
+                continue;
+            }
+
+            const result = await this.handleIncomingWalletDeposit({
+                address: deposit.address,
+                txHash,
+                amountCrypto,
+                asset: crypto,
+                source: 'thresh0ld_manual_sync'
+            });
+
+            if (result.credited) {
+                syncedTxHashes.push(txHash);
+            }
+        }
+
+        const user = await this.userRepository.findById(userId);
+        return {
+            asset: crypto,
+            deposit_address: deposit.address,
+            btc_balance: Number(user?.btc_balance ?? 0),
+            eth_balance: Number(user?.eth_balance ?? 0),
+            synced_tx_hashes: syncedTxHashes
+        };
+    }
+
+    private assertWalletSyncCooldown(userId: string, asset: 'BTC' | 'ETH'): void {
+        const key = `${userId}:${asset}`;
+        const now = Date.now();
+        const last = walletSyncCooldownByUserAsset.get(key) ?? 0;
+        if (now - last < WALLET_SYNC_COOLDOWN_MS) {
+            throw new TooManyRequestsError(
+                'Wallet sync is limited to once every 30 seconds per asset. Please try again shortly.'
+            );
+        }
+        walletSyncCooldownByUserAsset.set(key, now);
+    }
+
+    private isIncomingDepositToAddress(transfer: Thresh0ldTransfer, depositAddress: string): boolean {
+        const type = transfer.type.toLowerCase();
+        if (type.includes('send') || type.includes('outgoing') || type.includes('withdraw')) {
+            return false;
+        }
+
+        const expected = depositAddress.trim().toLowerCase();
+        const toAddress = (transfer.toAddress || '').trim().toLowerCase();
+        if (!toAddress || toAddress !== expected) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private isThresh0ldTransferConfirmed(transfer: Thresh0ldTransfer, asset: 'BTC' | 'ETH'): boolean {
+        const status = transfer.status.trim().toUpperCase();
+        if (
+            status === 'CONFIRMED' ||
+            status === 'SUCCESS' ||
+            status === 'COMPLETED' ||
+            status === 'FINALIZED'
+        ) {
+            return true;
+        }
+        if (
+            status === 'PENDING' ||
+            status === 'UNCONFIRMED' ||
+            status === 'MEMPOOL' ||
+            status === 'PENDING_CONFIRMATION'
+        ) {
+            return false;
+        }
+
+        if (transfer.confirmations == null) {
+            return false;
+        }
+        const minRequired =
+            asset === 'BTC'
+                ? Number(EnvironmentConfig.get('THRESH0LD_BTC_MIN_CONFIRMATIONS', '2'))
+                : Number(EnvironmentConfig.get('THRESH0LD_ETH_MIN_CONFIRMATIONS', '1'));
+        const floor = Number.isFinite(minRequired) ? minRequired : asset === 'BTC' ? 2 : 1;
+        return transfer.confirmations >= floor;
+    }
+
+    private normalizeDepositAmount(amount: number, asset: 'BTC' | 'ETH'): number {
+        if (!Number.isFinite(amount) || amount <= 0) {
+            return 0;
+        }
+        if (asset === 'BTC' && amount >= 1000) {
+            return amount / 100_000_000;
+        }
+        if (asset === 'ETH' && amount >= 1e9) {
+            return amount / 1e18;
+        }
+        return amount;
+    }
+
+    private isUniqueViolation(error: unknown): boolean {
+        const err = error as { name?: string; code?: string; message?: string };
+        const message = String(err?.message || '');
+        return (
+            err?.name === 'DatabaseConstraintError' ||
+            err?.code === '23505' ||
+            message.includes('23505') ||
+            /unique constraint|duplicate key/i.test(message)
+        );
+    }
+
+    private assertCryptoType(cryptoType: string): 'BTC' | 'ETH' {
+        const asset = String(cryptoType || '').trim().toUpperCase();
+        if (asset !== 'BTC' && asset !== 'ETH') {
+            throw new ValidationError('cryptoType must be BTC or ETH');
+        }
+        return asset;
+    }
+
+    private isThresh0ldCustody(): boolean {
+        const mode = EnvironmentConfig.get('TRANSACTION_MODE', 'automated').toLowerCase().trim();
+        const provider = EnvironmentConfig.get('CUSTODY_PROVIDER', 'inhouse').toLowerCase().trim();
+        return mode !== 'manual' && provider === 'thresh0ld';
+    }
+
+    private async generateCustodialAddress(
+        userId: string,
+        asset: 'BTC' | 'ETH'
+    ): Promise<{ address: string; derivationPath: string | null }> {
+        if (this.isThresh0ldCustody()) {
+            const pathIndex = await this.derivationCounterRepo.allocateNextIndex(asset);
+            assertThresh0ldPathIndex(pathIndex);
+            const derivationPath = formatThresh0ldDerivationPath(pathIndex);
+            const generated = await this.thresh0ldApiClient.generateAddress(pathIndex, asset.toLowerCase());
+            return { address: generated.address, derivationPath };
+        }
+
+        const walletAccount = await this.ensureCryptoWalletAccount(userId, asset);
+        if (asset === 'BTC') {
+            const address = await this.bitcoinWalletService.getOrGenerateAddress(userId, walletAccount._id!);
+            return { address, derivationPath: walletAccount.derivation_path ?? null };
+        }
+        const address = await this.ethereumWalletService.getOrGenerateAddress(userId, walletAccount._id!);
+        return { address, derivationPath: walletAccount.derivation_path ?? null };
+    }
+
+    private async persistUserDepositAddress(
+        userId: string,
+        asset: 'BTC' | 'ETH',
+        address: string,
+        derivationPath: string | null
+    ): Promise<void> {
+        const patch: Partial<IUser> =
+            asset === 'BTC'
+                ? { btc_deposit_address: address, btc_derivation_path: derivationPath }
+                : { eth_deposit_address: address, eth_derivation_path: derivationPath };
+        await this.userRepository.update(userId, patch);
+    }
+
+    private async ensureCryptoWalletAccount(userId: string, asset: 'BTC' | 'ETH'): Promise<IWalletAccount> {
+        let wallet = await this.walletRepository.findByUserId(userId);
+        if (!wallet?._id) {
+            const initialized = await this.initializeUserWallet(userId);
+            wallet = initialized.wallet;
+        }
+        const currency = await this.currencyRepository.findByCode(asset);
+        if (!currency?._id) {
+            throw new ServiceError(`${asset} currency not found`);
+        }
+        let account = await this.walletAccountRepository.findByWalletIdAndCurrencyId(wallet._id!, currency._id);
+        if (!account) {
+            account = await this.walletAccountRepository.create({
+                wallet_id: wallet._id!,
+                currency_id: currency._id,
+                balance: 0,
+                available_balance: 0,
+                locked_balance: 0,
+                user_balance: 0,
+                platform_owned_balance: 0,
+                total_onchain_balance: 0,
+                address: null,
+                derivation_path: null,
+                status: 'active'
+            } as IWalletAccount);
+        }
+        if (!account._id) {
+            throw new ServiceError(`Failed to get ${asset} wallet account`);
+        }
+        return account;
+    }
+
+    private async syncWalletAccountAddress(
+        userId: string,
+        asset: 'BTC' | 'ETH',
+        address: string,
+        derivationPath: string | null
+    ): Promise<void> {
+        const account = await this.ensureCryptoWalletAccount(userId, asset);
+        if (account.address === address && account.derivation_path === derivationPath) {
+            return;
+        }
+        await this.walletAccountRepository.update(account._id!, {
+            address,
+            derivation_path: derivationPath,
+            address_type: asset === 'BTC' ? 'p2wpkh' : 'eth'
+        });
+    }
+
+    private async creditCryptoDeposit(
+        userId: string,
+        asset: 'BTC' | 'ETH',
+        amount: number
+    ): Promise<IWalletAccount> {
+        const account = await this.ensureCryptoWalletAccount(userId, asset);
+        await this.walletAccountRepository.lockById(account._id!);
+        const updated = await this.walletAccountRepository.incrementCryptoDeposit(account._id!, amount);
+        if (!updated) {
+            throw new ServiceError(`Failed to credit ${asset} deposit`);
+        }
+        return updated;
     }
 
     /**

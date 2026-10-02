@@ -187,6 +187,10 @@ export class AdminConfirmFiatPayoutDTO {
 }
 
 export class AdminReleaseCryptoDTO {
+    @IsString()
+    @IsNotEmpty({ message: 'consent_code is required' })
+    consent_code: string;
+
     @IsOptional()
     @IsString()
     admin_notes?: string;

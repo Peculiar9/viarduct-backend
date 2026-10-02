@@ -39,9 +39,9 @@ export class BitcoinWalletController extends BaseController {
                 return this.error(res, 'User not authenticated', 401);
             }
 
-            const address = await this.walletService.generateBitcoinAddress(user._id);
+            const result = await this.walletService.getOrCreateUserDepositAddress(user._id, 'BTC');
             
-            return this.success(res, { address }, 'Bitcoin address retrieved successfully');
+            return this.success(res, result, 'Bitcoin address retrieved successfully');
         } catch (error: any) {
             console.error('Error getting Bitcoin address:', error);
             return this.error(res, error.message, error.statusCode || 400);

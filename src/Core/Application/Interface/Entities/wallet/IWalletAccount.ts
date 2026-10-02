@@ -22,7 +22,8 @@ export interface IWalletAccount {
      * we can sweep to a vault address to optimize network fees.
      */
     sweep_threshold?: number | null;
-    address?: string | null;             // Bitcoin address (for crypto only)
+    address?: string | null;             // Bitcoin/ETH address (for crypto only)
+    derivation_path?: string | null;     // Thresh0ld HD path, e.g. m/0/12
     address_type?: string | null;        // 'p2pkh', 'bech32', etc. (for crypto only)
     status: 'active' | 'suspended';
     created_at?: string;

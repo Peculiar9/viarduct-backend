@@ -7,7 +7,7 @@ import AuthMiddleware from '../../Middleware/AuthMiddleware';
 import { BaseController } from '../BaseController';
 import { IUser } from '../../Core/Application/Interface/Entities/auth-and-user/IUser';
 import { validationMiddleware } from '../../Middleware/ValidationMiddleware';
-import { ValidateAccountDTO, SetAmountDTO, ConfirmWithdrawalDTO } from '../../Core/Application/DTOs/WithdrawalDTO';
+import { ValidateAccountDTO, SetAmountDTO, ConfirmWithdrawalDTO, WithdrawCryptoDTO } from '../../Core/Application/DTOs/WithdrawalDTO';
 import { ResponseMessage } from '../../Core/Application/Response/ResponseFormat';
 
 @controller(`/${API_PATH}/withdrawal`)
@@ -35,6 +35,23 @@ export class WithdrawalController extends BaseController {
             const { account_number, bank_code } = req.body;
             const result = await this.withdrawalService.validateAccountAndCreateRequest(user._id!, account_number, bank_code);
             return this.success(res, result, 'Account validated successfully');
+        } catch (error: any) {
+            return this.error(res, error.message, error.statusCode || 400, error);
+        }
+    }
+
+    @httpPost('/crypto', AuthMiddleware.authenticate(), validationMiddleware(WithdrawCryptoDTO))
+    async withdrawCrypto(@request() req: Request, @response() res: Response) {
+        try {
+            const user = req.user as IUser;
+            const { crypto_type, amount, destination_address } = req.body;
+            const result = await this.withdrawalService.withdrawCrypto(
+                user._id!,
+                crypto_type,
+                amount,
+                destination_address
+            );
+            return this.success(res, result, 'Crypto withdrawal submitted');
         } catch (error: any) {
             return this.error(res, error.message, error.statusCode || 400, error);
         }

@@ -6,6 +6,7 @@ export interface ITradingRateRepository {
     findActiveByCryptoType(cryptoType: string): Promise<ITradingRate | null>;
     findById(id: string): Promise<ITradingRate | null>;
     update(id: string, entity: Partial<ITradingRate>): Promise<ITradingRate | null>;
+    delete(id: string): Promise<boolean>;
     findAll(): Promise<ITradingRate[]>;
 }
 

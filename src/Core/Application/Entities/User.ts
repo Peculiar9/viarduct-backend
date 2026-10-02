@@ -193,6 +193,26 @@ export class User implements IUser {
     @Column('TIMESTAMP WITH TIME ZONE DEFAULT NULL')
     public deactivated_at?: string | null;
 
+    @Index({ unique: true })
+    @Column('VARCHAR(255) DEFAULT NULL')
+    public btc_deposit_address?: string | null;
+
+    @Column('VARCHAR(100) DEFAULT NULL')
+    public btc_derivation_path?: string | null;
+
+    @Index({ unique: true })
+    @Column('VARCHAR(255) DEFAULT NULL')
+    public eth_deposit_address?: string | null;
+
+    @Column('VARCHAR(100) DEFAULT NULL')
+    public eth_derivation_path?: string | null;
+
+    @Column('DECIMAL(20, 8) NOT NULL DEFAULT 0')
+    public btc_balance?: number;
+
+    @Column('DECIMAL(20, 8) NOT NULL DEFAULT 0')
+    public eth_balance?: number;
+
     // state_code column
     @Column('VARCHAR(255) DEFAULT NULL')
     public state_code: string;

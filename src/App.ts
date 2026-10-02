@@ -19,6 +19,7 @@ import './Controllers/payment/PaystackPaymentController';
 import './Controllers/wallet/BitcoinWalletController';
 import './Controllers/wallet/EthereumWalletController';
 import './Controllers/wallet/PlatformWalletController';
+import './Controllers/wallet/WalletSyncController';
 import './Controllers/trading/PublicTradingRateController';
 import './Controllers/trading/TradingRateController';
 import './Controllers/trading/TradingOrderController';

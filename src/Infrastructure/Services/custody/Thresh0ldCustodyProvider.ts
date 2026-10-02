@@ -87,12 +87,22 @@ export class Thresh0ldCustodyProvider implements ICustodyProvider {
     }
 
     async estimateOutboundFee(
-        _asset: CustodyAsset,
+        asset: CustodyAsset,
         _fromAddress: string,
         _toAddress: string,
         _amountCrypto: number
     ): Promise<CustodyFeeEstimate> {
-        // Thresh0ld fee estimate endpoint not wired yet — quotes remain application-side
+        try {
+            const feeCrypto = await this.apiClient.getApproxFees(asset.toLowerCase());
+            if (Number.isFinite(feeCrypto) && feeCrypto > 0) {
+                return { feeCrypto, feeNgn: 0 };
+            }
+        } catch (error: any) {
+            Console.warn('Thresh0ld get-approx-fees failed', {
+                asset,
+                error: error?.message
+            });
+        }
         return { feeCrypto: 0, feeNgn: 0 };
     }
 

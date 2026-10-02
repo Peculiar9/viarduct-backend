@@ -63,6 +63,8 @@ import { WalletRepository } from '../Infrastructure/Repository/SQL/wallet/Wallet
 import { WalletAccountRepository } from '../Infrastructure/Repository/SQL/wallet/WalletAccountRepository';
 import { WalletService } from '../Infrastructure/Services/WalletService';
 import { IWalletService } from './Application/Interface/Services/IWalletService';
+import { WalletTransactionRepository } from '../Infrastructure/Repository/SQL/wallet/WalletTransactionRepository';
+import { IWalletTransactionRepository } from './Application/Interface/Repositories/IWalletTransactionRepository';
 import { PaystackService } from '../Infrastructure/Services/payment/PaystackService';
 import { IPaystackService } from './Application/Interface/Services/IPaystackService';
 import { IAccountVerificationService } from './Application/Interface/Services/IAccountVerificationService';
@@ -105,6 +107,8 @@ import { IOrderCompletionJob } from './Application/Interface/Services/IOrderComp
 import { TradeQuoteService } from '../Infrastructure/Services/trading/TradeQuoteService';
 import { TradeIntentService } from '../Infrastructure/Services/trading/TradeIntentService';
 import { ITradeIntentService } from './Application/Interface/Services/ITradeIntentService';
+import { SolvencyService } from '../Infrastructure/Services/trading/SolvencyService';
+import { ISolvencyService } from './Application/Interface/Services/ISolvencyService';
 import { TradeIntentSweepJob } from '../Infrastructure/Services/trading/TradeIntentSweepJob';
 import { InHouseCustodyProvider } from '../Infrastructure/Services/custody/InHouseCustodyProvider';
 import { LiminalCustodyProvider } from '../Infrastructure/Services/custody/LiminalCustodyProvider';
@@ -114,6 +118,8 @@ import { Thresh0ldApiClient } from '../Infrastructure/Services/custody/thresh0ld
 import { CustodyDerivationCounterRepository } from '../Infrastructure/Repository/SQL/custody/CustodyDerivationCounterRepository';
 import { ICustodyDerivationCounterRepository } from './Application/Interface/Repositories/ICustodyDerivationCounterRepository';
 import { ICustodyProvider } from './Application/Interface/Services/ICustodyProvider';
+import { ICustodyService } from './Application/Interface/Services/ICustodyService';
+import { CustodyService } from '../Infrastructure/Services/custody/CustodyService';
 import { UserBankAccountRepository } from '../Infrastructure/Repository/SQL/bank/UserBankAccountRepository';
 import { IUserBankAccountRepository } from './Application/Interface/Repositories/IUserBankAccountRepository';
 import { UserBankAccountService } from '../Infrastructure/Services/bank/UserBankAccountService';
@@ -324,6 +330,10 @@ export class DIContainer {
         container.bind<ISMSService>(TYPES.SMSService).to(SMSService).inRequestScope();
         container.bind<IOTPService>(TYPES.OTPService).to(OTPService).inRequestScope();
         container.bind<IWalletService>(TYPES.WalletService).to(WalletService).inRequestScope();
+        container
+            .bind<IWalletTransactionRepository>(TYPES.WalletTransactionRepository)
+            .to(WalletTransactionRepository)
+            .inRequestScope();
         container.bind<IBitcoinWalletService>(TYPES.BitcoinWalletService).to(BitcoinWalletService).inRequestScope();
         const enableEthereum = (process.env.ENABLE_ETHEREUM || 'true').toLowerCase() !== 'false';
         container
@@ -352,6 +362,7 @@ export class DIContainer {
         container.bind<ITradingOrderService>(TYPES.TradingOrderService).to(TradingOrderService).inRequestScope();
         container.bind<TradeQuoteService>(TYPES.TradeQuoteService).to(TradeQuoteService).inRequestScope();
         container.bind<ITradeIntentService>(TYPES.TradeIntentService).to(TradeIntentService).inRequestScope();
+        container.bind<ISolvencyService>(TYPES.SolvencyService).to(SolvencyService).inRequestScope();
         const transactionMode = (process.env.TRANSACTION_MODE || 'automated').toLowerCase().trim();
         const custodyProvider = (process.env.CUSTODY_PROVIDER || 'inhouse').toLowerCase();
         container.bind<Thresh0ldApiClient>(TYPES.Thresh0ldApiClient).to(Thresh0ldApiClient).inSingletonScope();
@@ -368,6 +379,7 @@ export class DIContainer {
         } else {
             container.bind<ICustodyProvider>(TYPES.CustodyProvider).to(InHouseCustodyProvider).inSingletonScope();
         }
+        container.bind<ICustodyService>(TYPES.CustodyService).to(CustodyService).inRequestScope();
         container.bind<INotificationService>(TYPES.NotificationService).to(NotificationService).inRequestScope();
         container.bind<TradeIntentNotificationHelper>(TYPES.TradeIntentNotificationHelper).to(TradeIntentNotificationHelper).inRequestScope();
         container.bind<IDisputeService>(TYPES.DisputeService).to(DisputeService).inRequestScope();

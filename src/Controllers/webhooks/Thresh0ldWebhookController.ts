@@ -5,15 +5,20 @@ import { controller, httpPost, request, response } from 'inversify-express-utils
 import { API_PATH, TYPES } from '../../Core/Types/Constants';
 import { BaseController } from '../BaseController';
 import { ITradeIntentService } from '../../Core/Application/Interface/Services/ITradeIntentService';
+import { IWalletService } from '../../Core/Application/Interface/Services/IWalletService';
 import { TradeIntentNotificationHelper } from '../../Infrastructure/Services/trading/TradeIntentNotificationHelper';
 import { EnvironmentConfig } from '../../Infrastructure/Config/EnvironmentConfig';
 import { Console } from '../../Infrastructure/Utils/Console';
 import { Thresh0ldWebhookPayload } from '../../Infrastructure/Services/custody/thresh0ld/Thresh0ldTypes';
 
+type MappedAsset = 'BTC' | 'ETH' | 'USDT';
+type ReceiveHandleResult = { status: 'OK' | 'PENDING_CONFIRMATION' | 'IGNORED' };
+
 @controller(`/${API_PATH}/webhooks/thresh0ld`)
 export class Thresh0ldWebhookController extends BaseController {
     constructor(
         @inject(TYPES.TradeIntentService) private readonly tradeIntentService: ITradeIntentService,
+        @inject(TYPES.WalletService) private readonly walletService: IWalletService,
         @inject(TYPES.TradeIntentNotificationHelper)
         private readonly intentNotifications: TradeIntentNotificationHelper
     ) {
@@ -40,7 +45,10 @@ export class Thresh0ldWebhookController extends BaseController {
             });
 
             if (this.isReceiveEvent(eventName)) {
-                await this.handleReceive(payload);
+                const result = await this.handleReceive(payload);
+                if (result.status === 'PENDING_CONFIRMATION') {
+                    return res.status(200).json({ status: 'PENDING_CONFIRMATION' });
+                }
             } else if (this.isSendEvent(eventName)) {
                 Console.info('Thresh0ld webhook: Send event acknowledged', {
                     txHash: this.extractTxHash(payload)
@@ -49,18 +57,16 @@ export class Thresh0ldWebhookController extends BaseController {
                 Console.info('Thresh0ld webhook: unhandled event type', { eventName });
             }
 
-            // Thresh0ld requires strict 200 OK
             return res.status(200).json({ success: true, message: 'OK' });
         } catch (error: any) {
             Console.error(error, {
                 message: `Thresh0ldWebhookController::handleWebhook - ${error?.message}`
             });
-            // Still acknowledge to avoid infinite retries on poison messages after logging
             return res.status(200).json({ success: true, message: 'OK' });
         }
     }
 
-    private async handleReceive(payload: Thresh0ldWebhookPayload): Promise<void> {
+    private async handleReceive(payload: Thresh0ldWebhookPayload): Promise<ReceiveHandleResult> {
         const address = this.extractAddress(payload);
         const txHash = this.extractTxHash(payload);
         const amountCrypto = this.extractAmount(payload);
@@ -73,7 +79,40 @@ export class Thresh0ldWebhookController extends BaseController {
                 amountCrypto,
                 asset
             });
-            return;
+            return { status: 'IGNORED' };
+        }
+
+        if (!this.isDepositConfirmed(payload, asset)) {
+            Console.info('Thresh0ld Receive pending confirmation', {
+                txHash,
+                asset,
+                status: this.extractStatus(payload),
+                confirmations: this.extractConfirmations(payload)
+            });
+            return { status: 'PENDING_CONFIRMATION' };
+        }
+
+        if (asset === 'USDT') {
+            Console.warn('Thresh0ld USDT/ERC-20 Receive identified but native user ledger is BTC/ETH only', {
+                txHash,
+                address
+            });
+            return { status: 'IGNORED' };
+        }
+
+        const walletCredit = await this.walletService.handleIncomingWalletDeposit({
+            address,
+            txHash,
+            amountCrypto,
+            asset
+        });
+        if (walletCredit.credited || walletCredit.alreadyProcessed) {
+            Console.info('Thresh0ld Receive applied to user wallet', {
+                userId: walletCredit.userId,
+                credited: walletCredit.credited,
+                alreadyProcessed: walletCredit.alreadyProcessed
+            });
+            return { status: 'OK' };
         }
 
         const updated = await this.tradeIntentService.handleIncomingCryptoDeposit({
@@ -86,6 +125,52 @@ export class Thresh0ldWebhookController extends BaseController {
         if (updated && updated.status === 'crypto_detected') {
             void this.intentNotifications.onDepositTxHashSubmitted(updated);
         }
+        return { status: 'OK' };
+    }
+
+    private isDepositConfirmed(payload: Thresh0ldWebhookPayload, asset: MappedAsset): boolean {
+        const status = this.extractStatus(payload);
+        if (
+            status === 'CONFIRMED' ||
+            status === 'SUCCESS' ||
+            status === 'COMPLETED' ||
+            status === 'FINALIZED'
+        ) {
+            return true;
+        }
+        if (
+            status === 'PENDING' ||
+            status === 'UNCONFIRMED' ||
+            status === 'MEMPOOL' ||
+            status === 'PENDING_CONFIRMATION'
+        ) {
+            return false;
+        }
+
+        const confirmations = this.extractConfirmations(payload);
+        if (confirmations == null) {
+            return false;
+        }
+        const minRequired =
+            asset === 'BTC'
+                ? Number(EnvironmentConfig.get('THRESH0LD_BTC_MIN_CONFIRMATIONS', '2'))
+                : Number(EnvironmentConfig.get('THRESH0LD_ETH_MIN_CONFIRMATIONS', '1'));
+        return confirmations >= (Number.isFinite(minRequired) ? minRequired : asset === 'BTC' ? 2 : 1);
+    }
+
+    private extractStatus(payload: Thresh0ldWebhookPayload): string {
+        return String(payload.status || payload.data?.status || '')
+            .trim()
+            .toUpperCase();
+    }
+
+    private extractConfirmations(payload: Thresh0ldWebhookPayload): number | null {
+        const raw = payload.confirmations ?? payload.data?.confirmations;
+        if (raw === undefined || raw === null || raw === '') {
+            return null;
+        }
+        const value = Number(raw);
+        return Number.isFinite(value) ? value : null;
     }
 
     private verifySignature(req: Request): boolean {
@@ -166,12 +251,47 @@ export class Thresh0ldWebhookController extends BaseController {
         return Number.isFinite(amount) ? amount : 0;
     }
 
-    private extractAsset(payload: Thresh0ldWebhookPayload): 'BTC' | 'ETH' | null {
-        const raw = String(payload.coin || payload.asset || payload.data?.coin || payload.data?.asset || '')
+    private extractAsset(payload: Thresh0ldWebhookPayload): MappedAsset | null {
+        const raw = String(
+            payload.coin ||
+                payload.asset ||
+                payload.data?.coin ||
+                payload.data?.asset ||
+                payload.data?.tokenName ||
+                ''
+        )
             .trim()
-            .toUpperCase();
-        if (raw === 'BTC' || raw === 'TBTC' || raw === 'BITCOIN') return 'BTC';
-        if (raw === 'ETH' || raw === 'ETHEREUM') return 'ETH';
+            .toUpperCase()
+            .replace(/[\s-]+/g, '_');
+
+        if (
+            raw === 'USDT' ||
+            raw === 'ERC20_USDT' ||
+            raw === 'USDT_ERC20' ||
+            raw === 'TETHER'
+        ) {
+            return 'USDT';
+        }
+        if (
+            raw === 'ETH' ||
+            raw === 'ETHEREUM' ||
+            raw === 'SEPOLIA' ||
+            raw === 'HOLESKY' ||
+            raw === 'ETH_SEPOLIA' ||
+            raw === 'SEPOLIA_ETH'
+        ) {
+            return 'ETH';
+        }
+        if (
+            raw === 'BTC' ||
+            raw === 'TBTC' ||
+            raw === 'BITCOIN' ||
+            raw === 'TESTNET' ||
+            raw === 'BTC_TESTNET' ||
+            raw === 'BITCOIN_TESTNET'
+        ) {
+            return 'BTC';
+        }
         return null;
     }
 }

@@ -24,6 +24,8 @@ export interface ITradeIntent {
     type: TradeIntentType;
     status: TradeIntentStatus;
     crypto_type: string;
+    /** User-facing network label for the deposit address (e.g. Ethereum Sepolia). */
+    network?: string | null;
     settlement_mode: TradeIntentSettlementMode;
 
     spot_price_ngn: number;

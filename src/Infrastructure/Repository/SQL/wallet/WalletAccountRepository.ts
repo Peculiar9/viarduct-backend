@@ -129,6 +129,37 @@ export class WalletAccountRepository extends BaseRepository<IWalletAccount> {
         }
     }
 
+    async lockById(id: string): Promise<IWalletAccount | null> {
+        try {
+            const result = await this.executeQuery<IWalletAccount>(
+                `SELECT * FROM "${this.tableName}" WHERE _id = $1 FOR UPDATE`,
+                [id]
+            );
+            return (result.rows[0] as any) || null;
+        } catch (error: any) {
+            throw new DatabaseError(`Failed to lock wallet account: ${error.message}`);
+        }
+    }
+
+    async incrementCryptoDeposit(accountId: string, amount: number): Promise<IWalletAccount | null> {
+        try {
+            const result = await this.executeQuery<IWalletAccount>(
+                `UPDATE "${this.tableName}"
+                 SET balance = COALESCE(balance, 0) + $1,
+                     available_balance = COALESCE(available_balance, 0) + $1,
+                     user_balance = COALESCE(user_balance, COALESCE(balance, 0)) + $1,
+                     total_onchain_balance = COALESCE(total_onchain_balance, 0) + $1,
+                     updated_at = NOW()
+                 WHERE _id = $2
+                 RETURNING *`,
+                [amount, accountId]
+            );
+            return (result.rows[0] as any) || null;
+        } catch (error: any) {
+            throw new DatabaseError(`Failed to increment crypto deposit: ${error.message}`);
+        }
+    }
+
     async findById(id: string): Promise<IWalletAccount | null> {
         try {
             const result = await this.executeQuery<IWalletAccount>(
@@ -364,6 +395,24 @@ export class WalletAccountRepository extends BaseRepository<IWalletAccount> {
             throw new DatabaseError(
                 `Failed to find ${currencyCode} accounts with platform-owned balance: ${error.message}`
             );
+        }
+    }
+
+    async tryDebitPlatformOwned(accountId: string, amount: number): Promise<IWalletAccount | null> {
+        try {
+            const result = await this.executeQuery<IWalletAccount>(
+                `UPDATE "${this.tableName}"
+                 SET platform_owned_balance = COALESCE(platform_owned_balance, 0) - $1,
+                     total_onchain_balance = GREATEST(0, COALESCE(total_onchain_balance, 0) - $1),
+                     updated_at = NOW()
+                 WHERE _id = $2
+                   AND COALESCE(platform_owned_balance, 0) >= $1
+                 RETURNING *`,
+                [amount, accountId]
+            );
+            return (result.rows[0] as any) || null;
+        } catch (error: any) {
+            throw new DatabaseError(`Failed to debit platform-owned balance: ${error.message}`);
         }
     }
 }

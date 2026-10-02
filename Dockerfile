@@ -2,8 +2,11 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Install pnpm (recommended in your README)
+# Install pnpm (package.json pnpm.onlyBuiltDependencies allows required build scripts)
 RUN npm install -g pnpm
+
+# Skip husky git hooks in container builds
+ENV HUSKY=0
 
 # Copy dependency files first (better caching)
 COPY package.json pnpm-lock.yaml* ./

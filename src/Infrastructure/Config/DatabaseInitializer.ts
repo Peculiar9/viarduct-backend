@@ -14,6 +14,7 @@ import { Permission } from '../../Core/Application/Entities/Permission';
 import { Currency } from '../../Core/Application/Entities/Currency';
 import { Wallet } from '../../Core/Application/Entities/Wallet';
 import { WalletAccount } from '../../Core/Application/Entities/WalletAccount';
+import { WalletTransaction } from '../../Core/Application/Entities/WalletTransaction';
 import { TradingRate } from '../../Core/Application/Entities/TradingRate';
 import { TradingOrder } from '../../Core/Application/Entities/TradingOrder';
 import { TradeIntent } from '../../Core/Application/Entities/TradeIntent';
@@ -54,6 +55,7 @@ export class DatabaseInitializer {
             { entity: Currency, tableName: TableNames.CURRENCIES },
             { entity: Wallet, tableName: TableNames.WALLETS },
             { entity: WalletAccount, tableName: TableNames.WALLET_ACCOUNTS },
+            { entity: WalletTransaction, tableName: TableNames.WALLET_TRANSACTIONS },
             { entity: Transaction, tableName: TableNames.TRANSACTIONS },
             { entity: TradingRate, tableName: TableNames.TRADING_RATES },
             { entity: TradingOrder, tableName: TableNames.TRADING_ORDERS },

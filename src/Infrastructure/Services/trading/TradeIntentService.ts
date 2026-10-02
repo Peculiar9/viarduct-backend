@@ -14,9 +14,12 @@ import { UserRepository } from '../../Repository/SQL/users/UserRepository';
 import { TradeQuoteLineItems } from '../../../Core/Application/DTOs/TradeIntentDTO';
 import { ServiceError, ValidationError } from '../../../Core/Application/Error/AppError';
 import { Console } from '../../Utils/Console';
+import { getNetworkName } from './getNetworkName';
 import { TradeQuoteService } from './TradeQuoteService';
 import { IUserBankAccountService } from '../../../Core/Application/Interface/Services/IUserBankAccountService';
 import { IAdminPayoutConsentService } from '../../../Core/Application/Interface/Services/IAdminPayoutConsentService';
+import { ISolvencyService } from '../../../Core/Application/Interface/Services/ISolvencyService';
+import { IWalletService } from '../../../Core/Application/Interface/Services/IWalletService';
 import { TradeIntentNotificationHelper } from './TradeIntentNotificationHelper';
 
 @injectable()
@@ -30,6 +33,8 @@ export class TradeIntentService implements ITradeIntentService {
         @inject(TYPES.UserRepository) private readonly userRepo: UserRepository,
         @inject(TYPES.UserBankAccountService) private readonly bankAccountService: IUserBankAccountService,
         @inject(TYPES.AdminPayoutConsentService) private readonly consentService: IAdminPayoutConsentService,
+        @inject(TYPES.SolvencyService) private readonly solvencyService: ISolvencyService,
+        @inject(TYPES.WalletService) private readonly walletService: IWalletService,
         @inject(TYPES.TradeIntentNotificationHelper) private readonly intentNotifications: TradeIntentNotificationHelper
     ) {}
 
@@ -141,11 +146,13 @@ export class TradeIntentService implements ITradeIntentService {
         }
 
         const nowIso = new Date().toISOString();
+        const network = getNetworkName(asset);
         const intent = await this.tradeIntentRepo.create({
             user_id: userId,
             type: 'sell',
             status: 'pending',
             crypto_type: asset,
+            network,
             settlement_mode: 'controlled_p2p',
             spot_price_ngn: quote.spot_price_ngn,
             spot_price_usd: quote.spot_price_usd,
@@ -175,6 +182,7 @@ export class TradeIntentService implements ITradeIntentService {
         const updated = await this.tradeIntentRepo.update(intent._id!, {
             deposit_address: deposit.address,
             deposit_derivation_path: deposit.derivationPath,
+            network,
             awaiting_user_tx_hash: this.custodyProvider.providerName === 'manual',
             updated_at: new Date().toISOString()
         });
@@ -183,6 +191,7 @@ export class TradeIntentService implements ITradeIntentService {
             intentId: intent._id,
             depositAddress: deposit.address,
             deposit_derivation_path: deposit.derivationPath,
+            network,
             custodyProvider: this.custodyProvider.providerName,
             awaitingUserTxHash: this.custodyProvider.providerName === 'manual'
         });
@@ -622,6 +631,15 @@ export class TradeIntentService implements ITradeIntentService {
             throw new ValidationError('This intent has already been paid out');
         }
 
+        const isManualMode =
+            this.custodyProvider.providerName === 'manual' ||
+            (process.env.TRANSACTION_MODE || 'automated').toLowerCase().trim() === 'manual';
+
+        if (dto.intent_type === 'buy' && !isManualMode) {
+            const asset = this.assetFromType(intent.crypto_type);
+            await this.solvencyService.assertPlatformSolvent(asset, Number(intent.net_crypto_amount), 'admin');
+        }
+
         const consent = await this.consentService.validateAndConsumeConsent(
             adminId,
             dto.consent_code,
@@ -629,9 +647,6 @@ export class TradeIntentService implements ITradeIntentService {
         );
         const payoutDate = this.parsePayoutDate(dto.date_of_payment);
         const nowIso = new Date().toISOString();
-        const isManualMode =
-            this.custodyProvider.providerName === 'manual' ||
-            (process.env.TRANSACTION_MODE || 'automated').toLowerCase().trim() === 'manual';
 
         if (dto.intent_type === 'buy') {
             if (intent.status !== 'fiat_verified') {
@@ -686,6 +701,8 @@ export class TradeIntentService implements ITradeIntentService {
             if (!updated) {
                 throw new ServiceError('Failed to complete buy payout');
             }
+
+            await this.walletService.debitPlatformOwnedForOutbound(asset, amount);
 
             const normalized = this.normalizeIntent(updated);
             void this.intentNotifications.onIntentPaidOut(normalized, adminId);
@@ -848,10 +865,18 @@ export class TradeIntentService implements ITradeIntentService {
         return updated;
     }
 
-    async adminReleaseCrypto(adminId: string, intentId: string, adminNotes?: string): Promise<ITradeIntent> {
+    async adminReleaseCrypto(
+        adminId: string,
+        intentId: string,
+        adminNotes?: string,
+        consentCode?: string
+    ): Promise<ITradeIntent> {
         const intent = await this.tradeIntentRepo.findById(intentId);
         if (!intent || intent.type !== 'buy') {
             throw new ValidationError('Buy trade intent not found');
+        }
+        if (intent.payout_at) {
+            throw new ValidationError('This intent has already been paid out');
         }
         if (intent.status !== 'fiat_verified') {
             throw new ValidationError('Fiat must be verified before releasing crypto');
@@ -859,11 +884,35 @@ export class TradeIntentService implements ITradeIntentService {
         if (!intent.external_destination_address) {
             throw new ServiceError('Missing external destination address');
         }
+        const trimmedConsent = String(consentCode || '').trim();
+        if (!trimmedConsent) {
+            throw new ValidationError(
+                'consent_code is required. Use POST /admin/trade-intents/payout or pass a valid payout consent.'
+            );
+        }
 
         const asset = this.assetFromType(intent.crypto_type);
         const amount = Number(intent.net_crypto_amount);
+        const isManualMode =
+            this.custodyProvider.providerName === 'manual' ||
+            (process.env.TRANSACTION_MODE || 'automated').toLowerCase().trim() === 'manual';
+        if (isManualMode) {
+            throw new ValidationError(
+                'release-crypto is not available in manual mode. Use POST /admin/trade-intents/payout with buy_metadata.outgoing_tx_hash.'
+            );
+        }
+
+        await this.solvencyService.assertPlatformSolvent(asset, amount, 'admin');
+        const consent = await this.consentService.validateAndConsumeConsent(
+            adminId,
+            trimmedConsent,
+            intentId
+        );
+
         await this.tradeIntentRepo.update(intentId, {
             status: 'processing',
+            payout_consent_id: consent._id ?? null,
+            payout_by: adminId,
             updated_at: new Date().toISOString()
         });
 
@@ -880,12 +929,14 @@ export class TradeIntentService implements ITradeIntentService {
             actual_gas_crypto: broadcast.feeCrypto ?? intent.quoted_gas_crypto,
             settled_at: now,
             settled_by: adminId,
+            payout_at: now,
             admin_notes: adminNotes ?? intent.admin_notes,
             updated_at: now
         });
         if (!updated) {
             throw new ServiceError('Failed to finalize crypto release');
         }
+        await this.walletService.debitPlatformOwnedForOutbound(asset, amount);
         return updated;
     }
 

@@ -150,7 +150,12 @@ export class AdminTradeIntentController extends BaseController {
     ) {
         try {
             const admin = req.user as IUser;
-            const intent = await this.tradeIntentService.adminReleaseCrypto(admin._id!, id, dto.admin_notes);
+            const intent = await this.tradeIntentService.adminReleaseCrypto(
+                admin._id!,
+                id,
+                dto.admin_notes,
+                dto.consent_code
+            );
             return this.success(res, intent, 'Crypto released on-chain');
         } catch (error: any) {
             return this.error(res, error.message, error.statusCode || 400);

@@ -44,4 +44,7 @@ export interface ITradeIntentRepository {
 
     /** Count sell intents that have any deposit_derivation_path for the asset. */
     countWithDepositDerivationPath(cryptoType: string): Promise<number>;
+
+    /** Unsettled buy-intent crypto still waiting to be sent on-chain. */
+    sumPendingBuyPayouts(cryptoType: 'BTC' | 'ETH'): Promise<number>;
 }

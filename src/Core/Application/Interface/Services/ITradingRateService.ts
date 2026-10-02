@@ -25,6 +25,11 @@ export interface ITradingRateService {
     updateRate(id: string, data: Partial<ITradingRate>, updatedBy: string): Promise<ITradingRate>;
 
     /**
+     * Permanently delete a trading rate by id
+     */
+    deleteRate(id: string): Promise<boolean>;
+
+    /**
      * Get all rates (for admin)
      */
     getAllRates(): Promise<ITradingRate[]>;

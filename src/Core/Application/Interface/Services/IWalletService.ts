@@ -75,6 +75,66 @@ export interface IWalletService {
     creditUserWalletByCurrency(userId: string, currencyCode: string, amount: number): Promise<IWalletAccount>;
 
     /**
+     * Atomically debit user.btc_balance / user.eth_balance and the matching wallet_account.
+     */
+    debitUserCryptoBalance(
+        userId: string,
+        asset: 'BTC' | 'ETH',
+        amount: number
+    ): Promise<IWalletAccount>;
+
+    /**
+     * Refund a crypto debit to user.btc_balance / user.eth_balance and the matching wallet_account.
+     */
+    creditUserCryptoBalance(userId: string, asset: 'BTC' | 'ETH', amount: number): Promise<IWalletAccount>;
+
+    /**
+     * Get or create a permanent static deposit address (Thresh0ld sequential HD path).
+     */
+    getOrCreateUserDepositAddress(
+        userId: string,
+        cryptoType: string
+    ): Promise<{
+        crypto_type: 'BTC' | 'ETH';
+        address: string;
+        derivation_path: string | null;
+        network: string;
+        already_existed: boolean;
+    }>;
+
+    /**
+     * Credit a user's custodial BTC/ETH wallet from a Thresh0ld Receive webhook.
+     * Returns credited=false when the address is not a user static deposit address.
+     */
+    handleIncomingWalletDeposit(params: {
+        address: string;
+        txHash: string;
+        amountCrypto: number;
+        asset: 'BTC' | 'ETH';
+        source?: string;
+    }): Promise<{ credited: boolean; userId?: string; alreadyProcessed?: boolean }>;
+
+    /**
+     * On-demand Thresh0ld history poll for confirmed deposits not yet COMPLETED.
+     */
+    syncUserWallet(
+        userId: string,
+        asset: 'BTC' | 'ETH'
+    ): Promise<{
+        asset: 'BTC' | 'ETH';
+        deposit_address: string;
+        btc_balance: number;
+        eth_balance: number;
+        synced_tx_hashes: string[];
+    }>;
+
+    /**
+     * Debit company-owned crypto inventory after a treasury/admin on-chain payout.
+     * Never touches user_balance.
+     */
+    debitPlatformOwnedForOutbound(asset: 'BTC' | 'ETH', amount: number): Promise<number>;
+
+    /**
      * Generate or get Bitcoin address for user's BTC wallet account
      * @param userId User ID
      * @returns Bitcoin address

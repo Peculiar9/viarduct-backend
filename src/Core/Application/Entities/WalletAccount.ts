@@ -55,6 +55,9 @@ export class WalletAccount implements IWalletAccount {
     @Column('VARCHAR(255) DEFAULT NULL')
     public address?: string | null;
 
+    @Column('VARCHAR(100) DEFAULT NULL')
+    public derivation_path?: string | null;
+
     @Column('VARCHAR(20) DEFAULT NULL')
     public address_type?: string | null;
 

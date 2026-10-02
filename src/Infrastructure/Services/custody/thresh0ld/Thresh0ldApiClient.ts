@@ -13,7 +13,8 @@ import {
     Thresh0ldSendManyRequest,
     Thresh0ldSendManyResponse,
     Thresh0ldSubmitTransactionRequest,
-    Thresh0ldSubmitTransactionResponse
+    Thresh0ldSubmitTransactionResponse,
+    Thresh0ldTransfer
 } from './Thresh0ldTypes';
 
 /**
@@ -320,6 +321,254 @@ export class Thresh0ldApiClient {
         } catch (error) {
             throw this.wrapError(error, 'submit-transaction');
         }
+    }
+
+    async getWalletBalance(coin: string): Promise<number> {
+        this.assertCredentials();
+        const normalized = coin.toLowerCase();
+        const walletId = this.getHotWalletId(normalized);
+        const payload = {
+            wallet: {
+                coin: normalized,
+                walletId: this.toWalletId(walletId),
+                allToken: true
+            }
+        };
+
+        try {
+            const response = await this.client.post('/api/wallet/balance', payload, {
+                headers: this.authHeaders()
+            });
+            const balance = this.extractBalance(response.data);
+            if (!Number.isFinite(balance) || balance < 0) {
+                throw new ServiceError(
+                    `Thresh0ld wallet balance missing or invalid. Response: ${JSON.stringify(response.data)}`
+                );
+            }
+            return balance;
+        } catch (error) {
+            throw this.wrapError(error, 'wallet-balance');
+        }
+    }
+
+    async getApproxFees(coin: string): Promise<number> {
+        this.assertCredentials();
+        const normalized = coin.toLowerCase();
+        const walletId = this.getHotWalletId(normalized);
+        const payload = {
+            wallet: {
+                coin: normalized,
+                walletId: this.toWalletId(walletId)
+            }
+        };
+
+        try {
+            const response = await this.client.post('/api/wallet/get-approx-fees', payload, {
+                headers: this.authHeaders(),
+                timeout: 8_000
+            });
+            const fee = this.extractApproxFee(response.data, normalized);
+            if (!Number.isFinite(fee) || !(fee > 0)) {
+                throw new ServiceError(
+                    `Thresh0ld get-approx-fees returned no usable fee. Response: ${JSON.stringify(response.data)}`
+                );
+            }
+            return fee;
+        } catch (error) {
+            throw this.wrapError(error, 'get-approx-fees');
+        }
+    }
+
+    async getTransferList(coin: string, maxPages: number = 5, pageSize: number = 50): Promise<Thresh0ldTransfer[]> {
+        this.assertCredentials();
+        const normalized = coin.toLowerCase();
+        const walletId = this.getHotWalletId(normalized);
+        const collected: Thresh0ldTransfer[] = [];
+        const pages = Math.max(1, Math.min(maxPages, 20));
+        const size = Math.max(1, Math.min(pageSize, 100));
+
+        for (let pageNumber = 1; pageNumber <= pages; pageNumber++) {
+            const payload = {
+                wallet: {
+                    coin: normalized,
+                    walletId: this.toWalletId(walletId)
+                },
+                pagination: {
+                    pageNumber,
+                    pageSize: size
+                }
+            };
+
+            try {
+                const response = await this.client.post('/api/wallet/get-transfer-list', payload, {
+                    headers: this.authHeaders(),
+                    timeout: 15_000
+                });
+                const rows = this.extractTransferRows(response.data);
+                if (!rows.length) {
+                    break;
+                }
+                collected.push(...rows);
+                if (rows.length < size) {
+                    break;
+                }
+            } catch (error) {
+                throw this.wrapError(error, 'get-transfer-list');
+            }
+        }
+
+        return collected;
+    }
+
+    private extractTransferRows(body: any): Thresh0ldTransfer[] {
+        const nested = [
+            body?.transfers,
+            body?.transferList,
+            body?.list,
+            body?.items,
+            body?.transactions,
+            body?.data?.transfers,
+            body?.data?.transferList,
+            body?.data?.list,
+            body?.data?.items,
+            body?.data?.transactions,
+            body?.data?.content,
+            body?.data?.records,
+            body?.data?.data,
+            body?.wallet?.transfers,
+            Array.isArray(body?.data) ? body.data : null,
+            Array.isArray(body) ? body : null
+        ];
+
+        const rawRows = nested.find((value) => Array.isArray(value)) as unknown[] | undefined;
+        if (!rawRows?.length) {
+            return [];
+        }
+
+        return rawRows.map((row) => this.mapTransfer(row)).filter((row) => Boolean(row.txHash));
+    }
+
+    private mapTransfer(raw: unknown): Thresh0ldTransfer {
+        const row = (raw ?? {}) as Record<string, any>;
+        const nested = (row.data && typeof row.data === 'object' ? row.data : {}) as Record<string, any>;
+        const txHash = String(
+            row.txHash ||
+                row.txid ||
+                row.txId ||
+                row.transactionHash ||
+                row.transactionId ||
+                nested.txHash ||
+                nested.txid ||
+                nested.txId ||
+                nested.transactionHash ||
+                ''
+        ).trim();
+
+        const amountRaw =
+            row.amount ??
+            row.value ??
+            row.coinAmount ??
+            row.quantity ??
+            nested.amount ??
+            nested.value ??
+            nested.coinAmount;
+
+        return {
+            txHash,
+            amount: Number(amountRaw),
+            toAddress: this.optionalAddress(
+                row.toAddress ||
+                    row.to ||
+                    row.destinationAddress ||
+                    nested.toAddress ||
+                    nested.to ||
+                    row.address ||
+                    nested.address
+            ),
+            fromAddress: this.optionalAddress(row.fromAddress || row.from || row.sourceAddress || nested.fromAddress || nested.from),
+            type: String(row.type || row.transferType || row.txType || nested.type || nested.transferType || '').trim(),
+            status: String(row.status || row.state || nested.status || nested.state || '').trim(),
+            confirmations: this.optionalNumber(row.confirmations ?? row.confirmation ?? nested.confirmations ?? nested.confirmation)
+        };
+    }
+
+    private optionalAddress(value: unknown): string | null {
+        if (value === undefined || value === null || value === '') {
+            return null;
+        }
+        return String(value).trim();
+    }
+
+    private optionalNumber(value: unknown): number | null {
+        if (value === undefined || value === null || value === '') {
+            return null;
+        }
+        const num = Number(value);
+        return Number.isFinite(num) ? num : null;
+    }
+
+    private extractApproxFee(body: any, coin: string): number {
+        const candidates = [
+            body?.fee,
+            body?.approxFee,
+            body?.feeAmount,
+            body?.networkFee,
+            body?.estimatedFee,
+            body?.data?.fee,
+            body?.data?.approxFee,
+            body?.data?.feeAmount,
+            body?.data?.networkFee,
+            body?.data?.estimatedFee,
+            body?.data?.approx_fee,
+            body?.data?.gasFee,
+            body?.data?.feeCrypto,
+            body?.wallet?.fee
+        ];
+        for (const value of candidates) {
+            const num = typeof value === 'string' ? Number(value) : Number(value);
+            if (Number.isFinite(num) && num > 0) {
+                return this.normalizeFeeUnits(num, coin);
+            }
+        }
+        return Number.NaN;
+    }
+
+    private normalizeFeeUnits(fee: number, coin: string): number {
+        if (coin === 'btc' && fee >= 1000) {
+            return fee / 100_000_000;
+        }
+        if (coin === 'eth' && fee >= 1e9) {
+            return fee / 1e18;
+        }
+        return fee;
+    }
+
+    private extractBalance(body: any): number {
+        const candidates = [
+            body?.balance,
+            body?.confirmedBalance,
+            body?.spendableBalance,
+            body?.availableBalance,
+            body?.nativeBalance,
+            body?.data?.balance,
+            body?.data?.confirmedBalance,
+            body?.data?.spendableBalance,
+            body?.data?.availableBalance,
+            body?.data?.nativeBalance,
+            body?.data?.coinBalance,
+            body?.wallet?.balance,
+            body?.data?.wallet?.balance,
+            body?.data?.balances?.native,
+            body?.data?.balance?.confirmed,
+            body?.data?.balance?.spendable
+        ];
+        for (const value of candidates) {
+            const num = typeof value === 'string' ? Number(value) : Number(value);
+            if (Number.isFinite(num) && num >= 0) {
+                return num;
+            }
+        }
+        return Number.NaN;
     }
 
     private authHeaders(): Record<string, string> {

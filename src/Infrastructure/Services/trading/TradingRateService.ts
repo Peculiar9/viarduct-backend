@@ -246,6 +246,29 @@ export class TradingRateService implements ITradingRateService {
         }
     }
 
+    async deleteRate(id: string): Promise<boolean> {
+        try {
+            const existingRate = await this.tradingRateRepository.findById(id);
+            if (!existingRate) {
+                throw new ServiceError('Trading rate not found');
+            }
+
+            const deleted = await this.tradingRateRepository.delete(id);
+            if (!deleted) {
+                throw new ServiceError('Failed to delete trading rate');
+            }
+
+            Console.info('Trading rate deleted', {
+                id,
+                crypto_type: existingRate.crypto_type
+            });
+            return true;
+        } catch (error: any) {
+            Console.error(error, { message: 'Failed to delete trading rate' });
+            throw error;
+        }
+    }
+
     async getAllRates(): Promise<ITradingRate[]> {
         try {
             const rates = await this.tradingRateRepository.findAll();

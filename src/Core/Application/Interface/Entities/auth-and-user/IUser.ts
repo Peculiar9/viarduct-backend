@@ -57,6 +57,13 @@ export interface IUser{
     notification_preferences?: Record<string, boolean> | null;
     deactivation_reason?: string | null;
     deactivated_at?: string | null;
+    /** Permanent Thresh0ld (or in-house) BTC deposit address for this user. */
+    btc_deposit_address?: string | null;
+    btc_derivation_path?: string | null;
+    eth_deposit_address?: string | null;
+    eth_derivation_path?: string | null;
+    btc_balance?: number;
+    eth_balance?: number;
     updated_at: string;
     __v: number;
 }

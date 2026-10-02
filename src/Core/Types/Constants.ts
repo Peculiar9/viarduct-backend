@@ -107,6 +107,7 @@ export const TYPES = {
     WalletRepository: Symbol.for('WalletRepository'),
     WalletAccountRepository: Symbol.for('WalletAccountRepository'),
     WalletService: Symbol.for('WalletService'),
+    WalletTransactionRepository: Symbol.for('WalletTransactionRepository'),
     BitcoinWalletService: Symbol.for('BitcoinWalletService'),
     EthereumWalletService: Symbol.for('EthereumWalletService'),
     EthereumBlockchainService: Symbol.for('EthereumBlockchainService'),
@@ -131,8 +132,10 @@ export const TYPES = {
     TradeQuoteService: Symbol.for('TradeQuoteService'),
     TradeIntentSweepJob: Symbol.for('TradeIntentSweepJob'),
     CustodyProvider: Symbol.for('CustodyProvider'),
+    CustodyService: Symbol.for('CustodyService'),
     Thresh0ldApiClient: Symbol.for('Thresh0ldApiClient'),
     CustodyDerivationCounterRepository: Symbol.for('CustodyDerivationCounterRepository'),
+    SolvencyService: Symbol.for('SolvencyService'),
 
     // Bank accounts (user saved + corporate)
     UserBankAccountRepository: Symbol.for('UserBankAccountRepository'),

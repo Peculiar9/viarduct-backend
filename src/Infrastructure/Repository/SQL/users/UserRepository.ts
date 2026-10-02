@@ -426,4 +426,87 @@ export class UserRepository extends BaseRepository<IUser> {
         );
         return (result.rows[0] as any) || null;
     }
+
+    async findByCryptoDepositAddress(address: string, cryptoType: 'BTC' | 'ETH'): Promise<IUser | null> {
+        try {
+            const asset = cryptoType.toUpperCase();
+            const query =
+                asset === 'ETH'
+                    ? `SELECT * FROM ${this.tableName} WHERE LOWER(eth_deposit_address) = LOWER($1) LIMIT 1`
+                    : `SELECT * FROM ${this.tableName} WHERE btc_deposit_address = $1 LIMIT 1`;
+            const result = await this.executeQuery<IUser>(query, [address]);
+            return (result.rows[0] as any) || null;
+        } catch (error: any) {
+            throw new DatabaseError(`Failed to find user by deposit address: ${error.message}`);
+        }
+    }
+
+    async lockById(id: string): Promise<IUser | null> {
+        try {
+            const result = await this.executeQuery<IUser>(
+                `SELECT * FROM ${this.tableName} WHERE _id = $1 FOR UPDATE`,
+                [id]
+            );
+            return (result.rows[0] as any) || null;
+        } catch (error: any) {
+            throw new DatabaseError(`Failed to lock user: ${error.message}`);
+        }
+    }
+
+    async incrementCryptoBalance(
+        userId: string,
+        asset: 'BTC' | 'ETH',
+        amount: number
+    ): Promise<IUser | null> {
+        const column = asset === 'ETH' ? 'eth_balance' : 'btc_balance';
+        const result = await this.executeQuery<IUser>(
+            `UPDATE ${this.tableName}
+             SET ${column} = COALESCE(${column}, 0) + $1, updated_at = NOW()
+             WHERE _id = $2
+             RETURNING *`,
+            [amount, userId]
+        );
+        return (result.rows[0] as any) || null;
+    }
+
+    async sumCryptoBalance(asset: 'BTC' | 'ETH'): Promise<number> {
+        const column = asset === 'ETH' ? 'eth_balance' : 'btc_balance';
+        const result = await this.executeQuery<{ total: string }>(
+            `SELECT COALESCE(SUM(${column}), 0) AS total FROM ${this.tableName}`,
+            []
+        );
+        return Number(parseFloat(String((result.rows[0] as any)?.total ?? '0')));
+    }
+
+    async tryDebitCryptoBalance(
+        userId: string,
+        asset: 'BTC' | 'ETH',
+        amount: number
+    ): Promise<IUser | null> {
+        const column = asset === 'ETH' ? 'eth_balance' : 'btc_balance';
+        const result = await this.executeQuery<IUser>(
+            `UPDATE ${this.tableName}
+             SET ${column} = COALESCE(${column}, 0) - $1, updated_at = NOW()
+             WHERE _id = $2 AND COALESCE(${column}, 0) >= $1
+             RETURNING *`,
+            [amount, userId]
+        );
+        return (result.rows[0] as any) || null;
+    }
+
+    async creditCryptoBalance(
+        userId: string,
+        asset: 'BTC' | 'ETH',
+        amount: number
+    ): Promise<IUser | null> {
+        const column = asset === 'ETH' ? 'eth_balance' : 'btc_balance';
+        const result = await this.executeQuery<IUser>(
+            `UPDATE ${this.tableName}
+             SET ${column} = COALESCE(${column}, 0) + $1, updated_at = NOW()
+             WHERE _id = $2
+             RETURNING *`,
+            [amount, userId]
+        );
+        return (result.rows[0] as any) || null;
+    }
 }
