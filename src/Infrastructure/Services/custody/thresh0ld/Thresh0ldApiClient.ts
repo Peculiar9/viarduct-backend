@@ -429,6 +429,7 @@ export class Thresh0ldApiClient {
             body?.transactions,
             body?.data?.transfers,
             body?.data?.transferList,
+            body?.data?.transactionList,
             body?.data?.list,
             body?.data?.items,
             body?.data?.transactions,
@@ -440,44 +441,109 @@ export class Thresh0ldApiClient {
             Array.isArray(body) ? body : null
         ];
 
-        const rawRows = nested.find((value) => Array.isArray(value)) as unknown[] | undefined;
+        const rawRows = nested.find((value) => Array.isArray(value) && value.length) as unknown[] | undefined;
         if (!rawRows?.length) {
+            Console.info('Thresh0ld get-transfer-list returned no parseable rows', {
+                topKeys: body && typeof body === 'object' ? Object.keys(body) : []
+            });
             return [];
         }
 
-        return rawRows.map((row) => this.mapTransfer(row)).filter((row) => Boolean(row.txHash));
+        const flattened = this.unwrapNestedTransactionArrays(rawRows);
+        return flattened.map((row) => this.mapTransfer(row)).filter((row) => Boolean(row.txHash));
+    }
+
+    private unwrapNestedTransactionArrays(rows: unknown[]): unknown[] {
+        const first = (rows[0] ?? {}) as Record<string, any>;
+        if (Array.isArray(first.transactions)) {
+            return rows.flatMap((row) => {
+                const item = row as Record<string, any>;
+                return Array.isArray(item?.transactions) ? item.transactions : [row];
+            });
+        }
+        if (first.value && typeof first.value === 'object' && !first.txid && !first.txHash && !first.txId) {
+            return rows.map((row) => {
+                const item = row as Record<string, any>;
+                return { ...item.value, sequenceId: item.sequenceId, type: item.type || item.value?.type };
+            });
+        }
+        return rows;
     }
 
     private mapTransfer(raw: unknown): Thresh0ldTransfer {
         const row = (raw ?? {}) as Record<string, any>;
-        const nested = (row.data && typeof row.data === 'object' ? row.data : {}) as Record<string, any>;
+        const nested = (row.data && typeof row.data === 'object' && !Array.isArray(row.data)
+            ? row.data
+            : {}) as Record<string, any>;
+        const value = (row.value && typeof row.value === 'object' ? row.value : {}) as Record<string, any>;
+        const input = (row.input && typeof row.input === 'object'
+            ? row.input
+            : value.input && typeof value.input === 'object'
+              ? value.input
+              : {}) as Record<string, any>;
+        const outputs = this.asObjectArray(row.outputs || row.output || value.outputs || value.output || nested.outputs);
+        const inputs = this.asObjectArray(row.inputs || value.inputs || nested.inputs);
+        const outputAddresses = outputs
+            .map((item) => this.optionalAddress(item.address))
+            .filter((address): address is string => Boolean(address));
+        const txReq = (row.txReq && typeof row.txReq === 'object' ? row.txReq : {}) as Record<string, any>;
+
         const txHash = String(
             row.txHash ||
                 row.txid ||
                 row.txId ||
                 row.transactionHash ||
                 row.transactionId ||
+                txReq.identifier ||
                 nested.txHash ||
                 nested.txid ||
                 nested.txId ||
                 nested.transactionHash ||
+                value.transactionHash ||
                 ''
         ).trim();
 
         const amountRaw =
-            row.amount ??
+            row.baseValue ??
             row.value ??
+            row.valueString ??
+            row.amount ??
+            outputs[0]?.amount ??
+            outputs[0]?.valueUnitAmount ??
+            input.amount ??
             row.coinAmount ??
             row.quantity ??
             nested.amount ??
             nested.value ??
             nested.coinAmount;
 
+        const type = String(
+            row.type ||
+                row.transferType ||
+                row.txType ||
+                input.type ||
+                nested.type ||
+                nested.transferType ||
+                value.type ||
+                ''
+        ).trim();
+
+        const receiveAddress =
+            type.toLowerCase().includes('receive') || type.toLowerCase().includes('incoming')
+                ? this.optionalAddress(input.address) || outputAddresses[0] || null
+                : outputAddresses[0] || this.optionalAddress(row.destinationAddress) || null;
+
+        const timestamps = (row.timestamps && typeof row.timestamps === 'object' ? row.timestamps : {}) as Record<
+            string,
+            unknown
+        >;
+
         return {
             txHash,
             amount: Number(amountRaw),
             toAddress: this.optionalAddress(
-                row.toAddress ||
+                receiveAddress ||
+                    row.toAddress ||
                     row.to ||
                     row.destinationAddress ||
                     nested.toAddress ||
@@ -485,11 +551,28 @@ export class Thresh0ldApiClient {
                     row.address ||
                     nested.address
             ),
-            fromAddress: this.optionalAddress(row.fromAddress || row.from || row.sourceAddress || nested.fromAddress || nested.from),
-            type: String(row.type || row.transferType || row.txType || nested.type || nested.transferType || '').trim(),
-            status: String(row.status || row.state || nested.status || nested.state || '').trim(),
-            confirmations: this.optionalNumber(row.confirmations ?? row.confirmation ?? nested.confirmations ?? nested.confirmation)
+            fromAddress: this.optionalAddress(
+                inputs[0]?.address || row.fromAddress || row.from || row.sourceAddress || nested.fromAddress || nested.from
+            ),
+            type,
+            status: String(row.status ?? row.state ?? nested.status ?? nested.state ?? '').trim(),
+            confirmations: this.optionalNumber(
+                row.blockConfirmations ??
+                    row.confirmations ??
+                    row.confirmation ??
+                    nested.confirmations ??
+                    nested.confirmation
+            ),
+            completedAt: timestamps.completedAt ? String(timestamps.completedAt) : null,
+            outputAddresses
         };
+    }
+
+    private asObjectArray(value: unknown): Record<string, any>[] {
+        if (!Array.isArray(value)) {
+            return [];
+        }
+        return value.filter((item) => item && typeof item === 'object') as Record<string, any>[];
     }
 
     private optionalAddress(value: unknown): string | null {

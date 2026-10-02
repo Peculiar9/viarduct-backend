@@ -134,6 +134,8 @@ export interface Thresh0ldTransfer {
     type: string;
     status: string;
     confirmations: number | null;
+    completedAt?: string | null;
+    outputAddresses: string[];
 }
 
 export interface Thresh0ldWebhookPayload {

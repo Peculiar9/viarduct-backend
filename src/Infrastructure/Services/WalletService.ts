@@ -824,6 +824,8 @@ export class WalletService implements IWalletService {
         const transfers = await this.thresh0ldApiClient.getTransferList(crypto.toLowerCase());
         const syncedTxHashes: string[] = [];
         const seen = new Set<string>();
+        let incomingCount = 0;
+        let confirmedCount = 0;
 
         for (const transfer of transfers) {
             const txHash = String(transfer.txHash || '').trim();
@@ -835,12 +837,26 @@ export class WalletService implements IWalletService {
             if (!this.isIncomingDepositToAddress(transfer, deposit.address)) {
                 continue;
             }
+            incomingCount += 1;
+
             if (!this.isThresh0ldTransferConfirmed(transfer, crypto)) {
+                Console.info('Wallet sync skipped unconfirmed deposit', {
+                    userId,
+                    txHash,
+                    status: transfer.status,
+                    confirmations: transfer.confirmations
+                });
                 continue;
             }
+            confirmedCount += 1;
 
             const amountCrypto = this.normalizeDepositAmount(transfer.amount, crypto);
             if (!(amountCrypto > 0)) {
+                Console.warn('Wallet sync skipped deposit with invalid amount', {
+                    userId,
+                    txHash,
+                    amount: transfer.amount
+                });
                 continue;
             }
 
@@ -861,6 +877,16 @@ export class WalletService implements IWalletService {
                 syncedTxHashes.push(txHash);
             }
         }
+
+        Console.info('Wallet sync inspected Thresh0ld transfers', {
+            userId,
+            asset: crypto,
+            depositAddress: deposit.address,
+            fetched: transfers.length,
+            incomingForAddress: incomingCount,
+            confirmed: confirmedCount,
+            credited: syncedTxHashes.length
+        });
 
         const user = await this.userRepository.findById(userId);
         return {
@@ -891,21 +917,26 @@ export class WalletService implements IWalletService {
         }
 
         const expected = depositAddress.trim().toLowerCase();
-        const toAddress = (transfer.toAddress || '').trim().toLowerCase();
-        if (!toAddress || toAddress !== expected) {
-            return false;
-        }
+        const candidates = [transfer.toAddress, ...(transfer.outputAddresses || [])]
+            .map((value) => String(value || '').trim().toLowerCase())
+            .filter(Boolean);
 
-        return true;
+        return candidates.includes(expected);
     }
 
     private isThresh0ldTransferConfirmed(transfer: Thresh0ldTransfer, asset: 'BTC' | 'ETH'): boolean {
+        if (transfer.completedAt) {
+            return true;
+        }
+
         const status = transfer.status.trim().toUpperCase();
         if (
             status === 'CONFIRMED' ||
             status === 'SUCCESS' ||
             status === 'COMPLETED' ||
-            status === 'FINALIZED'
+            status === 'FINALIZED' ||
+            status === '1' ||
+            status === '2'
         ) {
             return true;
         }
@@ -913,7 +944,8 @@ export class WalletService implements IWalletService {
             status === 'PENDING' ||
             status === 'UNCONFIRMED' ||
             status === 'MEMPOOL' ||
-            status === 'PENDING_CONFIRMATION'
+            status === 'PENDING_CONFIRMATION' ||
+            status === '0'
         ) {
             return false;
         }
