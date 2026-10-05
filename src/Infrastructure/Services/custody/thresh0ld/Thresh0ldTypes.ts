@@ -67,7 +67,7 @@ export interface Thresh0ldSendManyRequest {
         recipientsData: {
             recipients: Array<{
                 address: string;
-                amount: number | string;
+                amount: string;
             }>;
             sequenceId: string;
         };

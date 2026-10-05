@@ -233,6 +233,15 @@ export class WithdrawalService implements IWithdrawalService {
         outgoing_tx_hash: string | null;
     }> {
         const asset = this.assertPayoutAsset(cryptoType);
+        const user = await this.userRepository.findById(userId);
+        if (!user) {
+            throw new ValidationError('User not found');
+        }
+        if (!user.has_completed_kyc) {
+            throw new ValidationError(
+                'KYC verification is required to withdraw crypto. Please complete your KYC verification first.'
+            );
+        }
         const amount = Number(requestedAmount);
         const toAddress = String(destinationAddress || '').trim();
         if (!(amount > 0)) {

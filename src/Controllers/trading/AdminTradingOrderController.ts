@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { inject } from 'inversify';
-import { controller, httpPost, httpGet, request, response, requestBody, requestParam, queryParam } from 'inversify-express-utils';
+import { controller, httpPost, httpGet, httpPatch, request, response, requestBody, requestParam, queryParam } from 'inversify-express-utils';
 import { API_PATH, TYPES } from '../../Core/Types/Constants';
 import { ITradingOrderService } from '../../Core/Application/Interface/Services/ITradingOrderService';
 import { IBlockchainService } from '../../Core/Application/Interface/Services/IBlockchainService';
@@ -11,7 +11,8 @@ import { ITradingOrder, TradingOrderStatus, TradingOrderType } from '../../Core/
 import AuthMiddleware from '../../Middleware/AuthMiddleware';
 import { BaseController } from '../BaseController';
 import { validationMiddleware } from '../../Middleware/ValidationMiddleware';
-import { CompleteBuyOrderDTO } from '../../Core/Application/DTOs/TradingOrderDTO';
+import { CompleteBuyOrderDTO, AdminReviewSellOrderPayoutDTO } from '../../Core/Application/DTOs/TradingOrderDTO';
+import { IUser } from '../../Core/Application/Interface/Entities/auth-and-user/IUser';
 
 /**
  * Admin Trading Order Controller
@@ -28,6 +29,33 @@ export class AdminTradingOrderController extends BaseController {
         @inject(TYPES.TradingOrderRepository) private readonly tradingOrderRepo: ITradingOrderRepository
     ) {
         super();
+    }
+
+    /**
+     * Approve or reject a pending sell order (manual bank payout).
+     * @route PATCH /api/v1/admin/trading-orders/payout
+     */
+    @httpPatch('/payout', AuthMiddleware.authenticateAdmin(), validationMiddleware(AdminReviewSellOrderPayoutDTO))
+    async reviewSellOrderPayout(
+        @requestBody() dto: AdminReviewSellOrderPayoutDTO,
+        @request() req: Request,
+        @response() res: Response
+    ) {
+        try {
+            const admin = req.user as IUser;
+            const order = await this.tradingOrderService.adminReviewSellOrderPayout(admin._id!, {
+                orderId: dto.orderId,
+                verdict: dto.verdict,
+                proof_of_payments: dto.proof_of_payments
+            });
+            return this.success(
+                res,
+                order,
+                dto.verdict === 'approve' ? 'Sell order approved' : 'Sell order rejected'
+            );
+        } catch (error: any) {
+            return this.error(res, error.message, error.statusCode || 400, error);
+        }
     }
 
     /**

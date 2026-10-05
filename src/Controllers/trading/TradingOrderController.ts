@@ -74,7 +74,11 @@ export class TradingOrderController extends BaseController {
             }
             const user = req.user as IUser;
             const order = await this.tradingOrderService.createSellOrder(user._id!, dto);
-            return this.success(res, order, 'Sell order completed successfully.');
+            const message =
+                order.status === 'pending'
+                    ? 'Sell order submitted. Waiting for admin bank payout.'
+                    : 'Sell order completed successfully.';
+            return this.success(res, order, message);
         } catch (error: any) {
             return this.error(res, error.message, error.statusCode || 400);
         }

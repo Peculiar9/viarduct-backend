@@ -75,26 +75,105 @@ export class UserBankAccountRepository extends BaseRepository<IUserBankAccount> 
         accountNumber: string,
         bankCode?: string
     ): Promise<IUserBankAccount | null> {
+        const normalized = String(accountNumber || '').replace(/\D/g, '');
+        const padded = normalized.padStart(10, '0');
+        const stripped = normalized.replace(/^0+/, '') || '0';
+
         if (bankCode) {
             const exact = await this.executeQuery<IUserBankAccount>(
                 `SELECT * FROM "${this.tableName}"
                  WHERE user_id = $1 AND type = 'user'
-                   AND account_number = $2 AND bank_code = $3
+                   AND (
+                     account_number = $2
+                     OR LPAD(REGEXP_REPLACE(account_number, '\\D', '', 'g'), 10, '0') = $3
+                     OR REGEXP_REPLACE(account_number, '^0+', '') = $4
+                   )
+                   AND bank_code = $5
                  ORDER BY is_active DESC, updated_at DESC
                  LIMIT 1`,
-                [userId, accountNumber, bankCode]
+                [userId, accountNumber, padded, stripped, bankCode]
             );
             if (exact.rows[0]) return exact.rows[0] as any;
         }
 
         const byNumber = await this.executeQuery<IUserBankAccount>(
             `SELECT * FROM "${this.tableName}"
-             WHERE user_id = $1 AND type = 'user' AND account_number = $2
+             WHERE user_id = $1 AND type = 'user'
+               AND (
+                 account_number = $2
+                 OR LPAD(REGEXP_REPLACE(COALESCE(account_number, ''), '\\D', '', 'g'), 10, '0') = $3
+                 OR REGEXP_REPLACE(COALESCE(account_number, ''), '^0+', '') = $4
+               )
              ORDER BY is_active DESC, updated_at DESC
              LIMIT 1`,
-            [userId, accountNumber]
+            [userId, accountNumber, padded, stripped]
         );
         return (byNumber.rows[0] as any) || null;
+    }
+
+    async findPreviousPayoutBankByAccountNumber(
+        userId: string,
+        accountNumber: string
+    ): Promise<{
+        account_number: string;
+        bank_code: string;
+        bank_name: string;
+        account_name: string;
+        bank_account_id?: string;
+    } | null> {
+        const normalized = String(accountNumber || '').replace(/\D/g, '');
+        const padded = normalized.padStart(10, '0');
+        const stripped = normalized.replace(/^0+/, '') || '0';
+
+        const fromOrders = await this.executeQuery(
+            `SELECT
+                metadata->'payout_bank'->>'account_number' AS account_number,
+                metadata->'payout_bank'->>'bank_code' AS bank_code,
+                metadata->'payout_bank'->>'bank_name' AS bank_name,
+                metadata->'payout_bank'->>'account_name' AS account_name
+             FROM "${TableNames.TRADING_ORDERS}"
+             WHERE user_id = $1
+               AND type = 'sell'
+               AND metadata->'payout_bank'->>'account_number' IS NOT NULL
+               AND (
+                 metadata->'payout_bank'->>'account_number' = $2
+                 OR LPAD(REGEXP_REPLACE(metadata->'payout_bank'->>'account_number', '\\D', '', 'g'), 10, '0') = $3
+                 OR REGEXP_REPLACE(metadata->'payout_bank'->>'account_number', '^0+', '') = $4
+               )
+             ORDER BY created_at DESC
+             LIMIT 1`,
+            [userId, accountNumber, padded, stripped]
+        );
+        const orderRow = fromOrders.rows[0] as any;
+        if (orderRow?.account_name) {
+            return orderRow;
+        }
+
+        const fromIntents = await this.executeQuery(
+            `SELECT
+                recipient_account_number AS account_number,
+                recipient_bank_code AS bank_code,
+                recipient_bank_name AS bank_name,
+                recipient_account_name AS account_name
+             FROM "${TableNames.TRADE_INTENTS}"
+             WHERE user_id = $1
+               AND type = 'sell'
+               AND recipient_account_number IS NOT NULL
+               AND (
+                 recipient_account_number = $2
+                 OR LPAD(REGEXP_REPLACE(recipient_account_number, '\\D', '', 'g'), 10, '0') = $3
+                 OR REGEXP_REPLACE(recipient_account_number, '^0+', '') = $4
+               )
+             ORDER BY created_at DESC
+             LIMIT 1`,
+            [userId, accountNumber, padded, stripped]
+        );
+        const intentRow = fromIntents.rows[0] as any;
+        if (intentRow?.account_name) {
+            return intentRow;
+        }
+
+        return null;
     }
 
     async update(id: string, entity: Partial<IUserBankAccount>): Promise<IUserBankAccount | null> {

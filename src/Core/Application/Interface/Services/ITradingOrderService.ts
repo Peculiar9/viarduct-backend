@@ -19,6 +19,12 @@ export interface ITradingOrderService {
         crypto_amount?: number;
         crypto_purchase_amount?: number;
         transaction_pin: string;
+        bank_account_id?: string;
+        prefered_bank_detail?: {
+            recipient_bank_code: string;
+            recipient_bank_name: string;
+            recipient_account_number: string;
+        };
     }): Promise<ITradingOrder>;
 
     /**
@@ -57,5 +63,17 @@ export interface ITradingOrderService {
      * This is called when the Bitcoin transaction is confirmed on the blockchain
      */
     completeBuyOrderAfterConfirmation(orderId: string): Promise<ITradingOrder>;
+
+    /**
+     * Admin approve/reject a pending manual-payout sell order (bank proof, no NGN wallet credit).
+     */
+    adminReviewSellOrderPayout(
+        adminId: string,
+        dto: {
+            orderId: string;
+            verdict: 'approve' | 'reject';
+            proof_of_payments?: Array<{ title: string; description?: string; url: string }>;
+        }
+    ): Promise<ITradingOrder>;
 }
 

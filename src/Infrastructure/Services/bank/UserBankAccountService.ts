@@ -96,19 +96,51 @@ export class UserBankAccountService implements IUserBankAccountService {
             (await this.bankAccountRepo.findUserAccountByNumberAndCode(userId, accountNumber, bankCode)) ||
             (await this.bankAccountRepo.findUserAccountByNumberAndCode(userId, accountNumber));
 
-        if (cached && cached.is_active) {
+        if (cached?.account_name) {
             Console.info('Bank resolve cache hit — skipping Prembly', {
                 userId,
                 accountSuffix: accountNumber.slice(-4),
-                bankAccountId: cached._id
+                bankAccountId: cached._id,
+                isActive: cached.is_active
             });
+            if (!cached.is_active && cached._id) {
+                await this.bankAccountRepo.update(cached._id, {
+                    is_active: true,
+                    updated_at: new Date().toISOString()
+                });
+            }
             return {
-                account_number: cached.account_number,
+                account_number: this.normalizeAccountNumber(cached.account_number),
                 bank_code: cached.bank_code,
                 bank_name: cached.bank_name,
                 account_name: cached.account_name,
                 source: 'cache',
                 bank_account_id: cached._id
+            };
+        }
+
+        const previousPayout = await this.bankAccountRepo.findPreviousPayoutBankByAccountNumber(
+            userId,
+            accountNumber
+        );
+        if (previousPayout?.account_name) {
+            Console.info('Bank resolve reused prior typed payout — skipping Prembly', {
+                userId,
+                accountSuffix: accountNumber.slice(-4)
+            });
+            const persisted = await this.ensureSavedUserAccount(userId, {
+                account_number: this.normalizeAccountNumber(previousPayout.account_number || accountNumber),
+                bank_code: previousPayout.bank_code || bankCode,
+                bank_name: previousPayout.bank_name || dto.recipient_bank_name || '',
+                account_name: previousPayout.account_name
+            });
+            return {
+                account_number: persisted.account_number,
+                bank_code: persisted.bank_code,
+                bank_name: persisted.bank_name,
+                account_name: persisted.account_name,
+                source: 'cache',
+                bank_account_id: persisted._id
             };
         }
 
@@ -177,6 +209,50 @@ export class UserBankAccountService implements IUserBankAccountService {
             throw new ValidationError('Account number must be 9 or 10 digits');
         }
         return digits.padStart(10, '0');
+    }
+
+    private async ensureSavedUserAccount(
+        userId: string,
+        details: {
+            account_number: string;
+            bank_code: string;
+            bank_name: string;
+            account_name: string;
+        }
+    ): Promise<IUserBankAccount> {
+        const existing = await this.bankAccountRepo.findUserAccountByNumberAndCode(
+            userId,
+            details.account_number,
+            details.bank_code
+        );
+        const nowIso = new Date().toISOString();
+        if (existing?._id) {
+            if (!existing.is_active) {
+                const updated = await this.bankAccountRepo.update(existing._id, {
+                    is_active: true,
+                    account_name: details.account_name || existing.account_name,
+                    bank_name: details.bank_name || existing.bank_name,
+                    updated_at: nowIso
+                });
+                return updated ?? existing;
+            }
+            return existing;
+        }
+
+        return this.bankAccountRepo.create({
+            user_id: userId,
+            type: 'user',
+            account_number: details.account_number,
+            bank_code: details.bank_code,
+            bank_name: details.bank_name,
+            account_name: details.account_name,
+            label: null,
+            is_active: true,
+            is_default: false,
+            created_by: userId,
+            created_at: nowIso,
+            updated_at: nowIso
+        });
     }
 
     async getBankAccountById(accountId: string): Promise<IUserBankAccount> {

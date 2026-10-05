@@ -195,50 +195,127 @@ export class PremblyAccountVerificationService implements IAccountVerificationSe
             return this.banksCache;
         }
 
-        try {
-            let response;
+        const endpoints = [
+            '/verification/bank-codes',
+            '/verification/bank_codes',
+            '/identitypass/verification/bank_account/bank_code',
+            '/identitypass/verification/api/bank_codes'
+        ];
+
+        const attempts: Array<Record<string, unknown>> = [];
+        let lastError: unknown;
+
+        for (const endpoint of endpoints) {
             try {
-                response = await this.client.get<PremblyBanksResponse>('/verification/bank-codes');
-            } catch {
-                // Older Prembly path still used by some environments
-                response = await this.client.get<PremblyBanksResponse>(
-                    '/identitypass/verification/bank_account/bank_code'
+                console.warn(`[Prembly banks] GET ${endpoint}`);
+                const response = await this.client.get<PremblyBanksResponse>(endpoint);
+                const body = response.data as PremblyBanksResponse & Record<string, any>;
+                const snapshot = this.summarizePremblyBody(body, response.status, endpoint);
+                attempts.push(snapshot);
+                console.warn('[Prembly banks] response', JSON.stringify(snapshot));
+                Console.info('Prembly banks list response', snapshot);
+
+                const rows = this.extractBankRows(body);
+                if (rows.length > 0) {
+                    const banks = rows
+                        .filter((bank) => bank && (bank.code || bank.longcode) && bank.name)
+                        .map((bank) => ({
+                            id: Number(bank.id) || 0,
+                            name: String(bank.name),
+                            code: String(bank.code || bank.longcode),
+                            longcode: String(bank.longcode || bank.code || '')
+                        }))
+                        .sort((a, b) => a.name.localeCompare(b.name));
+
+                    this.banksCache = banks;
+                    this.banksCacheAt = now;
+                    console.warn(`[Prembly banks] parsed ${banks.length} banks from ${endpoint}`);
+                    return banks;
+                }
+
+                lastError = new ServiceError(
+                    `Prembly banks list empty/unusable from ${endpoint}: ${this.formatPremblyBody(body)}`
                 );
+            } catch (error: any) {
+                lastError = error;
+                const snapshot = {
+                    endpoint,
+                    httpStatus: error?.response?.status ?? null,
+                    axiosMessage: error?.message,
+                    premblyBody: this.safeJson(error?.response?.data)
+                };
+                attempts.push(snapshot);
+                console.warn('[Prembly banks] request failed', JSON.stringify(snapshot));
+                Console.error(error, {
+                    message: 'Prembly banks list request failed',
+                    ...snapshot
+                });
             }
+        }
 
-            const body = response.data;
-            if (body.status === false || !Array.isArray(body.data)) {
-                const providerMsg = body.message || body.detail || 'Failed to fetch banks from Prembly';
-                throw new ServiceError(
-                    `Prembly banks list failed: ${providerMsg}. ` +
-                        `Check PREMBLY_API_KEY / PREMBLY_APP_ID, or set ACCOUNT_VERIFICATION=paystack.`
-                );
+        console.warn('[Prembly banks] all endpoints failed', JSON.stringify({ attempts }));
+        const providerMsg =
+            (lastError as any)?.response?.data?.message ||
+            (lastError as any)?.response?.data?.detail ||
+            (lastError as any)?.message ||
+            'Failed to fetch banks from Prembly';
+        throw new ServiceError(
+            `Prembly banks list failed: ${providerMsg}. Attempts: ${this.safeJson(attempts).slice(0, 1800)}`
+        );
+    }
+
+    private extractBankRows(body: any): Array<{
+        id?: number;
+        name?: string;
+        code?: string;
+        longcode?: string;
+        is_deleted?: boolean;
+    }> {
+        const candidates = [
+            body?.data,
+            body?.banks,
+            body?.result,
+            body?.data?.data,
+            body?.data?.banks,
+            body?.verification?.data
+        ];
+        for (const value of candidates) {
+            if (Array.isArray(value) && value.length) {
+                return value;
             }
+        }
+        return [];
+    }
 
-            const banks = body.data
-                .filter((bank) => bank && bank.code && bank.name && bank.is_deleted !== true)
-                .map((bank) => ({
-                    id: Number(bank.id) || 0,
-                    name: String(bank.name),
-                    code: String(bank.code),
-                    longcode: String(bank.longcode || bank.code || '')
-                }))
-                .sort((a, b) => a.name.localeCompare(b.name));
+    private summarizePremblyBody(body: any, httpStatus: number, endpoint: string): Record<string, unknown> {
+        return {
+            endpoint,
+            httpStatus,
+            premblyStatus: body?.status,
+            responseCode: body?.response_code,
+            message: body?.message ?? body?.detail ?? null,
+            dataIsArray: Array.isArray(body?.data),
+            dataLength: Array.isArray(body?.data) ? body.data.length : null,
+            topKeys: body && typeof body === 'object' ? Object.keys(body) : [],
+            body: this.safeJson(body).slice(0, 2500)
+        };
+    }
 
-            this.banksCache = banks;
-            this.banksCacheAt = now;
-            return banks;
-        } catch (error: any) {
-            Console.error(error, { message: 'Prembly fetch banks error' });
-            if (error instanceof ServiceError) {
-                throw error;
-            }
-            throw new ServiceError(
-                error?.response?.data?.detail ||
-                    error?.response?.data?.message ||
-                    error?.message ||
-                    'Failed to fetch banks from Prembly'
-            );
+    private formatPremblyBody(body: unknown): string {
+        return this.safeJson(body).slice(0, 1500);
+    }
+
+    private safeJson(value: unknown): string {
+        if (value == null) {
+            return '';
+        }
+        if (typeof value === 'string') {
+            return value;
+        }
+        try {
+            return JSON.stringify(value);
+        } catch {
+            return String(value);
         }
     }
 

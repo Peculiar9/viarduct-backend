@@ -657,6 +657,7 @@ export class WalletService implements IWalletService {
         if (!user) {
             throw new ValidationError('User not found');
         }
+        this.assertUserHasCompletedKyc(user);
 
         const existingAddress =
             asset === 'BTC' ? user.btc_deposit_address : user.eth_deposit_address;
@@ -983,6 +984,14 @@ export class WalletService implements IWalletService {
             message.includes('23505') ||
             /unique constraint|duplicate key/i.test(message)
         );
+    }
+
+    private assertUserHasCompletedKyc(user: IUser): void {
+        if (!user.has_completed_kyc) {
+            throw new ValidationError(
+                'KYC verification is required. Please complete your KYC verification first.'
+            );
+        }
     }
 
     private assertCryptoType(cryptoType: string): 'BTC' | 'ETH' {

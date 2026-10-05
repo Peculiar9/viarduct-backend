@@ -20,7 +20,12 @@ import { ServiceError, ValidationError } from '../../../Core/Application/Error/A
 import { INotificationService } from '../../../Core/Application/Interface/Services/INotificationService';
 import { NotificationType } from '../../../Core/Application/Enums/NotificationType';
 import { IWithdrawalService } from '../../../Core/Application/Interface/Services/IWithdrawalService';
+import { IUserBankAccountService } from '../../../Core/Application/Interface/Services/IUserBankAccountService';
 import { IUTXORepository } from '../../../Core/Application/Interface/Repositories/IUTXORepository';
+import { WalletTransactionRepository } from '../../Repository/SQL/wallet/WalletTransactionRepository';
+import { EnvironmentConfig } from '../../Config/EnvironmentConfig';
+import { resolveNetworkName } from './getNetworkName';
+import { randomUUID } from 'crypto';
 
 @injectable() 
 export class TradingOrderService implements ITradingOrderService {
@@ -39,7 +44,10 @@ export class TradingOrderService implements ITradingOrderService {
         @inject(TYPES.UserRepository) private readonly userRepo: UserRepository,
         @inject(TYPES.TransactionManager) private readonly transactionManager: TransactionManager,
         @inject(TYPES.NotificationService) private readonly notificationService: INotificationService,
-        @inject(TYPES.WithdrawalService) private readonly withdrawalService: IWithdrawalService
+        @inject(TYPES.WithdrawalService) private readonly withdrawalService: IWithdrawalService,
+        @inject(TYPES.UserBankAccountService) private readonly bankAccountService: IUserBankAccountService,
+        @inject(TYPES.WalletTransactionRepository)
+        private readonly walletTransactionRepo: WalletTransactionRepository
     ) {}
 
     private normalizeCustodialAsset(cryptoType: string): 'BTC' | 'ETH' {
@@ -302,6 +310,12 @@ export class TradingOrderService implements ITradingOrderService {
         crypto_amount: number;
         crypto_purchase_amount?: number;
         transaction_pin: string;
+        bank_account_id?: string;
+        prefered_bank_detail?: {
+            recipient_bank_code: string;
+            recipient_bank_name: string;
+            recipient_account_number: string;
+        };
     }): Promise<ITradingOrder> {
         try {
             // 0. Check if user has completed KYC (required for trading orders)
@@ -380,6 +394,21 @@ export class TradingOrderService implements ITradingOrderService {
                 );
             }
 
+            const payoutBank = await this.resolveSellPayoutBank(userId, data);
+
+            if (this.isManualOrderPayout()) {
+                return this.createManualSellOrder({
+                    userId,
+                    asset,
+                    cryptoType: data.crypto_type.toUpperCase(),
+                    cryptoAmount,
+                    fiatAmount,
+                    buyRate: rate.buy_rate,
+                    userCryptoAccount,
+                    payoutBank
+                });
+            }
+
             // 5. Get platform wallet and check if platform has enough NGN
             const platformWallet = await this.walletRepo.findPlatformWallet();
             if (!platformWallet || !platformWallet._id) {
@@ -444,6 +473,9 @@ export class TradingOrderService implements ITradingOrderService {
                     settlement_mode: 'internal',
                     status: 'completed',
                     wallet_account_id: userCryptoAccount._id,
+                    metadata: {
+                        payout_bank: payoutBank
+                    },
                     completed_at: nowIso,
                     created_at: nowIso,
                     updated_at: nowIso
@@ -542,6 +574,324 @@ export class TradingOrderService implements ITradingOrderService {
         }
     }
 
+    async adminReviewSellOrderPayout(
+        adminId: string,
+        dto: {
+            orderId: string;
+            verdict: 'approve' | 'reject';
+            proof_of_payments?: Array<{ title: string; description?: string; url: string }>;
+        }
+    ): Promise<ITradingOrder> {
+        const order = await this.getOrderById(dto.orderId);
+        if (order.type !== 'sell') {
+            throw new ValidationError('This endpoint is only for sell orders');
+        }
+        if (order.status !== 'pending') {
+            throw new ValidationError(`Cannot review a sell order with status ${order.status}`);
+        }
+        if (order.metadata?.has_admin_approved === true) {
+            throw new ValidationError('Sell order has already been approved');
+        }
+        if (order.metadata?.payout_mode !== 'manual') {
+            throw new ValidationError('This sell order is not in manual payout mode');
+        }
+
+        if (dto.verdict === 'reject') {
+            return this.rejectManualSellOrder(order, adminId);
+        }
+
+        if (!dto.proof_of_payments?.length) {
+            throw new ValidationError('proof_of_payments is required when verdict is approve');
+        }
+
+        const asset = this.normalizeCustodialAsset(order.crypto_type);
+        const cryptoAmount = Number(order.crypto_amount);
+        const nowIso = new Date().toISOString();
+        const proofs = dto.proof_of_payments.map((proof) => ({
+            id: randomUUID(),
+            title: proof.title.trim(),
+            description: proof.description?.trim() ?? null,
+            url: proof.url.trim(),
+            uploaded_at: nowIso
+        }));
+
+        await this.transactionManager.beginTransaction();
+        try {
+            if (!order.wallet_account_id) {
+                throw new ServiceError('Sell order is missing wallet_account_id');
+            }
+            const account = await this.walletAccountRepo.lockById(order.wallet_account_id);
+            if (!account?._id) {
+                throw new ServiceError('Wallet account not found for sell order');
+            }
+
+            const locked = Number(parseFloat(String(account.locked_balance ?? 0)));
+            if (locked + 1e-12 < cryptoAmount) {
+                throw new ValidationError('Locked crypto is insufficient to complete this sell order');
+            }
+
+            const currentUserBalance = Number(parseFloat(String(account.user_balance ?? account.balance ?? 0)));
+            const currentUserPlatformOwned = Number(parseFloat(String(account.platform_owned_balance ?? 0)));
+            const currentUserTotalOnchain = Number(parseFloat(String(account.total_onchain_balance ?? 0)));
+            const newUserBalance = currentUserBalance - cryptoAmount;
+            const newLocked = Math.max(0, locked - cryptoAmount);
+            const newAvailable = Math.max(0, newUserBalance - newLocked);
+
+            await this.walletAccountRepo.update(account._id, {
+                user_balance: newUserBalance,
+                platform_owned_balance: currentUserPlatformOwned + cryptoAmount,
+                total_onchain_balance: currentUserTotalOnchain,
+                locked_balance: newLocked,
+                balance: newUserBalance,
+                available_balance: newAvailable
+            });
+
+            if (asset === 'BTC') {
+                if (!account.address) {
+                    throw new ServiceError(
+                        'Cannot complete internal sell: user BTC address missing (UTXO ownership tagging requires an address)'
+                    );
+                }
+                await this.utxoRepo.promoteUserUtxosToPlatformInTxn(account.address, cryptoAmount);
+            }
+
+            await this.walletTransactionRepo.create({
+                user_id: order.user_id,
+                wallet_account_id: account._id,
+                crypto_type: asset,
+                type: 'TRANSFER',
+                status: 'COMPLETED',
+                amount: cryptoAmount,
+                address: account.address ?? null,
+                network: resolveNetworkName(asset),
+                metadata: {
+                    source: 'manual_sell_order',
+                    order_id: order._id,
+                    approved_by: adminId
+                },
+                created_at: nowIso,
+                updated_at: nowIso
+            });
+
+            const updated = await this.tradingOrderRepo.update(order._id!, {
+                status: 'completed',
+                completed_at: nowIso,
+                metadata: {
+                    ...(order.metadata || {}),
+                    has_admin_approved: true,
+                    payout_mode: 'manual',
+                    fiat_credited: false,
+                    proof_of_payments: proofs,
+                    approved_by: adminId,
+                    approved_at: nowIso
+                }
+            });
+            if (!updated) {
+                throw new ServiceError('Failed to approve sell order');
+            }
+
+            await this.transactionManager.commit();
+
+            try {
+                await this.notificationService.create({
+                    user_id: order.user_id,
+                    type: NotificationType.ORDER,
+                    title: 'Sell order paid',
+                    content: `Your ${asset} sell order was approved. NGN will be sent to your bank (off-platform).`,
+                    url: `/orders/${order._id}`
+                });
+            } catch {
+                // ignore
+            }
+
+            return updated;
+        } catch (error) {
+            try {
+                if (this.transactionManager.isActive()) {
+                    await this.transactionManager.rollback();
+                }
+            } catch (rollbackError: any) {
+                Console.error(rollbackError, { message: 'Failed to rollback sell order approval' });
+            }
+            throw error;
+        }
+    }
+
+    private isManualOrderPayout(): boolean {
+        return EnvironmentConfig.get('ORDER_PAYOUT', 'manual').toLowerCase().trim() !== 'instant';
+    }
+
+    private async resolveSellPayoutBank(
+        userId: string,
+        data: {
+            bank_account_id?: string;
+            prefered_bank_detail?: {
+                recipient_bank_code: string;
+                recipient_bank_name: string;
+                recipient_account_number: string;
+            };
+        }
+    ): Promise<{
+        bank_account_id: string | null;
+        account_number: string;
+        bank_code: string;
+        bank_name: string;
+        account_name: string;
+        source: string;
+    }> {
+        const hasSavedAccount = !!data.bank_account_id;
+        const hasPreferredDetail = !!data.prefered_bank_detail;
+        if (hasSavedAccount === hasPreferredDetail) {
+            throw new ValidationError(
+                hasSavedAccount && hasPreferredDetail
+                    ? 'You cannot provide both bank_account_id and prefered_bank_detail at the same time'
+                    : 'Provide either bank_account_id or prefered_bank_detail'
+            );
+        }
+
+        if (data.bank_account_id) {
+            const saved = await this.bankAccountService.getUserAccountForIntent(userId, data.bank_account_id);
+            return {
+                bank_account_id: saved._id ?? data.bank_account_id,
+                account_number: saved.account_number,
+                bank_code: saved.bank_code,
+                bank_name: saved.bank_name,
+                account_name: saved.account_name,
+                source: 'saved'
+            };
+        }
+
+        const preferred = data.prefered_bank_detail!;
+        const resolved = await this.bankAccountService.resolvePreferredBankDetailForIntent(userId, {
+            recipient_account_number: preferred.recipient_account_number,
+            recipient_bank_code: preferred.recipient_bank_code,
+            recipient_bank_name: preferred.recipient_bank_name
+        });
+        return {
+            bank_account_id: resolved.bank_account_id ?? null,
+            account_number: resolved.account_number,
+            bank_code: resolved.bank_code,
+            bank_name: resolved.bank_name,
+            account_name: resolved.account_name,
+            source: resolved.source
+        };
+    }
+
+    private async createManualSellOrder(params: {
+        userId: string;
+        asset: 'BTC' | 'ETH';
+        cryptoType: string;
+        cryptoAmount: number;
+        fiatAmount: number;
+        buyRate: number;
+        userCryptoAccount: { _id?: string };
+        payoutBank: {
+            bank_account_id: string | null;
+            account_number: string;
+            bank_code: string;
+            bank_name: string;
+            account_name: string;
+            source: string;
+        };
+    }): Promise<ITradingOrder> {
+        const { userId, asset, cryptoType, cryptoAmount, fiatAmount, buyRate, userCryptoAccount, payoutBank } = params;
+        if (!userCryptoAccount._id) {
+            throw new ServiceError('User crypto wallet account is missing');
+        }
+
+        await this.transactionManager.beginTransaction();
+        try {
+            const locked = await this.walletAccountRepo.lockBalance(userCryptoAccount._id, cryptoAmount);
+            if (!locked) {
+                throw new ValidationError(`Insufficient available ${asset} to lock for this sell order`);
+            }
+
+            const reserved = await this.userRepo.tryDebitCryptoBalance(userId, asset, cryptoAmount);
+            if (!reserved) {
+                throw new ValidationError(`Insufficient ${asset} balance to reserve for this sell order`);
+            }
+
+            const nowIso = new Date().toISOString();
+            const order = await this.tradingOrderRepo.create({
+                user_id: userId,
+                type: 'sell',
+                crypto_type: cryptoType,
+                crypto_amount: cryptoAmount,
+                fiat_amount: fiatAmount,
+                rate_used: buyRate,
+                network_fee: 0,
+                settlement_mode: 'internal',
+                status: 'pending',
+                wallet_account_id: userCryptoAccount._id,
+                metadata: {
+                    has_admin_approved: false,
+                    payout_mode: 'manual',
+                    fiat_credited: false,
+                    payout_bank: payoutBank
+                },
+                created_at: nowIso,
+                updated_at: nowIso
+            });
+
+            await this.transactionManager.commit();
+
+            try {
+                await this.notificationService.create({
+                    user_id: userId,
+                    type: NotificationType.ORDER,
+                    title: 'Sell order submitted',
+                    content: `Your ${cryptoType} sell order is waiting for admin bank payout.`,
+                    url: `/orders/${order._id}`
+                });
+            } catch {
+                // ignore
+            }
+
+            Console.info('Manual sell order created (awaiting admin payout)', {
+                orderId: order._id,
+                userId,
+                cryptoAmount,
+                fiatAmount
+            });
+
+            return order;
+        } catch (error) {
+            try {
+                if (this.transactionManager.isActive()) {
+                    await this.transactionManager.rollback();
+                }
+            } catch (rollbackError: any) {
+                Console.error(rollbackError, { message: 'Failed to rollback manual sell order create' });
+            }
+            throw error;
+        }
+    }
+
+    private async rejectManualSellOrder(order: ITradingOrder, adminId: string): Promise<ITradingOrder> {
+        const cryptoAmount = Number(order.crypto_amount);
+        const asset = this.normalizeCustodialAsset(order.crypto_type);
+
+        if (order.wallet_account_id) {
+            await this.unlockBalance(order.wallet_account_id, cryptoAmount);
+        }
+        await this.userRepo.creditCryptoBalance(order.user_id, asset, cryptoAmount);
+
+        const updated = await this.tradingOrderRepo.update(order._id!, {
+            status: 'cancelled',
+            failure_reason: 'Rejected by admin',
+            metadata: {
+                ...(order.metadata || {}),
+                has_admin_approved: false,
+                rejected_by: adminId,
+                rejected_at: new Date().toISOString()
+            }
+        });
+        if (!updated) {
+            throw new ServiceError('Failed to reject sell order');
+        }
+        return updated;
+    }
+
     async getUserOrders(userId: string, limit: number = 50, offset: number = 0): Promise<ITradingOrder[]> {
         try {
             return await this.tradingOrderRepo.findByUserId(userId, limit, offset);
@@ -619,23 +969,27 @@ export class TradingOrderService implements ITradingOrderService {
                     });
                 }
             } else {
-                // Unlock user's BTC (including fee)
                 const cryptoAmount = parseFloat(order.crypto_amount?.toString() || '0');
                 const networkFee = parseFloat(order.network_fee?.toString() || '0');
                 const totalBtc = cryptoAmount + networkFee;
                 if (order.wallet_account_id) {
                     await this.unlockBalance(order.wallet_account_id, totalBtc);
                 }
-                // Unlock platform NGN (was locked at sell creation)
-                const platformWallet = await this.walletRepo.findPlatformWallet();
-                const ngnCurrency = await this.currencyRepo.findByCode('NGN');
-                if (platformWallet?._id && ngnCurrency?._id) {
-                    const platformNgnAccount = await this.walletAccountRepo.findByWalletIdAndCurrencyId(
-                        platformWallet._id,
-                        ngnCurrency._id
-                    );
-                    if (platformNgnAccount) {
-                        await this.unlockBalance(platformNgnAccount._id!, order.fiat_amount);
+                const isManualPayout = order.metadata?.payout_mode === 'manual';
+                if (isManualPayout) {
+                    const asset = this.normalizeCustodialAsset(order.crypto_type);
+                    await this.userRepo.creditCryptoBalance(userId, asset, cryptoAmount);
+                } else {
+                    const platformWallet = await this.walletRepo.findPlatformWallet();
+                    const ngnCurrency = await this.currencyRepo.findByCode('NGN');
+                    if (platformWallet?._id && ngnCurrency?._id) {
+                        const platformNgnAccount = await this.walletAccountRepo.findByWalletIdAndCurrencyId(
+                            platformWallet._id,
+                            ngnCurrency._id
+                        );
+                        if (platformNgnAccount) {
+                            await this.unlockBalance(platformNgnAccount._id!, order.fiat_amount);
+                        }
                     }
                 }
             }

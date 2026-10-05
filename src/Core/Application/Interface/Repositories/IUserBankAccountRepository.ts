@@ -17,6 +17,16 @@ export interface IUserBankAccountRepository {
         accountNumber: string,
         bankCode?: string
     ): Promise<IUserBankAccount | null>;
+    findPreviousPayoutBankByAccountNumber(
+        userId: string,
+        accountNumber: string
+    ): Promise<{
+        account_number: string;
+        bank_code: string;
+        bank_name: string;
+        account_name: string;
+        bank_account_id?: string;
+    } | null>;
     update(id: string, entity: Partial<IUserBankAccount>): Promise<IUserBankAccount | null>;
     clearCorporateDefaults(): Promise<void>;
     delete(id: string): Promise<boolean>;

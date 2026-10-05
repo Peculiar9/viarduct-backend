@@ -61,7 +61,7 @@ import { TradeIntentSweepJob } from './Infrastructure/Services/trading/TradeInte
 import express, { Response, Request, NextFunction } from 'express';
 import path from 'path';
 import { Console } from './Infrastructure/Utils/Console';
-import { LoggingConfig } from './Infrastructure/Config/LoggingConfig';
+import { LoggingConfig } from './Infrastructure/Config/LoggingConfig'; 
 
 class App {
     public app: express.Application;

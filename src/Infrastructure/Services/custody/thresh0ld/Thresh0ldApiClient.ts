@@ -218,12 +218,7 @@ export class Thresh0ldApiClient {
         const coin = params.coin.toLowerCase();
         const walletId = this.getHotWalletId(coin);
         const sequenceId = params.sequenceId || randomUUID();
-        const amount =
-            typeof params.amount === 'number' ? params.amount : Number(params.amount);
-
-        if (!Number.isFinite(amount) || !(amount > 0)) {
-            throw new ValidationError('Thresh0ld withdrawal amount must be a positive number');
-        }
+        const amountString = this.toPositiveDecimalString(params.amount, coin === 'btc' ? 8 : 18);
 
         const payload: Thresh0ldSendManyRequest = {
             wallet: {
@@ -233,8 +228,8 @@ export class Thresh0ldApiClient {
                 recipientsData: {
                     recipients: [
                         {
-                            address: params.targetAddress,
-                            amount
+                            address: String(params.targetAddress || '').trim(),
+                            amount: amountString
                         }
                     ],
                     sequenceId
@@ -243,6 +238,11 @@ export class Thresh0ldApiClient {
         };
 
         try {
+            Console.info('Thresh0ld send-many-transaction-request payload', {
+                walletId,
+                recipients: payload.transactions.recipientsData.recipients,
+                sequenceId
+            });
             const response = await this.client.post<Thresh0ldSendManyResponse>(
                 `/api/v2/wallets/${encodeURIComponent(walletId)}/send-many-transaction-request`,
                 payload,
@@ -287,6 +287,17 @@ export class Thresh0ldApiClient {
                 sequenceId
             };
         } catch (error) {
+            const axiosError = error as AxiosError<any>;
+            Console.error(axiosError as any, {
+                message: 'Thresh0ld send-many-transaction-request rejected',
+                httpStatus: axiosError?.response?.status,
+                walletId,
+                coin,
+                targetAddress: params.targetAddress,
+                amount: amountString,
+                sequenceId,
+                thresh0ldResponse: axiosError?.response?.data ?? null
+            });
             throw this.wrapError(error, 'send-many-transaction-request');
         }
     }
@@ -575,6 +586,23 @@ export class Thresh0ldApiClient {
         return value.filter((item) => item && typeof item === 'object') as Record<string, any>[];
     }
 
+    private toPositiveDecimalString(raw: string | number, maxFractionDigits: number): string {
+        const source = typeof raw === 'string' ? raw.trim() : '';
+        const numeric = Number(source || raw);
+        if (!Number.isFinite(numeric) || !(numeric > 0)) {
+            throw new ValidationError('Thresh0ld withdrawal amount must be a positive number');
+        }
+
+        if (/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(source) && Number(source) > 0) {
+            const [whole, fraction = ''] = source.split('.');
+            const trimmedFraction = fraction.slice(0, maxFractionDigits).replace(/0+$/, '');
+            return trimmedFraction.length > 0 ? `${whole}.${trimmedFraction}` : `${whole}.0`;
+        }
+
+        const fixed = numeric.toFixed(maxFractionDigits).replace(/0+$/, '').replace(/\.$/, '');
+        return fixed.includes('.') ? fixed : `${fixed}.0`;
+    }
+
     private optionalAddress(value: unknown): string | null {
         if (value === undefined || value === null || value === '') {
             return null;
@@ -679,20 +707,47 @@ export class Thresh0ldApiClient {
         }
         const axiosError = error as AxiosError<any>;
         const status = axiosError?.response?.status;
-        const detail =
-            axiosError?.response?.data?.message ||
-            axiosError?.response?.data?.data?.message ||
-            axiosError?.response?.data?.detail ||
-            axiosError?.response?.data?.error ||
-            axiosError?.message ||
-            'Unknown Thresh0ld API error';
+        const body = axiosError?.response?.data;
+        const detail = this.formatThresh0ldErrorBody(body) || axiosError?.message || 'Unknown Thresh0ld API error';
 
         Console.error(axiosError as any, {
             message: `Thresh0ldApiClient::${operation} failed`,
             status,
-            detail
+            thresh0ldResponse: body ?? null
         });
 
-        return new ServiceError(`Thresh0ld ${operation} failed: ${detail}`);
+        const statusPart = status ? ` HTTP ${status}` : '';
+        return new ServiceError(`Thresh0ld ${operation} failed:${statusPart} ${detail}`);
+    }
+
+    private formatThresh0ldErrorBody(data: unknown): string {
+        if (data == null || data === '') {
+            return '';
+        }
+        if (typeof data === 'string') {
+            return data.slice(0, 2000);
+        }
+        if (typeof data === 'object') {
+            const record = data as Record<string, any>;
+            const nested =
+                record.message ||
+                record.error ||
+                record.detail ||
+                record.reason ||
+                record.errorMessage ||
+                record.msg ||
+                record.data?.message ||
+                record.data?.error;
+            try {
+                const serialized = JSON.stringify(data);
+                if (nested && typeof nested === 'string') {
+                    return `${nested} | ${serialized}`.slice(0, 2000);
+                }
+                return serialized.slice(0, 2000);
+            } catch {
+                return String(nested || data);
+            }
+        }
+        return String(data);
     }
 }
