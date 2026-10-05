@@ -90,6 +90,10 @@ import { TradingRateRepository } from '../Infrastructure/Repository/SQL/trading/
 import { ITradingRateRepository } from './Application/Interface/Repositories/ITradingRateRepository';
 import { TradingRateService } from '../Infrastructure/Services/trading/TradingRateService';
 import { ITradingRateService } from './Application/Interface/Services/ITradingRateService';
+import { SplitConfigRepository } from '../Infrastructure/Repository/SQL/trading/SplitConfigRepository';
+import { ISplitConfigRepository } from './Application/Interface/Repositories/ISplitConfigRepository';
+import { SplitConfigService } from '../Infrastructure/Services/trading/SplitConfigService';
+import { ISplitConfigService } from './Application/Interface/Services/ISplitConfigService';
 import { SpotPriceService } from '../Infrastructure/Services/trading/SpotPriceService';
 import { ISpotPriceService } from './Application/Interface/Services/ISpotPriceService';
 import { BitcoinTransactionRepository } from '../Infrastructure/Repository/SQL/bitcoin/BitcoinTransactionRepository';
@@ -276,6 +280,7 @@ export class DIContainer {
         container.bind<WalletAccountRepository>(TYPES.WalletAccountRepository).to(WalletAccountRepository).inRequestScope();
         container.bind<TransactionRepository>(TYPES.TransactionRepository).to(TransactionRepository).inRequestScope();
         container.bind<ITradingRateRepository>(TYPES.TradingRateRepository).to(TradingRateRepository).inRequestScope();
+        container.bind<ISplitConfigRepository>(TYPES.SplitConfigRepository).to(SplitConfigRepository).inRequestScope();
         container.bind<ITradingOrderRepository>(TYPES.TradingOrderRepository).to(TradingOrderRepository).inRequestScope();
         container.bind<ITradeIntentRepository>(TYPES.TradeIntentRepository).to(TradeIntentRepository).inRequestScope();
         container.bind<IUserBankAccountRepository>(TYPES.UserBankAccountRepository).to(UserBankAccountRepository).inRequestScope();
@@ -359,6 +364,7 @@ export class DIContainer {
         }
         container.bind<ISpotPriceService>(TYPES.SpotPriceService).to(SpotPriceService).inSingletonScope();
         container.bind<ITradingRateService>(TYPES.TradingRateService).to(TradingRateService).inRequestScope();
+        container.bind<ISplitConfigService>(TYPES.SplitConfigService).to(SplitConfigService).inRequestScope();
         container.bind<ITradingOrderService>(TYPES.TradingOrderService).to(TradingOrderService).inRequestScope();
         container.bind<TradeQuoteService>(TYPES.TradeQuoteService).to(TradeQuoteService).inRequestScope();
         container.bind<ITradeIntentService>(TYPES.TradeIntentService).to(TradeIntentService).inRequestScope();

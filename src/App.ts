@@ -24,6 +24,7 @@ import './Controllers/trading/PublicTradingRateController';
 import './Controllers/trading/TradingRateController';
 import './Controllers/trading/TradingOrderController';
 import './Controllers/trading/AdminTradingOrderController';
+import './Controllers/trading/AdminSplitConfigController';
 import './Controllers/trading/TradeIntentController';
 import './Controllers/trading/AdminTradeIntentController';
 import './Controllers/bank/BankAccountController';

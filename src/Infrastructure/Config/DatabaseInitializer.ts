@@ -16,6 +16,7 @@ import { Wallet } from '../../Core/Application/Entities/Wallet';
 import { WalletAccount } from '../../Core/Application/Entities/WalletAccount';
 import { WalletTransaction } from '../../Core/Application/Entities/WalletTransaction';
 import { TradingRate } from '../../Core/Application/Entities/TradingRate';
+import { SplitConfig } from '../../Core/Application/Entities/SplitConfig';
 import { TradingOrder } from '../../Core/Application/Entities/TradingOrder';
 import { TradeIntent } from '../../Core/Application/Entities/TradeIntent';
 import { Transaction } from '../../Core/Application/Entities/Transaction';
@@ -58,6 +59,7 @@ export class DatabaseInitializer {
             { entity: WalletTransaction, tableName: TableNames.WALLET_TRANSACTIONS },
             { entity: Transaction, tableName: TableNames.TRANSACTIONS },
             { entity: TradingRate, tableName: TableNames.TRADING_RATES },
+            { entity: SplitConfig, tableName: TableNames.SPLIT_CONFIGS },
             { entity: TradingOrder, tableName: TableNames.TRADING_ORDERS },
             { entity: UserBankAccount, tableName: TableNames.USER_BANK_ACCOUNTS },
             { entity: TradeIntent, tableName: TableNames.TRADE_INTENTS },

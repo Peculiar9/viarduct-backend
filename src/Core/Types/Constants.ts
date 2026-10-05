@@ -123,6 +123,8 @@ export const TYPES = {
     // Trading System
     TradingRateRepository: Symbol.for('TradingRateRepository'),
     TradingRateService: Symbol.for('TradingRateService'),
+    SplitConfigRepository: Symbol.for('SplitConfigRepository'),
+    SplitConfigService: Symbol.for('SplitConfigService'),
     SpotPriceService: Symbol.for('SpotPriceService'),
     TradingOrderRepository: Symbol.for('TradingOrderRepository'),
     TradingOrderService: Symbol.for('TradingOrderService'),

@@ -5,6 +5,7 @@ import {
     OutwardTransactionFeeQuote
 } from '../../../Core/Application/Interface/Services/ICustodyService';
 import { CustodyAsset, ICustodyProvider } from '../../../Core/Application/Interface/Services/ICustodyProvider';
+import { ISplitConfigService } from '../../../Core/Application/Interface/Services/ISplitConfigService';
 import { EnvironmentConfig } from '../../Config/EnvironmentConfig';
 import { Console } from '../../Utils/Console';
 import { getNetworkFee } from '../trading/getNetworkFee';
@@ -13,7 +14,10 @@ const FEE_QUOTE_TIMEOUT_MS = 8_000;
 
 @injectable()
 export class CustodyService implements ICustodyService {
-    constructor(@inject(TYPES.CustodyProvider) private readonly custodyProvider: ICustodyProvider) {}
+    constructor(
+        @inject(TYPES.CustodyProvider) private readonly custodyProvider: ICustodyProvider,
+        @inject(TYPES.SplitConfigService) private readonly splitConfigService: ISplitConfigService
+    ) {}
 
     async getOutwardTransactionFee(
         cryptoType: CustodyAsset,
@@ -47,9 +51,16 @@ export class CustodyService implements ICustodyService {
             });
         }
 
-        const rate = this.platformFeeRate();
+        const split = await this.splitConfigService.getResolved();
+        const rate = split.platform_fee_percentage.value / 100;
+        const networkTitle = cryptoType === 'ETH' ? 'eth_network_fee' : 'btc_network_fee';
+        const networkPercent = split[networkTitle].value;
+        const networkCut =
+            Number.isFinite(amount) && amount > 0 && networkPercent > 0
+                ? amount * (networkPercent / 100)
+                : 0;
         const buffer = this.platformFeeBuffer(cryptoType);
-        const platformProfit = liveGasFee * rate + buffer;
+        const platformProfit = liveGasFee * rate + networkCut + buffer;
         const totalUserFee = liveGasFee + platformProfit;
 
         return {
@@ -59,15 +70,6 @@ export class CustodyService implements ICustodyService {
             total_user_fee: totalUserFee,
             used_fallback: usedFallback
         };
-    }
-
-    private platformFeeRate(): number {
-        const raw = EnvironmentConfig.get('PLATFORM_FEE_PERCENTAGE', '0.1').trim();
-        const n = Number(raw);
-        if (!Number.isFinite(n) || n < 0) {
-            return 0.1;
-        }
-        return n > 1 ? n / 100 : n;
     }
 
     private platformFeeBuffer(asset: CustodyAsset): number {
