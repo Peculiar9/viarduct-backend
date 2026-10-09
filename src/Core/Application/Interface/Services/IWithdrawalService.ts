@@ -18,7 +18,8 @@ export interface IWithdrawalService {
         userId: string,
         cryptoType: string,
         requestedAmount: number,
-        destinationAddress: string
+        destinationAddress: string,
+        pin: string
     ): Promise<{
         transaction: IWalletTransaction;
         requested_amount: number;

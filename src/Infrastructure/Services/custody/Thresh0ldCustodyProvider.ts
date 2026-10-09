@@ -120,16 +120,23 @@ export class Thresh0ldCustodyProvider implements ICustodyProvider {
         toAddress: string,
         amountCrypto: number
     ): Promise<CustodyBroadcastResult> {
-        Console.info('Thresh0ldCustodyProvider: broadcastOutbound', {
+        const coin = this.apiClient.resolveCoinFamily(asset);
+        const withdrawalWalletId = this.apiClient.getWithdrawalWalletId(coin);
+        const amount = this.formatAmount(asset, amountCrypto);
+        Console.info('Thresh0ldCustodyProvider: user payout via send-many', {
             asset,
+            coin,
             toAddress,
-            amountCrypto
+            amountCrypto,
+            amount,
+            withdrawalWalletId
         });
 
         const result = await this.apiClient.sendManyTransaction({
-            coin: asset.toLowerCase(),
+            coin,
             targetAddress: toAddress,
-            amount: this.formatAmount(asset, amountCrypto)
+            amount,
+            walletId: withdrawalWalletId
         });
 
         return {
@@ -145,7 +152,7 @@ export class Thresh0ldCustodyProvider implements ICustodyProvider {
         _derivationPath: string,
         amountCrypto: number
     ): Promise<CustodyBroadcastResult> {
-        // Deposits land in the Thresh0ld hot wallet; consolidate toward configured vault address
+        // Internal sweep: deposit omnibus (hot wallet) → corporate treasury.
         const vaultAddress = await this.getVaultAddress(asset);
         if (!vaultAddress) {
             throw new ServiceError(

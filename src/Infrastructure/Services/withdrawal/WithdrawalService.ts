@@ -120,14 +120,7 @@ export class WithdrawalService implements IWithdrawalService {
             throw new ValidationError('Withdrawal request must be in ready state. Complete amount step first.');
         }
 
-        const pinRecord = await this.transactionPinRepo.findByUserId(userId);
-        if (!pinRecord) {
-            throw new ValidationError('Transaction PIN not set. Please set your PIN first.');
-        }
-        const pinValid = await bcrypt.compare(pin, pinRecord.pin_hash);
-        if (!pinValid) {
-            throw new ValidationError('Invalid transaction PIN');
-        }
+        await this.assertValidTransactionPin(userId, pin);
 
         if (!withdrawal.amount || withdrawal.amount <= 0) {
             throw new ValidationError('Invalid amount');
@@ -217,11 +210,23 @@ export class WithdrawalService implements IWithdrawalService {
         return bcrypt.compare(pin, pinRecord.pin_hash);
     }
 
+    private async assertValidTransactionPin(userId: string, pin: string): Promise<void> {
+        const pinRecord = await this.transactionPinRepo.findByUserId(userId);
+        if (!pinRecord) {
+            throw new ValidationError('Transaction PIN not set. Please set your PIN first.');
+        }
+        const pinValid = await bcrypt.compare(String(pin || ''), pinRecord.pin_hash);
+        if (!pinValid) {
+            throw new ValidationError('Invalid transaction PIN');
+        }
+    }
+
     async withdrawCrypto(
         userId: string,
         cryptoType: string,
         requestedAmount: number,
-        destinationAddress: string
+        destinationAddress: string,
+        pin: string
     ): Promise<{
         transaction: IWalletTransaction;
         requested_amount: number;
@@ -233,6 +238,7 @@ export class WithdrawalService implements IWithdrawalService {
         outgoing_tx_hash: string | null;
     }> {
         const asset = this.assertPayoutAsset(cryptoType);
+        await this.assertValidTransactionPin(userId, pin);
         const user = await this.userRepository.findById(userId);
         if (!user) {
             throw new ValidationError('User not found');

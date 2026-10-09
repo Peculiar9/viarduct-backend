@@ -14,16 +14,23 @@ export interface Thresh0ldCreateWalletRequest {
     };
 }
 
+export interface Thresh0ldCreatedWallet {
+    walletId?: number | string;
+    id?: number | string;
+    walletAddress?: string;
+    coin?: string;
+    walletType?: string;
+    wallet?: {
+        id?: number | string;
+        [key: string]: unknown;
+    };
+    [key: string]: unknown;
+}
+
 export interface Thresh0ldCreateWalletResponse {
     success?: boolean;
     message?: string | null;
-    data?: {
-        walletId?: number | string;
-        id?: number | string;
-        coin?: string;
-        walletType?: string;
-        [key: string]: unknown;
-    };
+    data?: Thresh0ldCreatedWallet | Thresh0ldCreatedWallet[];
     walletId?: number | string;
 }
 
@@ -57,6 +64,7 @@ export interface Thresh0ldGenerateAddressResponse {
 export interface Thresh0ldSendManyRequest {
     wallet: {
         coin: string;
+        walletId?: number | string;
         allToken?: boolean;
         tokenOptions?: {
             tokenName?: string;
@@ -72,6 +80,17 @@ export interface Thresh0ldSendManyRequest {
             sequenceId: string;
         };
         consolidateOptions?: {
+            targetAddress: string;
+        };
+    };
+}
+
+export interface Thresh0ldConsolidateRequest {
+    wallet: {
+        coin: string;
+    };
+    transactions: {
+        consolidateOptions: {
             targetAddress: string;
         };
     };

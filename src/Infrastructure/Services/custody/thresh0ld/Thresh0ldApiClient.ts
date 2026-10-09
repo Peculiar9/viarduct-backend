@@ -10,6 +10,7 @@ import {
     Thresh0ldCreateWalletResponse,
     Thresh0ldGenerateAddressRequest,
     Thresh0ldGenerateAddressResponse,
+    Thresh0ldConsolidateRequest,
     Thresh0ldSendManyRequest,
     Thresh0ldSendManyResponse,
     Thresh0ldSubmitTransactionRequest,
@@ -29,10 +30,12 @@ export class Thresh0ldApiClient {
     private readonly baseURL: string;
     private readonly clientId: string;
     private readonly clientSecret: string;
+    private readonly initiatorSecret: string;
     private readonly defaultWalletId: string;
     private readonly autoSubmit: boolean;
     private readonly client: AxiosInstance;
     private readonly basicAuthHeader: string;
+    private readonly initiatorBasicAuthHeader: string;
 
     constructor() {
         this.baseURL = EnvironmentConfig.get(
@@ -44,6 +47,7 @@ export class Thresh0ldApiClient {
 
         this.clientId = EnvironmentConfig.get('THRESH0LD_CLIENT_ID', '').trim();
         this.clientSecret = EnvironmentConfig.get('THRESH0LD_CLIENT_SECRET', '').trim();
+        this.initiatorSecret = EnvironmentConfig.get('THRESH0LD_INITIATOR_API_KEY', '').trim();
 
         // Backward-compat: older ADMIN/INITIATOR keys can still seed client credentials
         if (!this.clientId) {
@@ -51,7 +55,7 @@ export class Thresh0ldApiClient {
         }
         if (!this.clientSecret) {
             this.clientSecret =
-                EnvironmentConfig.get('THRESH0LD_INITIATOR_API_KEY', '').trim() ||
+                this.initiatorSecret ||
                 EnvironmentConfig.get('THRESH0LD_ADMIN_API_KEY', '').trim();
         }
 
@@ -61,6 +65,10 @@ export class Thresh0ldApiClient {
         this.basicAuthHeader = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString(
             'base64'
         );
+        const payoutSecret = this.initiatorSecret || this.clientSecret;
+        this.initiatorBasicAuthHeader = Buffer.from(`${this.clientId}:${payoutSecret}`).toString(
+            'base64'
+        );
 
         this.client = axios.create({
             baseURL: this.baseURL,
@@ -68,31 +76,92 @@ export class Thresh0ldApiClient {
             headers: {
                 'Content-Type': 'application/json',
                 Accept: 'application/json'
-            }
+            },
+            transformResponse: [
+                (data) => {
+                    if (data == null || data === '') {
+                        return data;
+                    }
+                    if (typeof data !== 'string') {
+                        return data;
+                    }
+                    try {
+                        return JSON.parse(data);
+                    } catch {
+                        return data;
+                    }
+                }
+            ]
         });
 
         Console.info('Thresh0ldApiClient ready (API 2.0 Basic auth)', {
             baseURL: this.baseURL,
             hasClientId: Boolean(this.clientId),
             hasClientSecret: Boolean(this.clientSecret),
+            hasInitiatorKey: Boolean(this.initiatorSecret),
             hasDefaultWalletId: Boolean(this.defaultWalletId),
             autoSubmit: this.autoSubmit
         });
     }
 
+    /**
+     * Map BTC / BTC_TESTNET / ETH / ETH_SEPOLIA onto the env wallet family.
+     */
+    resolveCoinFamily(coin?: string): 'btc' | 'eth' {
+        const normalized = String(coin || '')
+            .trim()
+            .toLowerCase()
+            .replace(/-/g, '_');
+        if (
+            normalized === 'btc' ||
+            normalized === 'btc_testnet' ||
+            normalized === 'tbtc' ||
+            normalized === 'bitcoin'
+        ) {
+            return 'btc';
+        }
+        if (
+            normalized === 'eth' ||
+            normalized === 'eth_sepolia' ||
+            normalized === 'sepolia' ||
+            normalized === 'ethereum'
+        ) {
+            return 'eth';
+        }
+        throw new ValidationError(`Unsupported Thresh0ld coin: ${coin}`);
+    }
+
     getHotWalletId(coin?: string): string {
-        const normalized = (coin || '').toLowerCase();
+        const family = this.resolveCoinFamily(coin);
         const perCoin =
-            normalized === 'btc'
+            family === 'btc'
                 ? EnvironmentConfig.get('THRESH0LD_HOT_WALLET_ID_BTC', '').trim()
-                : normalized === 'eth'
-                  ? EnvironmentConfig.get('THRESH0LD_HOT_WALLET_ID_ETH', '').trim()
-                  : '';
+                : EnvironmentConfig.get('THRESH0LD_HOT_WALLET_ID_ETH', '').trim();
 
         const walletId = perCoin || this.defaultWalletId;
         if (!walletId) {
             throw new ServiceError(
                 'THRESH0LD_HOT_WALLET_ID (or THRESH0LD_HOT_WALLET_ID_BTC / _ETH) is not configured'
+            );
+        }
+        return walletId;
+    }
+
+    /**
+     * User payouts: THRESH0LD_WITHDRAWAL_WALLET_ID_BTC (54751) / _ETH (54752).
+     */
+    getWithdrawalWalletId(coin?: string): string {
+        const family = this.resolveCoinFamily(coin);
+        const perCoin =
+            family === 'btc'
+                ? EnvironmentConfig.get('THRESH0LD_WITHDRAWAL_WALLET_ID_BTC', '').trim()
+                : EnvironmentConfig.get('THRESH0LD_WITHDRAWAL_WALLET_ID_ETH', '').trim();
+
+        const walletId =
+            perCoin || EnvironmentConfig.get('THRESH0LD_WITHDRAWAL_WALLET_ID', '').trim();
+        if (!walletId) {
+            throw new ServiceError(
+                'THRESH0LD_WITHDRAWAL_WALLET_ID (or THRESH0LD_WITHDRAWAL_WALLET_ID_BTC / _ETH) is not configured'
             );
         }
         return walletId;
@@ -111,7 +180,7 @@ export class Thresh0ldApiClient {
         const payload: Thresh0ldCreateWalletRequest = {
             cloudProvider: 'mpc',
             wallet: {
-                coin: coin.toLowerCase(),
+                coin: coin.toUpperCase(),
                 walletType
             }
         };
@@ -123,12 +192,12 @@ export class Thresh0ldApiClient {
                 { headers: this.authHeaders() }
             );
             const body = response.data;
+            const created = Array.isArray(body?.data) ? body.data[0] : body?.data;
             const walletId =
                 body?.walletId ??
-                body?.data?.walletId ??
-                body?.data?.id ??
-                (body?.data as any)?.wallet?.walletId ??
-                (body?.data as any)?.wallet?.id;
+                created?.walletId ??
+                created?.id ??
+                created?.wallet?.id;
 
             if (walletId == null || String(walletId).trim() === '') {
                 throw new ServiceError(
@@ -213,10 +282,11 @@ export class Thresh0ldApiClient {
         targetAddress: string;
         amount: string | number;
         sequenceId?: string;
+        walletId?: string;
     }): Promise<{ txHash: string; providerRef?: string; sequenceId: string }> {
         this.assertCredentials();
-        const coin = params.coin.toLowerCase();
-        const walletId = this.getHotWalletId(coin);
+        const coin = this.resolveCoinFamily(params.coin);
+        const walletId = params.walletId || this.getHotWalletId(coin);
         const sequenceId = params.sequenceId || randomUUID();
         const amountString = this.toPositiveDecimalString(params.amount, coin === 'btc' ? 8 : 18);
 
@@ -238,18 +308,17 @@ export class Thresh0ldApiClient {
         };
 
         try {
+            const path = `/api/v2/wallets/${encodeURIComponent(walletId)}/send-many-transaction-request`;
             Console.info('Thresh0ld send-many-transaction-request payload', {
+                url: `${this.baseURL}${path}`,
+                auth: 'Basic client_id:(initiator_api_key|client_secret)',
+                hasInitiatorKey: Boolean(this.initiatorSecret),
                 walletId,
-                recipients: payload.transactions.recipientsData.recipients,
-                sequenceId
+                body: payload
             });
-            const response = await this.client.post<Thresh0ldSendManyResponse>(
-                `/api/v2/wallets/${encodeURIComponent(walletId)}/send-many-transaction-request`,
-                payload,
-                { headers: this.authHeaders() }
-            );
-
-            const body = response.data;
+            const body = await this.postJsonWithBasicAuth<Thresh0ldSendManyResponse>(path, payload, {
+                useInitiator: true
+            });
             let txHash =
                 body?.txHash ||
                 body?.txid ||
@@ -302,6 +371,94 @@ export class Thresh0ldApiClient {
         }
     }
 
+    /**
+     * Outbound dispensation from the withdrawal vault to an external user address.
+     * POST /api/v2/wallets/{walletId}/consolidate-transaction-request
+     */
+    async consolidateTransaction(params: {
+        coin: string;
+        targetAddress: string;
+        walletId?: string;
+    }): Promise<{ txHash: string; providerRef?: string }> {
+        this.assertCredentials();
+        const coin = params.coin.toLowerCase();
+        const walletId = params.walletId || this.getWithdrawalWalletId(coin);
+        const targetAddress = String(params.targetAddress || '').trim();
+        if (!targetAddress) {
+            throw new ValidationError('targetAddress is required for consolidate-transaction-request');
+        }
+
+        const payload: Thresh0ldConsolidateRequest = {
+            wallet: {
+                coin
+            },
+            transactions: {
+                consolidateOptions: {
+                    targetAddress
+                }
+            }
+        };
+
+        try {
+            Console.info('Thresh0ld consolidate-transaction-request payload', {
+                walletId,
+                coin,
+                targetAddress
+            });
+            const response = await this.client.post<Thresh0ldSendManyResponse>(
+                `/api/v2/wallets/${encodeURIComponent(walletId)}/consolidate-transaction-request`,
+                payload,
+                { headers: this.authHeaders() }
+            );
+
+            const body = response.data;
+            const created = Array.isArray(body?.data) ? (body.data as any)[0] : body?.data;
+            let txHash =
+                body?.txHash ||
+                body?.txid ||
+                created?.txHash ||
+                created?.txid ||
+                created?.transactionId ||
+                created?.id ||
+                created?.sequenceId ||
+                body?.sequenceId ||
+                body?.id;
+
+            if (this.autoSubmit) {
+                try {
+                    const submitted = await this.submitTransaction(coin, walletId);
+                    txHash = submitted.txHash || submitted.providerRef || txHash;
+                } catch (submitError: any) {
+                    Console.warn('Thresh0ldApiClient: consolidate auto-submit failed', {
+                        walletId,
+                        coin,
+                        message: submitError?.message
+                    });
+                }
+            }
+
+            if (!txHash) {
+                throw new ServiceError('Thresh0ld consolidate-transaction-request returned no id');
+            }
+
+            return {
+                txHash: String(txHash),
+                providerRef: created?.sequenceId != null ? String(created.sequenceId) : String(txHash)
+            };
+        } catch (error) {
+            const axiosError = error as AxiosError<any>;
+            Console.error(axiosError as any, {
+                message: 'Thresh0ld consolidate-transaction-request rejected',
+                httpStatus: axiosError?.response?.status,
+                walletId,
+                coin,
+                targetAddress,
+                thresh0ldResponse: axiosError?.response?.data ?? null
+            });
+            throw this.wrapError(error, 'consolidate-transaction-request');
+        }
+    }
+
     async submitTransaction(
         coin: string,
         walletId?: string
@@ -316,7 +473,7 @@ export class Thresh0ldApiClient {
             const response = await this.client.post<Thresh0ldSubmitTransactionResponse>(
                 `/api/v2/wallets/${encodeURIComponent(id)}/submit-transaction`,
                 payload,
-                { headers: this.authHeaders() }
+                { headers: this.authHeaders(true) }
             );
             const body = response.data;
             const txHash =
@@ -682,10 +839,53 @@ export class Thresh0ldApiClient {
         return Number.NaN;
     }
 
-    private authHeaders(): Record<string, string> {
+    private authHeaders(useInitiator = false): Record<string, string> {
         return {
-            Authorization: `Basic ${this.basicAuthHeader}`
+            Authorization: `Basic ${useInitiator ? this.initiatorBasicAuthHeader : this.basicAuthHeader}`,
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
         };
+    }
+
+    /**
+     * Postman Basic Auth: username=client_id, password=client_secret
+     * (send-many / submit use THRESH0LD_INITIATOR_API_KEY when set).
+     * Body is JSON.stringified exactly once. Plain-text errors are not JSON.parsed.
+     */
+    private async postJsonWithBasicAuth<T>(
+        path: string,
+        payload: unknown,
+        options?: { useInitiator?: boolean }
+    ): Promise<T> {
+        const url = `${this.baseURL}${path}`;
+        const bodyText = JSON.stringify(payload);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: this.authHeaders(options?.useInitiator === true),
+            body: bodyText
+        });
+        const raw = await response.text();
+        const parsed = this.parseThresh0ldBody(raw);
+        if (!response.ok) {
+            const errorMessage =
+                typeof parsed === 'string' ? parsed : this.formatThresh0ldErrorBody(parsed) || raw;
+            throw new ServiceError(
+                `Thresh0ld API error (HTTP ${response.status}): ${errorMessage}`.slice(0, 2000)
+            );
+        }
+        return parsed as T;
+    }
+
+    private parseThresh0ldBody(raw: string): unknown {
+        if (raw == null || raw === '') {
+            return {};
+        }
+        const trimmed = raw.trim();
+        try {
+            return JSON.parse(trimmed);
+        } catch {
+            return trimmed;
+        }
     }
 
     private assertCredentials(): void {
@@ -741,6 +941,13 @@ export class Thresh0ldApiClient {
             try {
                 const serialized = JSON.stringify(data);
                 if (nested && typeof nested === 'string') {
+                    if (/Unexpected token ['"]Y['"]/i.test(nested) || /Your API k/i.test(nested)) {
+                        return (
+                            'Thresh0ld returned a plain-text API key error (not JSON). ' +
+                            'Set THRESH0LD_INITIATOR_API_KEY (Basic password) plus THRESH0LD_CLIENT_ID. ' +
+                            nested
+                        ).slice(0, 2000);
+                    }
                     return `${nested} | ${serialized}`.slice(0, 2000);
                 }
                 return serialized.slice(0, 2000);

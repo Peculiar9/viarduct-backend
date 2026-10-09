@@ -44,12 +44,13 @@ export class WithdrawalController extends BaseController {
     async withdrawCrypto(@request() req: Request, @response() res: Response) {
         try {
             const user = req.user as IUser;
-            const { crypto_type, amount, destination_address } = req.body;
+            const { crypto_type, amount, destination_address, pin } = req.body;
             const result = await this.withdrawalService.withdrawCrypto(
                 user._id!,
                 crypto_type,
                 amount,
-                destination_address
+                destination_address,
+                pin
             );
             return this.success(res, result, 'Crypto withdrawal submitted');
         } catch (error: any) {

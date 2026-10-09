@@ -51,6 +51,12 @@ export class WithdrawCryptoDTO {
     @IsString()
     @IsNotEmpty({ message: 'destination_address is required' })
     destination_address: string;
+
+    @IsString()
+    @IsNotEmpty({ message: 'Transaction PIN is required' })
+    @Length(4, 6, { message: 'PIN must be 4-6 digits' })
+    @Matches(/^\d+$/, { message: 'PIN must contain only digits' })
+    pin: string;
 }
 
 export class ChangeTransactionPinDTO {

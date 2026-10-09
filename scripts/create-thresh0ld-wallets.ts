@@ -8,7 +8,7 @@
  *
  * Optional args:
  *   --coins=btc,eth
- *   --type=deposit|withdrawal
+ *   --type=deposit|withdrawal   (default deposit; use withdrawal for outbound wallets)
  *   --list-only   (do not create; only list existing wallets)
  */
 import { EnvironmentConfig } from '../src/Infrastructure/Config/EnvironmentConfig';
@@ -60,9 +60,11 @@ async function main() {
             const created = await client.createWallet(coin, walletType);
             console.log(`Created walletId=${created.walletId}`);
             console.log('Raw response:', JSON.stringify(created.raw, null, 2));
-            console.log(
-                `→ Add to .env: THRESH0LD_HOT_WALLET_ID_${coin.toUpperCase()}=${created.walletId}`
-            );
+            const envKey =
+                walletType === 'withdrawal'
+                    ? `THRESH0LD_WITHDRAWAL_WALLET_ID_${coin.toUpperCase()}`
+                    : `THRESH0LD_HOT_WALLET_ID_${coin.toUpperCase()}`;
+            console.log(`→ Add to .env: ${envKey}=${created.walletId}`);
         } catch (error: any) {
             console.error(`create failed for ${coin}:`, error?.message || error);
         }

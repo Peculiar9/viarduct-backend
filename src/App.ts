@@ -71,14 +71,14 @@ class App {
     constructor() {
         this.container = DIContainer.getInstance(); 
         this.app = express(); 
-    }
+    } //
 
     public async initialize(): Promise<express.Application> {
         try {
             
             // Initialize logging first
             LoggingConfig.getInstance().initialize(this.app);
-            Console.info('✅ Logging initialized successfully');
+            Console.info('✅ Logging initialized successfully. ');
             
             // Initialize database
             await DatabaseService.initialize(this.container);
