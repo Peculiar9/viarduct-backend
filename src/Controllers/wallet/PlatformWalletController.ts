@@ -23,6 +23,7 @@ import { PlatformEthSweepJob } from '../../Infrastructure/Services/ethereum/Plat
 import { IEthereumWalletService } from '../../Core/Application/Interface/Services/IEthereumWalletService';
 import { IEthereumBlockchainService } from '../../Core/Application/Interface/Services/IEthereumBlockchainService';
 import { IEthereumDepositService } from '../../Core/Application/Interface/Services/IEthereumDepositService';
+import { Thresh0ldApiClient } from '../../Infrastructure/Services/custody/thresh0ld/Thresh0ldApiClient';
 
 @controller(`/${API_PATH}/admin/platform`)
 export class PlatformWalletController extends BaseController {
@@ -43,7 +44,8 @@ export class PlatformWalletController extends BaseController {
         @inject(TYPES.EthereumWalletService) private readonly ethereumWalletService: IEthereumWalletService,
         @inject(TYPES.EthereumBlockchainService)
         private readonly ethereumBlockchainService: IEthereumBlockchainService,
-        @inject(TYPES.EthereumDepositService) private readonly ethereumDepositService: IEthereumDepositService
+        @inject(TYPES.EthereumDepositService) private readonly ethereumDepositService: IEthereumDepositService,
+        @inject(TYPES.Thresh0ldApiClient) private readonly thresh0ldApiClient: Thresh0ldApiClient
     ) {
         super();
         
@@ -131,6 +133,22 @@ export class PlatformWalletController extends BaseController {
             return this.success(res, result, 'ETH sweep triggered successfully');
         } catch (error: any) {
             Console.error(error, { message: 'Failed to run platform ETH sweep' });
+            return this.error(res, error.message, error.statusCode || 400);
+        }
+    }
+
+    /**
+     * Thresh0ld deposit + withdrawal receive addresses (admin).
+     * Use these to fund the hot and payout vaults.
+     * @route GET /api/v1/admin/platform/thresh0ld-vaults
+     */
+    @httpGet('/thresh0ld-vaults', AuthMiddleware.authenticateAdmin())
+    async getThresh0ldVaults(@response() res: Response) {
+        try {
+            const overview = await this.thresh0ldApiClient.getCustodyVaultOverview();
+            return this.success(res, overview, 'Thresh0ld vault addresses retrieved successfully');
+        } catch (error: any) {
+            Console.error(error, { message: 'Failed to load Thresh0ld vault addresses' });
             return this.error(res, error.message, error.statusCode || 400);
         }
     }

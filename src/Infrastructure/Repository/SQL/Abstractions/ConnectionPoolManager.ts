@@ -60,6 +60,7 @@ export class ConnectionPoolManager extends EventEmitter {
   private readonly METRICS_LOG_INTERVAL_MS: number = 60 * 1000;
   private readonly CONNECTION_ACQUIRE_TIMEOUT_MS: number;
   private readonly QUERY_TIMEOUT_MS: number;
+  private readonly DDL_QUERY_TIMEOUT_MS: number;
   private readonly LONG_RUNNING_CONNECTION_WARNING_MS: number = 30 * 60 * 1000;
   private readonly MAX_HISTORY_SIZE: number = 200;
 
@@ -73,6 +74,7 @@ export class ConnectionPoolManager extends EventEmitter {
 
     this.CONNECTION_ACQUIRE_TIMEOUT_MS = poolConfig.connectionTimeoutMillis ?? 8000; // Use ?? for null/undefined
     this.QUERY_TIMEOUT_MS = 10000; // Default query timeout for our internal mechanism
+    this.DDL_QUERY_TIMEOUT_MS = 5 * 60 * 1000; // CREATE INDEX / ALTER on prod tables can exceed 10s
 
     this.pool = new Pool({
       ...poolConfig,
@@ -156,9 +158,38 @@ export class ConnectionPoolManager extends EventEmitter {
         error: err.message,
         stack: err.stack,
       });
-      this.emit('error', err);
+      this.emitError(err);
       // this.updatePoolStatsMetrics();
     });
+  }
+
+  /** Node throws if EventEmitter emits 'error' with no listeners — that crashed boot. */
+  private emitError(error: Error): void {
+    if (this.listenerCount('error') > 0) {
+      this.emit('error', error);
+      return;
+    }
+    Console.write('Database error (no pool error listener)', LogLevel.ERROR, {
+      context: 'ConnectionPoolManager.emitError',
+      poolId: this.poolId,
+      error: error.message
+    });
+  }
+
+  private resolveQueryTimeoutMs(queryText: string): number {
+    const sql = String(queryText || '').trim().toUpperCase();
+    if (
+      sql.startsWith('CREATE ') ||
+      sql.startsWith('ALTER ') ||
+      sql.startsWith('DROP ') ||
+      sql.startsWith('REINDEX ') ||
+      sql.startsWith('VACUUM ') ||
+      sql.startsWith('ANALYZE ') ||
+      sql.startsWith('COMMENT ')
+    ) {
+      return this.DDL_QUERY_TIMEOUT_MS;
+    }
+    return this.QUERY_TIMEOUT_MS;
   }
 
   private addHistory(
@@ -248,6 +279,7 @@ export class ConnectionPoolManager extends EventEmitter {
           if (currentQueryTimeoutTimer) clearTimeout(currentQueryTimeoutTimer);
 
           const queryText = typeof args[0] === 'string' ? args[0] : (args[0] as { text: string }).text;
+          const queryTimeoutMs = this.resolveQueryTimeoutMs(queryText);
           const currentClientProcessID = (client as any).processID as number | undefined;
           const queryContext = {
               context: 'ConnectionPoolManager.client.query.timeoutHandler',
@@ -255,12 +287,12 @@ export class ConnectionPoolManager extends EventEmitter {
               internalConnectionId,
               processID: currentClientProcessID,
               query: queryText.substring(0, 200) + (queryText.length > 200 ? '...' : ''),
-              queryTimeoutMs: this.QUERY_TIMEOUT_MS,
+              queryTimeoutMs,
           };
 
           currentQueryTimeoutTimer = setTimeout(async () => {
               Console.write('Query timeout detected. Attempting pg_cancel_backend...', LogLevel.WARNING, queryContext);
-              this.emit('error', new DatabaseConnectionError('Query timeout detected', { ...queryContext, type: 'QueryTimeout' }));
+              this.emitError(new DatabaseConnectionError('Query timeout detected', { ...queryContext, type: 'QueryTimeout' }));
 
               if (currentClientProcessID) {
                   let cancelClient: PoolClient | null = null;
@@ -277,8 +309,8 @@ export class ConnectionPoolManager extends EventEmitter {
               } else {
                   Console.write('Cannot attempt pg_cancel_backend: client.processID is not available.', LogLevel.WARNING, queryContext);
               }
-              this.performClientRelease(client, new Error(`Query timed out after ${this.QUERY_TIMEOUT_MS}ms. Cancellation attempted.`));
-          }, this.QUERY_TIMEOUT_MS);
+              this.performClientRelease(client, new Error(`Query timed out after ${queryTimeoutMs}ms. Cancellation attempted.`));
+          }, queryTimeoutMs);
           connectionDetails.queryTimeoutTimer = currentQueryTimeoutTimer;
           
           const originalQueryFunction = (client as any)._originalQuery || originalQuery;
@@ -321,7 +353,7 @@ export class ConnectionPoolManager extends EventEmitter {
         poolIdle: this.pool.idleCount,
         poolWaiting: this.pool.waitingCount,
       });
-      this.emit('error', error);
+      this.emitError(error);
       throw new DatabaseConnectionError(
           `Failed to acquire connection (Pool: ${this.poolId}, Configured Timeout: ${this.CONNECTION_ACQUIRE_TIMEOUT_MS}ms): ${error.message}`,
           { cause: error, poolId: this.poolId }

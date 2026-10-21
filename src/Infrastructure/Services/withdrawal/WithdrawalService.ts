@@ -221,6 +221,37 @@ export class WithdrawalService implements IWithdrawalService {
         }
     }
 
+    async quoteCryptoWithdrawalFee(
+        cryptoType: string,
+        requestedAmount: number,
+        destinationAddress?: string
+    ): Promise<{
+        crypto_type: 'BTC' | 'ETH';
+        amount: number;
+        estimated_onchain_gas: number;
+        platform_profit: number;
+        network_fee: number;
+        total_deduction: number;
+        used_fallback_fee: boolean;
+    }> {
+        const asset = this.assertPayoutAsset(cryptoType);
+        const amount = Number(requestedAmount);
+        if (!(amount > 0)) {
+            throw new ValidationError('Withdrawal amount must be greater than 0');
+        }
+        const toAddress = String(destinationAddress || '').trim();
+        const feeQuote = await this.custodyService.getOutwardTransactionFee(asset, toAddress, amount);
+        return {
+            crypto_type: asset,
+            amount,
+            estimated_onchain_gas: feeQuote.live_gas_fee,
+            platform_profit: feeQuote.platform_profit,
+            network_fee: feeQuote.total_user_fee,
+            total_deduction: amount + feeQuote.total_user_fee,
+            used_fallback_fee: feeQuote.used_fallback
+        };
+    }
+
     async withdrawCrypto(
         userId: string,
         cryptoType: string,

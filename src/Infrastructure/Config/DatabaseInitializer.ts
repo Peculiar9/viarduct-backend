@@ -303,6 +303,9 @@ export class DatabaseInitializer {
             `;
             const { rows: currentIndexes } = await this.transactionManager.getClient().query(currentIndexesQuery, [tableName]);
             Console.info("Current indexes retrieved", { tableName, indexCount: currentIndexes.length });
+            const existingIndexNames = new Set(
+                currentIndexes.map((row: { index_name: string }) => String(row.index_name).toLowerCase())
+            );
 
             // Process each column from metadata
             for (const column of metadata.columns) {
@@ -372,10 +375,16 @@ export class DatabaseInitializer {
                 // Note: We're not modifying existing columns to avoid data loss
             }
 
-            // Create or update indexes
+            // Create missing indexes only. CREATE INDEX IF NOT EXISTS still takes a table lock
+            // and can wait >10s on a busy/large production table even when the index exists.
             if (indexMetaData.length > 0) {
                 Console.info(`Updating indexes`, { tableName, indexCount: indexMetaData.length });
                 for (const indexStatement of indexMetaData) {
+                    const indexName = this.extractIndexName(indexStatement);
+                    if (indexName && existingIndexNames.has(indexName.toLowerCase())) {
+                        Console.info(`Index already exists, skipping`, { tableName, indexName });
+                        continue;
+                    }
                     Console.info(`Executing index statement`, { indexStatement });
                     await this.transactionManager.getClient().query(indexStatement);
                 }
@@ -416,6 +425,13 @@ export class DatabaseInitializer {
             console.error(`Failed to drop constraints for ${tableName}:`, error);
             throw new DatabaseError(`Failed to drop constraints: ${error.message}`);
         }
+    }
+
+    private extractIndexName(indexStatement: string): string | null {
+        const match = String(indexStatement || '').match(
+            /INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"([^"]+)"|([a-zA-Z0-9_]+))/i
+        );
+        return match?.[1] || match?.[2] || null;
     }
 
     private async seedDataToDatabase(tableName: string): Promise<void> {

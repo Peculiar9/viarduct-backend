@@ -10,6 +10,7 @@ import { TradeIntentNotificationHelper } from '../../Infrastructure/Services/tra
 import { EnvironmentConfig } from '../../Infrastructure/Config/EnvironmentConfig';
 import { Console } from '../../Infrastructure/Utils/Console';
 import { Thresh0ldWebhookPayload } from '../../Infrastructure/Services/custody/thresh0ld/Thresh0ldTypes';
+import { resolveThresh0ldWebhookHmacSecret } from '../../Infrastructure/Services/custody/thresh0ld/Thresh0ldAuth';
 
 type MappedAsset = 'BTC' | 'ETH' | 'USDT';
 type ReceiveHandleResult = { status: 'OK' | 'PENDING_CONFIRMATION' | 'IGNORED' };
@@ -174,9 +175,11 @@ export class Thresh0ldWebhookController extends BaseController {
     }
 
     private verifySignature(req: Request): boolean {
-        const secret = EnvironmentConfig.get('THRESH0LD_WEBHOOK_SECRET', '').trim();
+        const secret = resolveThresh0ldWebhookHmacSecret();
         if (!secret) {
-            Console.warn('THRESH0LD_WEBHOOK_SECRET not set — rejecting webhook');
+            Console.warn(
+                'THRESH0LD_WEBHOOK_SECRET (or THRESH0LD_SIGNER_CLIENT_SECRET fallback) not set — rejecting webhook'
+            );
             return false;
         }
 

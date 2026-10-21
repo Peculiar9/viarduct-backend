@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { randomUUID } from 'crypto';
 import { injectable } from 'inversify';
 import { EnvironmentConfig } from '../../../Config/EnvironmentConfig';
@@ -17,25 +17,27 @@ import {
     Thresh0ldSubmitTransactionResponse,
     Thresh0ldTransfer
 } from './Thresh0ldTypes';
+import {
+    encodeBasicAuth,
+    loadThresh0ldCredentialPairs,
+    Thresh0ldAuthRole,
+    Thresh0ldCredentialPair,
+    Thresh0ldRequestConfig
+} from './Thresh0ldAuth';
 
 /**
  * Thresh0ld API 2.0 client.
  *
- * Auth is HTTP Basic with client_id:client_secret on every request.
- * There is no OAuth access-token round-trip / expiry — the Basic credential
- * is long-lived until you rotate client credentials in the dashboard.
+ * Auth is HTTP Basic. Each call uses ADMIN, INITIATOR, or SIGNER
+ * client_id:client_secret depending on the operation.
  */
 @injectable()
 export class Thresh0ldApiClient {
     private readonly baseURL: string;
-    private readonly clientId: string;
-    private readonly clientSecret: string;
-    private readonly initiatorSecret: string;
+    private readonly pairs: Record<Thresh0ldAuthRole, Thresh0ldCredentialPair>;
     private readonly defaultWalletId: string;
     private readonly autoSubmit: boolean;
     private readonly client: AxiosInstance;
-    private readonly basicAuthHeader: string;
-    private readonly initiatorBasicAuthHeader: string;
 
     constructor() {
         this.baseURL = EnvironmentConfig.get(
@@ -45,30 +47,9 @@ export class Thresh0ldApiClient {
             .trim()
             .replace(/\/$/, '');
 
-        this.clientId = EnvironmentConfig.get('THRESH0LD_CLIENT_ID', '').trim();
-        this.clientSecret = EnvironmentConfig.get('THRESH0LD_CLIENT_SECRET', '').trim();
-        this.initiatorSecret = EnvironmentConfig.get('THRESH0LD_INITIATOR_API_KEY', '').trim();
-
-        // Backward-compat: older ADMIN/INITIATOR keys can still seed client credentials
-        if (!this.clientId) {
-            this.clientId = EnvironmentConfig.get('THRESH0LD_ADMIN_API_KEY', '').trim();
-        }
-        if (!this.clientSecret) {
-            this.clientSecret =
-                this.initiatorSecret ||
-                EnvironmentConfig.get('THRESH0LD_ADMIN_API_KEY', '').trim();
-        }
-
+        this.pairs = loadThresh0ldCredentialPairs();
         this.defaultWalletId = EnvironmentConfig.get('THRESH0LD_HOT_WALLET_ID', '').trim();
         this.autoSubmit = EnvironmentConfig.getBoolean('THRESH0LD_AUTO_SUBMIT', true);
-
-        this.basicAuthHeader = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString(
-            'base64'
-        );
-        const payoutSecret = this.initiatorSecret || this.clientSecret;
-        this.initiatorBasicAuthHeader = Buffer.from(`${this.clientId}:${payoutSecret}`).toString(
-            'base64'
-        );
 
         this.client = axios.create({
             baseURL: this.baseURL,
@@ -94,11 +75,23 @@ export class Thresh0ldApiClient {
             ]
         });
 
-        Console.info('Thresh0ldApiClient ready (API 2.0 Basic auth)', {
+        this.client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+            const role = (config as Thresh0ldRequestConfig).thresh0ldRole;
+            if (!role) {
+                return Promise.reject(
+                    new ServiceError('Thresh0ld request is missing thresh0ldRole (admin|initiator|signer)')
+                );
+            }
+            const pair = this.requirePair(role);
+            config.auth = { username: pair.clientId, password: pair.clientSecret };
+            return config;
+        });
+
+        Console.info('Thresh0ldApiClient ready (API 2.0 role-based Basic auth)', {
             baseURL: this.baseURL,
-            hasClientId: Boolean(this.clientId),
-            hasClientSecret: Boolean(this.clientSecret),
-            hasInitiatorKey: Boolean(this.initiatorSecret),
+            hasAdmin: this.hasPair('admin'),
+            hasInitiator: this.hasPair('initiator'),
+            hasSigner: this.hasPair('signer'),
             hasDefaultWalletId: Boolean(this.defaultWalletId),
             autoSubmit: this.autoSubmit
         });
@@ -176,7 +169,6 @@ export class Thresh0ldApiClient {
         coin: string,
         walletType: 'deposit' | 'withdrawal' | string = 'deposit'
     ): Promise<{ walletId: string; raw: Thresh0ldCreateWalletResponse }> {
-        this.assertCredentials();
         const payload: Thresh0ldCreateWalletRequest = {
             cloudProvider: 'mpc',
             wallet: {
@@ -185,51 +177,172 @@ export class Thresh0ldApiClient {
             }
         };
 
-        try {
-            const response = await this.client.post<Thresh0ldCreateWalletResponse>(
-                '/api/onboarding/create-wallet',
-                payload,
-                { headers: this.authHeaders() }
-            );
-            const body = response.data;
-            const created = Array.isArray(body?.data) ? body.data[0] : body?.data;
-            const walletId =
-                body?.walletId ??
-                created?.walletId ??
-                created?.id ??
-                created?.wallet?.id;
-
-            if (walletId == null || String(walletId).trim() === '') {
-                throw new ServiceError(
-                    `Thresh0ld create-wallet returned no walletId. Response: ${JSON.stringify(body)}`
+        const roles: Thresh0ldAuthRole[] = ['admin', 'initiator'];
+        let lastError: unknown;
+        for (const role of roles) {
+            this.assertCredentials(role);
+            try {
+                const response = await this.client.post<Thresh0ldCreateWalletResponse>(
+                    '/api/onboarding/create-wallet',
+                    payload,
+                    this.requestOptions(role)
                 );
-            }
+                const body = response.data;
+                const created = Array.isArray(body?.data) ? body.data[0] : body?.data;
+                const walletId =
+                    body?.walletId ??
+                    created?.walletId ??
+                    created?.id ??
+                    created?.wallet?.id;
 
-            return { walletId: String(walletId), raw: body };
-        } catch (error) {
-            throw this.wrapError(error, 'create-wallet');
+                if (walletId == null || String(walletId).trim() === '') {
+                    throw new ServiceError(
+                        `Thresh0ld create-wallet returned no walletId. Response: ${JSON.stringify(body)}`
+                    );
+                }
+
+                Console.info('Thresh0ld create-wallet succeeded', { coin, walletType, role, walletId });
+                return { walletId: String(walletId), raw: body };
+            } catch (error) {
+                lastError = error;
+                if (this.isPermissionDenied(error) && role !== roles[roles.length - 1]) {
+                    Console.info('Thresh0ld create-wallet permission denied, trying next role', {
+                        coin,
+                        walletType,
+                        role
+                    });
+                    continue;
+                }
+                throw this.wrapError(error, 'create-wallet');
+            }
         }
+        throw this.wrapError(lastError, 'create-wallet');
     }
 
     async listWallets(coin: string): Promise<unknown> {
-        this.assertCredentials();
-        try {
-            const response = await this.client.post(
-                '/api/wallet/get-list-wallet',
-                { wallet: { coin: coin.toLowerCase() } },
-                { headers: this.authHeaders() }
-            );
-            return response.data;
-        } catch (error) {
-            throw this.wrapError(error, 'get-list-wallet');
+        const roles: Thresh0ldAuthRole[] = ['initiator', 'admin'];
+        let lastError: unknown;
+        for (const role of roles) {
+            this.assertCredentials(role);
+            try {
+                const response = await this.client.post(
+                    '/api/wallet/get-list-wallet',
+                    { wallet: { coin: coin.toLowerCase() } },
+                    this.requestOptions(role)
+                );
+                return response.data;
+            } catch (error) {
+                lastError = error;
+                if (this.isPermissionDenied(error) && role !== roles[roles.length - 1]) {
+                    Console.info('Thresh0ld get-list-wallet unauthorized, trying next role', {
+                        coin,
+                        role
+                    });
+                    continue;
+                }
+                throw this.wrapError(error, 'get-list-wallet');
+            }
         }
+        throw this.wrapError(lastError, 'get-list-wallet');
+    }
+
+    /**
+     * Deposit (hot) + withdrawal receive addresses for BTC and ETH.
+     * Used by admin to fund vaults. Live from get-list-wallet, matched by env wallet ids.
+     */
+    async getCustodyVaultOverview(): Promise<{
+        network: string;
+        btc: {
+            deposit: ReturnType<Thresh0ldApiClient['describeConfiguredWallet']>;
+            withdrawal: ReturnType<Thresh0ldApiClient['describeConfiguredWallet']>;
+        };
+        eth: {
+            deposit: ReturnType<Thresh0ldApiClient['describeConfiguredWallet']>;
+            withdrawal: ReturnType<Thresh0ldApiClient['describeConfiguredWallet']>;
+        };
+    }> {
+        const [btcRows, ethRows] = await Promise.all([
+            this.safeListWalletRows('btc'),
+            this.safeListWalletRows('eth')
+        ]);
+
+        return {
+            network: this.baseURL.includes('vaults-dev') ? 'sandbox' : 'production',
+            btc: {
+                deposit: this.describeConfiguredWallet('btc', 'deposit', btcRows),
+                withdrawal: this.describeConfiguredWallet('btc', 'withdrawal', btcRows)
+            },
+            eth: {
+                deposit: this.describeConfiguredWallet('eth', 'deposit', ethRows),
+                withdrawal: this.describeConfiguredWallet('eth', 'withdrawal', ethRows)
+            }
+        };
+    }
+
+    private async safeListWalletRows(coin: 'btc' | 'eth'): Promise<any[]> {
+        try {
+            const listed = (await this.listWallets(coin)) as any;
+            if (Array.isArray(listed?.data)) {
+                return listed.data;
+            }
+            if (Array.isArray(listed)) {
+                return listed;
+            }
+            return [];
+        } catch (error: any) {
+            Console.warn('Thresh0ld list wallets failed while building vault overview', {
+                coin,
+                message: error?.message
+            });
+            return [];
+        }
+    }
+
+    private describeConfiguredWallet(
+        coin: 'btc' | 'eth',
+        kind: 'deposit' | 'withdrawal',
+        rows: any[]
+    ): {
+        coin: 'BTC' | 'ETH';
+        kind: 'deposit' | 'withdrawal';
+        wallet_id: string | null;
+        address: string | null;
+        label: string | null;
+        balance: string | null;
+    } {
+        let walletId: string | null = null;
+        try {
+            walletId =
+                kind === 'deposit' ? this.getHotWalletId(coin) : this.getWithdrawalWalletId(coin);
+        } catch {
+            walletId = null;
+        }
+
+        const match = walletId
+            ? rows.find((row) => String(row?.id ?? row?.walletId ?? '') === String(walletId))
+            : null;
+        const address =
+            match?.receiveAddress?.address ||
+            match?.walletAddress ||
+            match?.walletidentifier ||
+            match?.wallet?.walletidentifier ||
+            null;
+
+        return {
+            coin: coin.toUpperCase() as 'BTC' | 'ETH',
+            kind,
+            wallet_id: walletId,
+            address: address ? String(address) : null,
+            label: match?.label ? String(match.label) : match?.wallet?.name ? String(match.wallet.name) : null,
+            balance: match?.balanceString != null ? String(match.balanceString) : match?.balance != null ? String(match.balance) : null
+        };
     }
 
     async generateAddress(
         pathIndex: number,
         coin: string
     ): Promise<{ address: string; path: string }> {
-        this.assertCredentials();
+        this.assertCredentials('initiator');
         // Thresh0ld MPC watcher only indexes HD sub-addresses in batches of 40_000 (0..39999).
         if (
             !Number.isInteger(pathIndex) ||
@@ -240,41 +353,89 @@ export class Thresh0ldApiClient {
                 `Derivation index ${pathIndex} out of initial Thresh0ld batch index range (0-${THRESH0LD_ADDRESS_INDEX_BATCH_SIZE - 1}).`
             );
         }
-        const walletId = this.getHotWalletId(coin);
-        const payload: Thresh0ldGenerateAddressRequest = {
-            wallet: {
-                coin: coin.toLowerCase(),
-                walletId: this.toWalletId(walletId),
-                allToken: true
-            },
-            path: pathIndex
+        const family = this.resolveCoinFamily(coin);
+        const walletId = this.getHotWalletId(family);
+        const wallet = {
+            coin: family,
+            walletId: this.toWalletId(walletId),
+            allToken: true
         };
 
+        Console.info('Thresh0ld generate-many-address payload', {
+            walletId,
+            coin: family,
+            path: pathIndex
+        });
+        // MPC deposit addresses are derived locally via generate-many-address.
+        // generate-address looks up a BitGo-style Cloud Provider and returns
+        // HTTP 500 "Cloud Provider not found" on Thresh0ld MPC orgs.
         try {
+            const manyPayload: Thresh0ldGenerateAddressRequest = {
+                wallet,
+                path: { startIndex: pathIndex, endIndex: pathIndex }
+            };
             const response = await this.client.post<Thresh0ldGenerateAddressResponse>(
-                '/api/wallet/generate-address',
-                payload,
-                { headers: this.authHeaders() }
+                '/api/wallet/generate-many-address',
+                manyPayload,
+                this.requestOptions('initiator')
             );
-            const body = response.data;
-            const address =
-                body?.address ||
-                body?.data?.address ||
-                (body?.data as any)?.Address ||
-                (body?.data as any)?.depositAddress;
+            const extracted = this.extractGeneratedAddress(response.data, pathIndex);
+            if (extracted) {
+                return extracted;
+            }
+        } catch (error) {
+            Console.info('Thresh0ld generate-many-address failed, trying generate-address', {
+                message: error instanceof Error ? error.message : String(error)
+            });
+        }
 
-            if (!address) {
+        try {
+            const singlePayload: Thresh0ldGenerateAddressRequest = {
+                wallet,
+                path: pathIndex
+            };
+            const single = await this.client.post<Thresh0ldGenerateAddressResponse>(
+                '/api/wallet/generate-address',
+                singlePayload,
+                this.requestOptions('initiator')
+            );
+            const fromSingle = this.extractGeneratedAddress(single.data, pathIndex);
+            if (!fromSingle) {
                 throw new ServiceError('Thresh0ld generate-address returned no address');
             }
-
-            const pathValue = body?.path ?? body?.data?.path ?? pathIndex;
-            return {
-                address: String(address),
-                path: String(pathValue)
-            };
+            return fromSingle;
         } catch (error) {
             throw this.wrapError(error, 'generate-address');
         }
+    }
+
+    private extractGeneratedAddress(
+        body: Thresh0ldGenerateAddressResponse | undefined,
+        pathIndex: number
+    ): { address: string; path: string } | null {
+        const rows = Array.isArray((body as any)?.data)
+            ? ((body as any).data as Array<Record<string, unknown>>)
+            : [];
+        const firstRow = rows[0];
+        const nested = (body?.data && !Array.isArray(body.data) ? body.data : firstRow) as
+            | Record<string, unknown>
+            | undefined;
+        const address =
+            body?.address ||
+            (typeof nested?.address === 'string' ? nested.address : undefined) ||
+            (typeof nested?.Address === 'string' ? nested.Address : undefined) ||
+            (typeof nested?.depositAddress === 'string' ? nested.depositAddress : undefined);
+
+        if (!address) {
+            return null;
+        }
+
+        const pathValue =
+            body?.path ?? nested?.path ?? (typeof firstRow?.path !== 'undefined' ? firstRow.path : pathIndex);
+        return {
+            address: String(address),
+            path: String(pathValue)
+        };
     }
 
     async sendManyTransaction(params: {
@@ -284,7 +445,7 @@ export class Thresh0ldApiClient {
         sequenceId?: string;
         walletId?: string;
     }): Promise<{ txHash: string; providerRef?: string; sequenceId: string }> {
-        this.assertCredentials();
+        this.assertCredentials('initiator');
         const coin = this.resolveCoinFamily(params.coin);
         const walletId = params.walletId || this.getHotWalletId(coin);
         const sequenceId = params.sequenceId || randomUUID();
@@ -311,13 +472,12 @@ export class Thresh0ldApiClient {
             const path = `/api/v2/wallets/${encodeURIComponent(walletId)}/send-many-transaction-request`;
             Console.info('Thresh0ld send-many-transaction-request payload', {
                 url: `${this.baseURL}${path}`,
-                auth: 'Basic client_id:(initiator_api_key|client_secret)',
-                hasInitiatorKey: Boolean(this.initiatorSecret),
+                authRole: 'initiator',
                 walletId,
                 body: payload
             });
             const body = await this.postJsonWithBasicAuth<Thresh0ldSendManyResponse>(path, payload, {
-                useInitiator: true
+                role: 'initiator'
             });
             let txHash =
                 body?.txHash ||
@@ -380,7 +540,7 @@ export class Thresh0ldApiClient {
         targetAddress: string;
         walletId?: string;
     }): Promise<{ txHash: string; providerRef?: string }> {
-        this.assertCredentials();
+        this.assertCredentials('initiator');
         const coin = params.coin.toLowerCase();
         const walletId = params.walletId || this.getWithdrawalWalletId(coin);
         const targetAddress = String(params.targetAddress || '').trim();
@@ -408,7 +568,7 @@ export class Thresh0ldApiClient {
             const response = await this.client.post<Thresh0ldSendManyResponse>(
                 `/api/v2/wallets/${encodeURIComponent(walletId)}/consolidate-transaction-request`,
                 payload,
-                { headers: this.authHeaders() }
+                this.requestOptions('initiator')
             );
 
             const body = response.data;
@@ -463,7 +623,7 @@ export class Thresh0ldApiClient {
         coin: string,
         walletId?: string
     ): Promise<{ txHash?: string; providerRef?: string }> {
-        this.assertCredentials();
+        this.assertCredentials('signer');
         const id = walletId || this.getHotWalletId(coin);
         const payload: Thresh0ldSubmitTransactionRequest = {
             wallet: { coin: coin.toLowerCase() }
@@ -473,7 +633,7 @@ export class Thresh0ldApiClient {
             const response = await this.client.post<Thresh0ldSubmitTransactionResponse>(
                 `/api/v2/wallets/${encodeURIComponent(id)}/submit-transaction`,
                 payload,
-                { headers: this.authHeaders(true) }
+                this.requestOptions('signer')
             );
             const body = response.data;
             const txHash =
@@ -492,7 +652,7 @@ export class Thresh0ldApiClient {
     }
 
     async getWalletBalance(coin: string): Promise<number> {
-        this.assertCredentials();
+        this.assertCredentials('admin');
         const normalized = coin.toLowerCase();
         const walletId = this.getHotWalletId(normalized);
         const payload = {
@@ -505,7 +665,7 @@ export class Thresh0ldApiClient {
 
         try {
             const response = await this.client.post('/api/wallet/balance', payload, {
-                headers: this.authHeaders()
+                ...this.requestOptions('admin')
             });
             const balance = this.extractBalance(response.data);
             if (!Number.isFinite(balance) || balance < 0) {
@@ -520,7 +680,7 @@ export class Thresh0ldApiClient {
     }
 
     async getApproxFees(coin: string): Promise<number> {
-        this.assertCredentials();
+        this.assertCredentials('initiator');
         const normalized = coin.toLowerCase();
         const walletId = this.getHotWalletId(normalized);
         const payload = {
@@ -532,7 +692,7 @@ export class Thresh0ldApiClient {
 
         try {
             const response = await this.client.post('/api/wallet/get-approx-fees', payload, {
-                headers: this.authHeaders(),
+                ...this.requestOptions('initiator'),
                 timeout: 8_000
             });
             const fee = this.extractApproxFee(response.data, normalized);
@@ -548,7 +708,7 @@ export class Thresh0ldApiClient {
     }
 
     async getTransferList(coin: string, maxPages: number = 5, pageSize: number = 50): Promise<Thresh0ldTransfer[]> {
-        this.assertCredentials();
+        this.assertCredentials('admin');
         const normalized = coin.toLowerCase();
         const walletId = this.getHotWalletId(normalized);
         const collected: Thresh0ldTransfer[] = [];
@@ -569,7 +729,7 @@ export class Thresh0ldApiClient {
 
             try {
                 const response = await this.client.post('/api/wallet/get-transfer-list', payload, {
-                    headers: this.authHeaders(),
+                    ...this.requestOptions('admin'),
                     timeout: 15_000
                 });
                 const rows = this.extractTransferRows(response.data);
@@ -839,29 +999,53 @@ export class Thresh0ldApiClient {
         return Number.NaN;
     }
 
-    private authHeaders(useInitiator = false): Record<string, string> {
+    private requestOptions(
+        role: Thresh0ldAuthRole,
+        extra?: Thresh0ldRequestConfig
+    ): Thresh0ldRequestConfig {
         return {
-            Authorization: `Basic ${useInitiator ? this.initiatorBasicAuthHeader : this.basicAuthHeader}`,
+            ...extra,
+            thresh0ldRole: role
+        };
+    }
+
+    private hasPair(role: Thresh0ldAuthRole): boolean {
+        const pair = this.pairs[role];
+        return Boolean(pair?.clientId && pair?.clientSecret);
+    }
+
+    private requirePair(role: Thresh0ldAuthRole): Thresh0ldCredentialPair {
+        const pair = this.pairs[role];
+        if (!pair?.clientId || !pair?.clientSecret) {
+            throw new ServiceError(
+                `Thresh0ld ${role} credentials are missing. Set THRESH0LD_${role.toUpperCase()}_CLIENT_ID and THRESH0LD_${role.toUpperCase()}_CLIENT_SECRET`
+            );
+        }
+        return pair;
+    }
+
+    private authHeaders(role: Thresh0ldAuthRole): Record<string, string> {
+        const pair = this.requirePair(role);
+        return {
+            Authorization: `Basic ${encodeBasicAuth(pair)}`,
             'Content-Type': 'application/json',
             Accept: 'application/json'
         };
     }
 
     /**
-     * Postman Basic Auth: username=client_id, password=client_secret
-     * (send-many / submit use THRESH0LD_INITIATOR_API_KEY when set).
-     * Body is JSON.stringified exactly once. Plain-text errors are not JSON.parsed.
+     * fetch() path for send-many so the body is JSON.stringified exactly once.
      */
     private async postJsonWithBasicAuth<T>(
         path: string,
         payload: unknown,
-        options?: { useInitiator?: boolean }
+        options: { role: Thresh0ldAuthRole }
     ): Promise<T> {
         const url = `${this.baseURL}${path}`;
         const bodyText = JSON.stringify(payload);
         const response = await fetch(url, {
             method: 'POST',
-            headers: this.authHeaders(options?.useInitiator === true),
+            headers: this.authHeaders(options.role),
             body: bodyText
         });
         const raw = await response.text();
@@ -888,17 +1072,28 @@ export class Thresh0ldApiClient {
         }
     }
 
-    private assertCredentials(): void {
-        if (!this.clientId || !this.clientSecret) {
-            throw new ServiceError(
-                'THRESH0LD_CLIENT_ID and THRESH0LD_CLIENT_SECRET must be configured'
-            );
-        }
+    private assertCredentials(role: Thresh0ldAuthRole): void {
+        this.requirePair(role);
     }
 
     private toWalletId(walletId: string): number | string {
         const asNumber = Number(walletId);
         return Number.isFinite(asNumber) && String(asNumber) === walletId ? asNumber : walletId;
+    }
+
+    private isPermissionDenied(error: unknown): boolean {
+        const axiosError = error as AxiosError<any>;
+        const status = axiosError?.response?.status;
+        const body = axiosError?.response?.data;
+        const text = typeof body === 'string' ? body : this.formatThresh0ldErrorBody(body);
+        const message = `${axiosError?.message || ''} ${text}`.toLowerCase();
+        return (
+            status === 401 ||
+            status === 403 ||
+            /access_denied|required permission|not have the required permission|unauthorized|forbidden/i.test(
+                message
+            )
+        );
     }
 
     private wrapError(error: unknown, operation: string): Error {
@@ -944,7 +1139,7 @@ export class Thresh0ldApiClient {
                     if (/Unexpected token ['"]Y['"]/i.test(nested) || /Your API k/i.test(nested)) {
                         return (
                             'Thresh0ld returned a plain-text API key error (not JSON). ' +
-                            'Set THRESH0LD_INITIATOR_API_KEY (Basic password) plus THRESH0LD_CLIENT_ID. ' +
+                            'Check the ADMIN/INITIATOR/SIGNER client id and secret for this operation. ' +
                             nested
                         ).slice(0, 2000);
                     }

@@ -14,6 +14,19 @@ export interface IWithdrawalService {
     getBanks(): Promise<Array<{ id: number; name: string; code: string }>>;
     setTransactionPin(userId: string, pin: string, confirmPin: string): Promise<void>;
     verifyTransactionPin(userId: string, pin: string): Promise<boolean>;
+    quoteCryptoWithdrawalFee(
+        cryptoType: string,
+        requestedAmount: number,
+        destinationAddress?: string
+    ): Promise<{
+        crypto_type: 'BTC' | 'ETH';
+        amount: number;
+        estimated_onchain_gas: number;
+        platform_profit: number;
+        network_fee: number;
+        total_deduction: number;
+        used_fallback_fee: boolean;
+    }>;
     withdrawCrypto(
         userId: string,
         cryptoType: string,

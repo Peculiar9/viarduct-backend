@@ -663,7 +663,6 @@ export class WalletService implements IWalletService {
             asset === 'BTC' ? user.btc_deposit_address : user.eth_deposit_address;
         const existingPath =
             asset === 'BTC' ? user.btc_derivation_path : user.eth_derivation_path;
-
         if (existingAddress && String(existingAddress).trim()) {
             await this.syncWalletAccountAddress(
                 userId,

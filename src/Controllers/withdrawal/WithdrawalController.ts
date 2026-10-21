@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { controller, httpGet, httpPost, request, response, requestBody, requestParam } from 'inversify-express-utils';
+import { controller, httpGet, httpPost, request, response, requestBody, requestParam, queryParam } from 'inversify-express-utils';
 import { inject } from 'inversify';
 import { API_PATH, TYPES } from '../../Core/Types/Constants';
 import { IWithdrawalService } from '../../Core/Application/Interface/Services/IWithdrawalService';
@@ -35,6 +35,25 @@ export class WithdrawalController extends BaseController {
             const { account_number, bank_code } = req.body;
             const result = await this.withdrawalService.validateAccountAndCreateRequest(user._id!, account_number, bank_code);
             return this.success(res, result, 'Account validated successfully');
+        } catch (error: any) {
+            return this.error(res, error.message, error.statusCode || 400, error);
+        }
+    }
+
+    @httpGet('/crypto/fee')
+    async quoteCryptoWithdrawalFee(
+        @queryParam('crypto_type') cryptoType: string,
+        @queryParam('amount') amount: string,
+        @queryParam('destination_address') destinationAddress: string,
+        @response() res: Response
+    ) {
+        try {
+            const quote = await this.withdrawalService.quoteCryptoWithdrawalFee(
+                cryptoType,
+                Number(amount),
+                destinationAddress
+            );
+            return this.success(res, quote, 'Crypto withdrawal fee quote');
         } catch (error: any) {
             return this.error(res, error.message, error.statusCode || 400, error);
         }

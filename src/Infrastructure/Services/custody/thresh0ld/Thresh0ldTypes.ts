@@ -44,7 +44,7 @@ export interface Thresh0ldGenerateAddressRequest {
      * Address derivation index (API 2.0 uses a numeric path, not BIP32 string).
      * Must be within Thresh0ld's first watcher batch: 0..39999 (maps to m/0/{index}).
      */
-    path: number;
+    path: number | { startIndex: number; endIndex: number };
 }
 
 export interface Thresh0ldGenerateAddressResponse {

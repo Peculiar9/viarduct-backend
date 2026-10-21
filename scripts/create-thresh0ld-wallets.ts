@@ -2,7 +2,7 @@
  * One-time Thresh0ld setup script.
  *
  * Usage:
- *   1. Put THRESH0LD_CLIENT_ID / THRESH0LD_CLIENT_SECRET / THRESH0LD_BASE_URL in .env
+ *   1. Put INITIATOR (create) + ADMIN (list) keys and THRESH0LD_BASE_URL in .env
  *   2. npx ts-node scripts/create-thresh0ld-wallets.ts
  *   3. Copy printed wallet IDs into .env
  *
@@ -29,10 +29,21 @@ function parseArgs(argv: string[]) {
 async function main() {
     EnvironmentConfig.initialize();
 
-    const clientId = EnvironmentConfig.get('THRESH0LD_CLIENT_ID', '').trim();
-    const clientSecret = EnvironmentConfig.get('THRESH0LD_CLIENT_SECRET', '').trim();
-    if (!clientId || !clientSecret) {
-        console.error('Missing THRESH0LD_CLIENT_ID / THRESH0LD_CLIENT_SECRET in .env');
+    const hasAdmin = Boolean(
+        EnvironmentConfig.get('THRESH0LD_ADMIN_CLIENT_ID', '').trim() &&
+            EnvironmentConfig.get('THRESH0LD_ADMIN_CLIENT_SECRET', '').trim()
+    );
+    const hasInitiator = Boolean(
+        (EnvironmentConfig.get('THRESH0LD_INITIATOR_CLIENT_ID', '').trim() ||
+            EnvironmentConfig.get('THRESH0LD_CLIENT_ID', '').trim()) &&
+            (EnvironmentConfig.get('THRESH0LD_INITIATOR_CLIENT_SECRET', '').trim() ||
+                EnvironmentConfig.get('THRESH0LD_INITIATOR_API_KEY', '').trim() ||
+                EnvironmentConfig.get('THRESH0LD_CLIENT_SECRET', '').trim())
+    );
+    if (!hasAdmin && !hasInitiator) {
+        console.error(
+            'Missing Thresh0ld credentials. Set ADMIN and/or INITIATOR CLIENT_ID / CLIENT_SECRET in .env'
+        );
         process.exit(1);
     }
 

@@ -78,7 +78,7 @@ class App {
             
             // Initialize logging first
             LoggingConfig.getInstance().initialize(this.app);
-            Console.info('✅ Logging initialized successfully. ');
+            Console.info('✅ Logging initialized successfully. Initializing ...');
             
             // Initialize database
             await DatabaseService.initialize(this.container);
